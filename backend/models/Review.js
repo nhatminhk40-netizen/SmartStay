@@ -28,14 +28,13 @@ const reviewSchema = new mongoose.Schema({
     stayed_period: { type: String, default: 'Đã từng ở tại đây' }
 }, { timestamps: true });
 
-reviewSchema.pre('save', function (next) {
+reviewSchema.pre('save', function () {
     if (!this.anonymous_name && this.studentName) {
         this.anonymous_name = this.studentName;
     }
     if (!this.content && this.comment) {
         this.content = this.comment;
     }
-    next();
 });
 
 module.exports = mongoose.model('Review', reviewSchema);
