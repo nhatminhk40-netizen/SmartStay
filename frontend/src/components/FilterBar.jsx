@@ -1,21 +1,44 @@
-import React from "react";
-import { SlidersHorizontal, MapPin, Wallet, Users, VolumeOff, Check, Snowflake, Box, Droplets, Layers, RotateCw, Shirt } from "lucide-react";
-import { CAMPUSES, AMENITIES } from "@/lib/smartstayData";
+import React, { useState, useEffect } from "react";
+import { SlidersHorizontal, MapPin, Wallet, Users, VolumeOff, Check, Snowflake, Box, Droplets, Layers, RotateCw, Shirt, Sparkles, ShieldCheck } from "lucide-react";
+import { getCampusesConfig, getAmenitiesConfig, getSpecialTogglesConfig } from "@/lib/adminConfig";
 import { cn } from "@/lib/utils";
 
 const AMENITY_ICONS = {
   "Máy lạnh": Snowflake,
+  "Snowflake": Snowflake,
   "Tủ lạnh": Box,
+  "Box": Box,
   "Máy nước nóng": Droplets,
+  "Droplets": Droplets,
   "Gác lửng": Layers,
+  "Layers": Layers,
   "Máy giặt": RotateCw,
+  "RotateCw": RotateCw,
   "Tủ quần áo": Shirt,
+  "Shirt": Shirt,
   "Cách âm": VolumeOff,
+  "VolumeOff": VolumeOff,
+  "Sparkles": Sparkles,
+  "ShieldCheck": ShieldCheck,
 };
 
 export default function FilterBar({ campus, setCampus, priceRange, setPriceRange, seekingRoommate, setSeekingRoommate, onSeekingRoommate, selectedAmenities, toggleAmenity, soundproof, setSoundproof }) {
   const max = 6000000;
   const [minP, maxP] = priceRange;
+
+  const [campuses, setCampuses] = useState(getCampusesConfig);
+  const [amenities, setAmenities] = useState(getAmenitiesConfig);
+  const [toggles, setToggles] = useState(getSpecialTogglesConfig);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setCampuses(getCampusesConfig());
+      setAmenities(getAmenitiesConfig());
+      setToggles(getSpecialTogglesConfig());
+    };
+    window.addEventListener("smartstay_config_updated", handleUpdate);
+    return () => window.removeEventListener("smartstay_config_updated", handleUpdate);
+  }, []);
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-slate-200/60 p-5 shadow-xl shadow-slate-200/20">
@@ -30,7 +53,7 @@ export default function FilterBar({ campus, setCampus, priceRange, setPriceRange
           <MapPin className="w-3.5 h-3.5" /> Khu vực / Campus
         </label>
         <div className="flex flex-wrap gap-1.5">
-          {CAMPUSES.map((c) => (
+          {campuses.map((c) => (
             <button
               key={c}
               onClick={() => setCampus(c)}
@@ -81,13 +104,13 @@ export default function FilterBar({ campus, setCampus, priceRange, setPriceRange
           <Check className="w-3.5 h-3.5" /> Tiện nghi phòng
         </label>
         <div className="grid grid-cols-2 gap-1.5">
-          {AMENITIES.map((a) => {
-            const active = selectedAmenities.includes(a.id);
-            const Icon = AMENITY_ICONS[a.id];
+          {amenities.map((a) => {
+            const active = selectedAmenities.includes(a.id || a.label);
+            const Icon = AMENITY_ICONS[a.iconName] || AMENITY_ICONS[a.id] || Check;
             return (
               <button
-                key={a.id}
-                onClick={() => toggleAmenity(a.id)}
+                key={a.id || a.label}
+                onClick={() => toggleAmenity(a.id || a.label)}
                 className={cn(
                   "flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-all",
                   active ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
@@ -104,51 +127,63 @@ export default function FilterBar({ campus, setCampus, priceRange, setPriceRange
       </div>
 
       {/* Soundproof toggle */}
-      <div className="mb-5 pt-4 border-t border-slate-100">
-        <button
-          onClick={() => setSoundproof(!soundproof)}
-          className={cn(
-            "w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all",
-            soundproof ? "bg-slate-900 border-slate-900" : "bg-white border-slate-200 hover:border-slate-300"
-          )}
-        >
-          <div className="flex items-center gap-2 text-left">
-            <VolumeOff className={cn("w-4 h-4", soundproof ? "text-white" : "text-slate-400")} />
-            <div>
-              <div className={cn("text-sm font-bold", soundproof ? "text-white" : "text-slate-900")}>Phòng cách âm</div>
-              <div className={cn("text-[11px]", soundproof ? "text-slate-300" : "text-slate-500")}>Lọc phòng có cách âm</div>
+      {toggles?.soundproof?.enabled !== false && (
+        <div className="mb-5 pt-4 border-t border-slate-100">
+          <button
+            onClick={() => setSoundproof(!soundproof)}
+            className={cn(
+              "w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all",
+              soundproof ? "bg-slate-900 border-slate-900" : "bg-white border-slate-200 hover:border-slate-300"
+            )}
+          >
+            <div className="flex items-center gap-2 text-left">
+              <VolumeOff className={cn("w-4 h-4", soundproof ? "text-white" : "text-slate-400")} />
+              <div>
+                <div className={cn("text-sm font-bold", soundproof ? "text-white" : "text-slate-900")}>
+                  {toggles?.soundproof?.title || "Phòng cách âm"}
+                </div>
+                <div className={cn("text-[11px]", soundproof ? "text-slate-300" : "text-slate-500")}>
+                  {toggles?.soundproof?.desc || "Lọc phòng có cách âm"}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className={cn("w-11 h-6 rounded-full p-0.5 transition-colors", soundproof ? "bg-emerald-500" : "bg-slate-200")}>
-            <div className={cn("w-5 h-5 rounded-full bg-white transition-transform", soundproof && "translate-x-5")} />
-          </div>
-        </button>
-      </div>
+            <div className={cn("w-11 h-6 rounded-full p-0.5 transition-colors", soundproof ? "bg-emerald-500" : "bg-slate-200")}>
+              <div className={cn("w-5 h-5 rounded-full bg-white transition-transform", soundproof && "translate-x-5")} />
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Roommate toggle */}
-      <div className="pt-4 border-t border-slate-100">
-        <button
-          onClick={onSeekingRoommate}
-          className={cn(
-            "w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all",
-            seekingRoommate ? "bg-indigo-50 border-indigo-500" : "bg-white border-slate-200 hover:border-slate-300"
-          )}
-        >
-          <div className="flex items-center gap-2 text-left">
-            <Users className={cn("w-4 h-4", seekingRoommate ? "text-indigo-600" : "text-slate-400")} />
-            <div>
-              <div className="text-sm font-bold text-slate-900">Tìm bạn ở ghép</div>
-              <div className="text-[11px] text-slate-500">Bật để ghép thói quen sinh hoạt</div>
+      {toggles?.roommate?.enabled !== false && (
+        <div className="pt-4 border-t border-slate-100">
+          <button
+            onClick={onSeekingRoommate}
+            className={cn(
+              "w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all",
+              seekingRoommate ? "bg-indigo-50 border-indigo-500" : "bg-white border-slate-200 hover:border-slate-300"
+            )}
+          >
+            <div className="flex items-center gap-2 text-left">
+              <Users className={cn("w-4 h-4", seekingRoommate ? "text-indigo-600" : "text-slate-400")} />
+              <div>
+                <div className="text-sm font-bold text-slate-900">
+                  {toggles?.roommate?.title || "Tìm bạn ở ghép"}
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  {toggles?.roommate?.desc || "Bật để ghép thói quen sinh hoạt"}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className={cn(
-            "w-11 h-6 rounded-full p-0.5 transition-colors",
-            seekingRoommate ? "bg-indigo-600" : "bg-slate-200"
-          )}>
-            <div className={cn("w-5 h-5 rounded-full bg-white transition-transform", seekingRoommate && "translate-x-5")} />
-          </div>
-        </button>
-      </div>
+            <div className={cn(
+              "w-11 h-6 rounded-full p-0.5 transition-colors",
+              seekingRoommate ? "bg-indigo-600" : "bg-slate-200"
+            )}>
+              <div className={cn("w-5 h-5 rounded-full bg-white transition-transform", seekingRoommate && "translate-x-5")} />
+            </div>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

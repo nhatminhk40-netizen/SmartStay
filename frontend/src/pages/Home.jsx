@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { ShieldCheck, Users, Truck, KeyRound, Search, MapPin } from "lucide-react";
+import { ShieldCheck, Users, Truck, KeyRound, Search, MapPin, Compass } from "lucide-react";
+import { getHeroConfig, getQuickActionsConfig } from "@/lib/adminConfig";
 import AppHeader from "@/components/AppHeader";
 import FilterBar from "@/components/FilterBar";
 import RoomCard from "@/components/RoomCard";
@@ -14,6 +15,10 @@ import { cn } from "@/lib/utils";
 export default function Home() {
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Dynamic config
+    const [hero, setHero] = useState(getHeroConfig);
+    const [quickActions, setQuickActions] = useState(getQuickActionsConfig);
 
     // Filters
     const [campus, setCampus] = useState("Tất cả khu vực");
@@ -39,6 +44,13 @@ export default function Home() {
 
     useEffect(() => {
         loadRooms();
+
+        const handleConfigUpdate = () => {
+            setHero(getHeroConfig());
+            setQuickActions(getQuickActionsConfig());
+        };
+        window.addEventListener("smartstay_config_updated", handleConfigUpdate);
+        return () => window.removeEventListener("smartstay_config_updated", handleConfigUpdate);
     }, []);
 
     const filtered = useMemo(() => {
@@ -86,27 +98,49 @@ export default function Home() {
                 onOpenSafe={() => setSafeOpen(true)}
             />
 
-            {/* Static hero banner */}
+            {/* Dynamic hero banner */}
             <section className="bg-slate-900 text-white">
                 <div className="max-w-7xl mx-auto px-4 py-8 md:py-10">
                     <div className="max-w-3xl">
                         <h1 className="font-display font-extrabold tracking-tight mb-2.5" style={{ fontSize: "clamp(1.5rem, 3vw, 2.3rem)", lineHeight: 1.15 }}>
-                            Thuê trọ <span className="text-emerald-400">minh bạch</span> cho sinh viên Cần Thơ
+                            {hero.title}{" "}
+                            {hero.highlight && (
+                                <span className="text-emerald-400">{hero.highlight} </span>
+                            )}
+                            {hero.titleSuffix || ""}
                         </h1>
                         <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                            Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.
+                            {hero.description}
                         </p>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-medium">
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 100% kiểm duyệt Safe Badge
-                            </span>
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
-                                <KeyRound className="w-3.5 h-3.5 text-amber-400" /> Sang nhượng cọc an toàn
-                            </span>
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
-                                <Truck className="w-3.5 h-3.5 text-teal-400" /> Giá chuyển trọ sinh viên niêm yết
-                            </span>
-                        </div>
+                        {hero.showBadges !== false && (
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-medium">
+                                {hero.badge1 && (
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> {hero.badge1}
+                                    </span>
+                                )}
+                                {hero.badge2 && (
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                        <KeyRound className="w-3.5 h-3.5 text-amber-400" /> {hero.badge2}
+                                    </span>
+                                )}
+                                {hero.badge3 && (
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                        <Truck className="w-3.5 h-3.5 text-teal-400" /> {hero.badge3}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                        {hero.showCtaButtons && (
+                            <div className="flex flex-wrap gap-3 mt-4">
+                                <button onClick={() => setSafeOpen(true)} className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-2 transition-all">
+                                    <ShieldCheck className="w-4 h-4" /> {hero.ctaSafeText || "Đăng tin Safe"}
+                                </button>
+                                <button onClick={() => setQuizOpen(true)} className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-2 transition-all">
+                                    <Users className="w-4 h-4" /> {hero.ctaQuizText || "Tìm bạn ở ghép"}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>
@@ -169,17 +203,21 @@ export default function Home() {
 
             {/* Mobile bottom quick action bar */}
             <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 px-2 py-2 flex justify-around">
-                {[
-                    { label: "Lọc", icon: Search, onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }) },
-                    { label: "Ghép bạn", icon: Users, onClick: () => setQuizOpen(true) },
-                    { label: "Pass phòng", icon: KeyRound, onClick: () => setPassOpen(true) },
-                    { label: "Đăng tin", icon: ShieldCheck, onClick: () => setSafeOpen(true) },
-                ].map((a) => (
-                    <button key={a.label} onClick={a.onClick} className="flex flex-col items-center gap-0.5 px-3 py-1.5">
-                        <a.icon className="w-5 h-5 text-slate-600" />
-                        <span className="text-[10px] font-semibold text-slate-600">{a.label}</span>
-                    </button>
-                ))}
+                {quickActions.filter(a => a.enabled !== false).map((a) => {
+                    const iconMap = { Users, Truck, KeyRound, ShieldCheck, Compass, Search };
+                    const IconComp = iconMap[a.icon] || Compass;
+                    const clickHandler = a.action === "quiz" ? () => setQuizOpen(true)
+                        : a.action === "logistics" ? () => setLogisticsOpen(true)
+                        : a.action === "pass" ? () => setPassOpen(true)
+                        : a.action === "safe" ? () => setSafeOpen(true)
+                        : () => window.scrollTo({ top: 0, behavior: "smooth" });
+                    return (
+                        <button key={a.id || a.label} onClick={clickHandler} className="flex flex-col items-center gap-0.5 px-3 py-1.5">
+                            <IconComp className="w-5 h-5 text-slate-600" />
+                            <span className="text-[10px] font-semibold text-slate-600">{a.label}</span>
+                        </button>
+                    );
+                })}
             </nav>
 
             {/* Modals */}

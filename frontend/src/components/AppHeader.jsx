@@ -19,8 +19,12 @@ import {
   BadgeCheck,
   Building2,
   Sparkles,
-  Trash2
+  Trash2,
+  LayoutDashboard,
+  LogOut
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 
 const INITIAL_NOTIFICATIONS = [
@@ -105,6 +109,7 @@ export default function AppHeader({
   onOpenPass = () => { },
   onOpenSafe = () => { }
 }) {
+  const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -248,6 +253,17 @@ export default function AppHeader({
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
+          {/* Admin shortcut if admin role */}
+          {user?.role === "admin" && (
+            <Link
+              to="/admin"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md shadow-slate-900/10 border border-slate-700/50"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Quản trị</span>
+            </Link>
+          )}
+
           {/* Post Safe Listing button */}
           <button
             onClick={onOpenSafe}
@@ -450,7 +466,17 @@ export default function AppHeader({
                 </div>
 
                 {/* Profile Actions */}
-                <div className="p-2">
+                <div className="p-2 space-y-1.5">
+                  {user?.role === "admin" && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setShowProfile(false)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors text-center"
+                    >
+                      <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Trang Quản trị (Admin Portal)</span>
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       setEditForm(profile);
@@ -461,6 +487,16 @@ export default function AppHeader({
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Chỉnh sửa thông tin sinh viên</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      logout();
+                      window.location.href = "/login";
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors text-center"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Đăng xuất ({user?.name || "Tài khoản"})</span>
                   </button>
                 </div>
 

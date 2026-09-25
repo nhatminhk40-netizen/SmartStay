@@ -153,24 +153,69 @@ export const base44 = {
       },
 
       create: async (data) => {
-        const res = await fetch(`${API_BASE}/rooms`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        return res.json();
+        try {
+          const res = await fetch(`${API_BASE}/rooms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          const json = await res.json();
+          if (json.data) {
+            FALLBACK_ROOMS.unshift({ ...json.data, id: json.data._id || json.data.id });
+            return json.data;
+          }
+        } catch (e) {
+          console.warn('Create room API fallback:', e);
+        }
+        const newR = {
+          _id: `room_${Date.now()}`,
+          id: `room_${Date.now()}`,
+          ...data,
+          createdAt: new Date()
+        };
+        FALLBACK_ROOMS.unshift(newR);
+        return newR;
       },
 
       update: async (id, data) => {
-        // Tùy chọn cập nhật badge hoặc boosted
-        if (data.safe_badge) {
-          await fetch(`${API_BASE}/safe-listing/payment-webhook`, {
-            method: 'POST',
+        try {
+          const res = await fetch(`${API_BASE}/rooms/${id}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomId: id, status: 'SUCCESS' })
-          }).catch(() => {});
+            body: JSON.stringify(data)
+          });
+          const json = await res.json();
+          if (json.data) {
+            const idx = FALLBACK_ROOMS.findIndex(r => r.id === id || r._id === id);
+            if (idx !== -1) FALLBACK_ROOMS[idx] = { ...FALLBACK_ROOMS[idx], ...json.data };
+            return json.data;
+          }
+        } catch (e) {
+          console.warn('Update room API fallback:', e);
+        }
+        const idx = FALLBACK_ROOMS.findIndex(r => r.id === id || r._id === id);
+        if (idx !== -1) {
+          FALLBACK_ROOMS[idx] = { ...FALLBACK_ROOMS[idx], ...data, id };
+          return FALLBACK_ROOMS[idx];
         }
         return { id, ...data };
+      },
+
+      delete: async (id) => {
+        try {
+          const res = await fetch(`${API_BASE}/rooms/${id}`, {
+            method: 'DELETE'
+          });
+          const json = await res.json();
+          const idx = FALLBACK_ROOMS.findIndex(r => r.id === id || r._id === id);
+          if (idx !== -1) FALLBACK_ROOMS.splice(idx, 1);
+          return json;
+        } catch (e) {
+          console.warn('Delete room API fallback:', e);
+          const idx = FALLBACK_ROOMS.findIndex(r => r.id === id || r._id === id);
+          if (idx !== -1) FALLBACK_ROOMS.splice(idx, 1);
+          return { success: true };
+        }
       },
 
       pass: async (data) => {

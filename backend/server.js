@@ -365,6 +365,51 @@ app.post('/api/rooms/pass', async (req, res) => {
     }
 });
 
+// 5. Cập nhật phòng trọ (Admin CRUD)
+app.put('/api/rooms/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updateData = { ...req.body };
+        if (updateData.isSafeBadge) updateData.safe_badge = true;
+        if (updateData.images && updateData.images.length > 0 && !updateData.image_url) {
+            updateData.image_url = updateData.images[0];
+        }
+
+        if (isDbConnected) {
+            const updated = await Room.findByIdAndUpdate(id, updateData, { new: true });
+            if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để cập nhật' });
+            return res.status(200).json({ success: true, message: 'Cập nhật phòng thành công', data: updated });
+        }
+
+        const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
+        fallbackRooms[idx] = { ...fallbackRooms[idx], ...updateData, updatedAt: new Date() };
+        res.status(200).json({ success: true, message: 'Cập nhật phòng thành công (Fallback)', data: fallbackRooms[idx] });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 6. Xóa phòng trọ (Admin CRUD)
+app.delete('/api/rooms/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (isDbConnected) {
+            const deleted = await Room.findByIdAndDelete(id);
+            if (!deleted) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để xóa' });
+            return res.status(200).json({ success: true, message: 'Xóa phòng thành công', data: deleted });
+        }
+
+        const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
+        const [removed] = fallbackRooms.splice(idx, 1);
+        res.status(200).json({ success: true, message: 'Xóa phòng thành công (Fallback)', data: removed });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
 // ==================== APIS REVIEWS ====================
 // 1. Gửi đánh giá cho phòng trọ
 app.post('/api/reviews', async (req, res) => {
