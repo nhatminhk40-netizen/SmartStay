@@ -60,8 +60,13 @@ import {
   Phone,
   FileText,
   Truck,
-  Compass
+  Compass,
+  Play
 } from "lucide-react";
+import RoommateQuiz from "@/components/RoommateQuiz";
+import LogisticsCalculator from "@/components/LogisticsCalculator";
+import PassRoomDialog from "@/components/PassRoomDialog";
+import SafeListingModal from "@/components/SafeListingModal";
 import { cn } from "@/lib/utils";
 
 // Danh mục Icon hỗ trợ cho Tiện nghi
@@ -380,6 +385,119 @@ export default function Admin() {
   };
 
   const [quickActions, setQuickActions] = useState(getQuickActionsConfig);
+  const [testQuizOpen, setTestQuizOpen] = useState(false);
+  const [testLogisticsOpen, setTestLogisticsOpen] = useState(false);
+  const [testPassOpen, setTestPassOpen] = useState(false);
+  const [testSafeOpen, setTestSafeOpen] = useState(false);
+
+  // Modal Thêm / Sửa Thao tác nhanh
+  const [isQuickActionModalOpen, setIsQuickActionModalOpen] = useState(false);
+  const [editingQuickAction, setEditingQuickAction] = useState(null);
+  const [quickActionForm, setQuickActionForm] = useState({
+    id: "",
+    label: "",
+    desc: "",
+    icon: "Compass",
+    action: "explore",
+    enabled: true
+  });
+
+  const handleOpenAddQuickAction = () => {
+    setEditingQuickAction(null);
+    setQuickActionForm({
+      id: "action-" + Date.now(),
+      label: "",
+      desc: "",
+      icon: "Sparkles",
+      action: "explore",
+      enabled: true
+    });
+    setIsQuickActionModalOpen(true);
+  };
+
+  const handleOpenEditQuickAction = (item) => {
+    setEditingQuickAction(item);
+    setQuickActionForm({
+      id: item.id || "action-" + Date.now(),
+      label: item.label || "",
+      desc: item.desc || "",
+      icon: item.icon || "Compass",
+      action: item.action || "explore",
+      enabled: item.enabled !== false
+    });
+    setIsQuickActionModalOpen(true);
+  };
+
+  const handleSaveQuickActionModal = (e) => {
+    e.preventDefault();
+    if (!quickActionForm.label.trim()) {
+      showToast("Vui lòng nhập tên nút thao tác!", "error");
+      return;
+    }
+
+    let updated;
+    if (editingQuickAction) {
+      updated = quickActions.map((a) =>
+        a.id === editingQuickAction.id
+          ? {
+              ...quickActionForm,
+              label: quickActionForm.label.trim(),
+              desc: quickActionForm.desc.trim()
+            }
+          : a
+      );
+      showToast(`Đã cập nhật nút "${quickActionForm.label.trim()}"!`);
+    } else {
+      updated = [
+        ...quickActions,
+        {
+          ...quickActionForm,
+          label: quickActionForm.label.trim(),
+          desc: quickActionForm.desc.trim()
+        }
+      ];
+      showToast(`Đã thêm mới nút "${quickActionForm.label.trim()}"!`);
+    }
+    setQuickActions(updated);
+    saveQuickActionsConfig(updated);
+    setIsQuickActionModalOpen(false);
+  };
+
+  const handleDeleteQuickAction = (id) => {
+    const itemToDelete = quickActions.find((a) => a.id === id);
+    const updated = quickActions.filter((a) => a.id !== id);
+    setQuickActions(updated);
+    saveQuickActionsConfig(updated);
+    showToast(`Đã xóa nút "${itemToDelete?.label || id}"!`);
+  };
+
+  const handleResetQuickActions = () => {
+    setQuickActions(DEFAULT_QUICK_ACTIONS);
+    saveQuickActionsConfig(DEFAULT_QUICK_ACTIONS);
+    showToast("Đã khôi phục khối Truy cập nhanh về cấu hình gốc!");
+  };
+
+  const handleTestQuickAction = (item) => {
+    if (!item) return;
+    if (item.action === "quiz") {
+      setTestQuizOpen(true);
+      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Trắc nghiệm ghép bạn)`);
+    } else if (item.action === "logistics") {
+      setTestLogisticsOpen(true);
+      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Tính giá chuyển trọ)`);
+    } else if (item.action === "pass") {
+      setTestPassOpen(true);
+      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Pass phòng sang nhượng)`);
+    } else if (item.action === "safe") {
+      setTestSafeOpen(true);
+      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Đăng tin Safe kiểm duyệt)`);
+    } else if (item.action === "explore") {
+      showToast(`[CHẠY THỬ] Nút "${item.label}": Điều hướng tới danh sách phòng trọ!`);
+    } else {
+      showToast(`[CHẠY THỬ] Nút "${item.label}": Thao tác hoạt động bình thường!`);
+    }
+  };
+
   const handleSaveQuickActions = () => {
     saveQuickActionsConfig(quickActions);
     showToast("Đã lưu khối Truy cập nhanh thành công!");
@@ -1552,70 +1670,184 @@ export default function Admin() {
           {/* ============================================================== */}
           {activeTab === "quick-actions" && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+                {/* Header & Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                   <div>
-                    <h3 className="font-display font-bold text-slate-900 text-base">
-                      Quản lý Khối "Truy cập nhanh" (Quick Actions)
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Sắp xếp thứ tự, bật/tắt hoặc đổi tên các nút thao tác nhanh (Ghép bạn, Chuyển trọ, Pass phòng, Đăng tin Safe).
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-emerald-600" />
+                      <h3 className="font-display font-bold text-slate-900 text-base">
+                        Quản lý Khối "Truy cập nhanh" (Quick Actions)
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Nhấp vào bất kỳ mục nào để <strong>chỉnh sửa nội dung</strong>, hoặc bấm <strong>"Chạy thử"</strong> để trải nghiệm trực tiếp tính năng.
                     </p>
                   </div>
-                  <button
-                    onClick={handleSaveQuickActions}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    Lưu danh sách
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={handleResetQuickActions}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      title="Khôi phục mặc định"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Khôi phục
+                    </button>
+                    <button
+                      onClick={handleOpenAddQuickAction}
+                      className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Thêm nút mới
+                    </button>
+                    <button
+                      onClick={handleSaveQuickActions}
+                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      Lưu danh sách
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-2.5">
+                {/* Live student preview strip */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-inner">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <span className="text-xs font-bold text-slate-200">
+                        Xem trước thanh Truy cập nhanh (Trang chủ sinh viên)
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 italic">
+                      (Bấm vào nút để kiểm tra thao tác)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {quickActions.filter((a) => a.enabled !== false).map((action) => {
+                      const iconMap = { Users, Truck, KeyRound, ShieldCheck, Compass, Sparkles, Building2, GraduationCap, MapPin, Phone, Search };
+                      const IconComp = iconMap[action.icon] || Compass;
+                      return (
+                        <button
+                          key={"preview-" + action.id}
+                          onClick={() => handleTestQuickAction(action)}
+                          className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 transition-all backdrop-blur border border-white/10 hover:border-emerald-400 active:scale-95 group shadow-sm"
+                          title={`Bấm để chạy thử tính năng "${action.label}"`}
+                        >
+                          <IconComp className="w-4 h-4 text-emerald-400 group-hover:text-white transition-colors" />
+                          <span>{action.label}</span>
+                          <Play className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 fill-current" />
+                        </button>
+                      );
+                    })}
+                    {quickActions.filter((a) => a.enabled !== false).length === 0 && (
+                      <div className="text-xs text-slate-400 italic py-1">
+                        (Tất cả các nút đang bị tắt - bật ít nhất 1 nút để hiển thị)
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Danh sách quản lý các nút */}
+                <div className="space-y-3">
+                  <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                    <span>Danh sách cấu hình chi tiết ({quickActions.length} nút)</span>
+                    <span className="text-[11px] font-normal text-slate-400">
+                      Bấm vào thẻ để sửa nội dung · Bấm "Chạy thử" để kiểm tra tính năng
+                    </span>
+                  </div>
+
                   {quickActions.map((action, index) => {
-                    const iconMap = { Users, Truck, KeyRound, ShieldCheck, Compass, Sparkles };
+                    const iconMap = { Users, Truck, KeyRound, ShieldCheck, Compass, Sparkles, Building2, GraduationCap, MapPin, Phone, Search };
                     const IconComp = iconMap[action.icon] || Compass;
+                    const isEnabled = action.enabled !== false;
+
                     return (
                       <div
                         key={action.id}
+                        onClick={() => handleOpenEditQuickAction(action)}
                         className={cn(
-                          "p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3",
-                          action.enabled !== false
-                            ? "bg-white border-slate-200 shadow-sm"
-                            : "bg-slate-50 border-slate-200/50 opacity-60"
+                          "group p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer",
+                          isEnabled
+                            ? "bg-white border-slate-200/90 hover:border-emerald-400 hover:shadow-md hover:bg-emerald-50/20"
+                            : "bg-slate-50 border-slate-200/50 opacity-60 hover:opacity-90"
                         )}
+                        title="Bấm vào để chỉnh sửa thông tin"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
-                            <IconComp className="w-4 h-4" />
+                        {/* Left: Icon & Label & Desc */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={cn(
+                              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
+                              action.action === "quiz" ? "bg-indigo-100 text-indigo-700" :
+                              action.action === "logistics" ? "bg-teal-100 text-teal-700" :
+                              action.action === "safe" ? "bg-emerald-100 text-emerald-700" :
+                              action.action === "pass" ? "bg-amber-100 text-amber-700" :
+                              "bg-slate-100 text-slate-700"
+                            )}
+                          >
+                            <IconComp className="w-5 h-5" />
                           </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                              {action.label}
-                              <span className="text-[10px] font-mono text-slate-400">
-                                (action: {action.action})
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                              <span className="group-hover:text-emerald-700 transition-colors font-display text-[13px]">
+                                {action.label}
                               </span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                action: {action.action}
+                              </span>
+                              {!isEnabled && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 font-bold border border-rose-200">
+                                  Đang tắt
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[11px] text-slate-500">{action.desc}</div>
+                            <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                              {action.desc || "Không có mô tả phụ"}
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        {/* Right: Actions (Chạy thử, Sửa, Lên/Xuống, Bật/Tắt, Xóa) */}
+                        <div
+                          className="flex items-center gap-1.5 flex-wrap self-end sm:self-center shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Nút Chạy thử */}
+                          <button
+                            onClick={() => handleTestQuickAction(action)}
+                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-1 border border-emerald-200 transition-all shadow-xs"
+                            title="Bấm để chạy thử hành động này"
+                          >
+                            <Play className="w-3 h-3 fill-current" />
+                            <span>Chạy thử</span>
+                          </button>
+
+                          {/* Nút Sửa */}
+                          <button
+                            onClick={() => handleOpenEditQuickAction(action)}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all"
+                            title="Chỉnh sửa thông tin nút"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Sửa</span>
+                          </button>
+
                           {/* Nút Reorder */}
-                          <div className="flex items-center gap-0.5 mr-2">
+                          <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl">
                             <button
                               disabled={index === 0}
                               onClick={() => moveQuickAction(index, -1)}
-                              className="p-1 rounded hover:bg-slate-100 text-slate-500 disabled:opacity-30"
-                              title="Lên trên"
+                              className="p-1 rounded-lg hover:bg-white text-slate-600 disabled:opacity-30 transition-all"
+                              title="Di chuyển lên trên"
                             >
                               <ArrowUp className="w-3.5 h-3.5" />
                             </button>
                             <button
                               disabled={index === quickActions.length - 1}
                               onClick={() => moveQuickAction(index, 1)}
-                              className="p-1 rounded hover:bg-slate-100 text-slate-500 disabled:opacity-30"
-                              title="Xuống dưới"
+                              className="p-1 rounded-lg hover:bg-white text-slate-600 disabled:opacity-30 transition-all"
+                              title="Di chuyển xuống dưới"
                             >
                               <ArrowDown className="w-3.5 h-3.5" />
                             </button>
@@ -1625,13 +1857,23 @@ export default function Admin() {
                           <button
                             onClick={() => toggleQuickActionActive(action.id)}
                             className={cn(
-                              "px-3 py-1 rounded-xl text-xs font-bold transition-colors",
-                              action.enabled !== false
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-200 text-slate-500"
+                              "px-2.5 py-1 rounded-xl text-xs font-bold transition-all border",
+                              isEnabled
+                                ? "bg-emerald-100 border-emerald-200 text-emerald-800 hover:bg-emerald-200"
+                                : "bg-slate-200 border-slate-300 text-slate-600 hover:bg-slate-300"
                             )}
+                            title={isEnabled ? "Bấm để tắt" : "Bấm để bật"}
                           >
-                            {action.enabled !== false ? "Đang bật" : "Đã tắt"}
+                            {isEnabled ? "Đang bật" : "Đã tắt"}
+                          </button>
+
+                          {/* Nút Xóa */}
+                          <button
+                            onClick={() => handleDeleteQuickAction(action.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                            title="Xóa nút này"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -1975,6 +2217,196 @@ export default function Admin() {
           </div>
         </div>
       )}
+
+      {/* =================================================================== */}
+      {/* MODAL THÊM / SỬA KHỐI TRUY CẬP NHANH (QUICK ACTIONS)                 */}
+      {/* =================================================================== */}
+      {isQuickActionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-display font-extrabold text-sm md:text-base">
+                  {editingQuickAction ? "Chỉnh sửa nút thao tác nhanh" : "Thêm nút thao tác nhanh mới"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsQuickActionModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveQuickActionModal} className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Tên nút */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tên hiển thị của nút <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={quickActionForm.label}
+                  onChange={(e) => setQuickActionForm({ ...quickActionForm, label: e.target.value })}
+                  placeholder="Ví dụ: Ghép bạn, Chuyển trọ, Pass phòng..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Mô tả phụ */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Mô tả ngắn gọn
+                </label>
+                <input
+                  type="text"
+                  value={quickActionForm.desc}
+                  onChange={(e) => setQuickActionForm({ ...quickActionForm, desc: e.target.value })}
+                  placeholder="Ví dụ: Trắc nghiệm tìm bạn cùng phòng..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Hành động khi nhấp */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Hành động kích hoạt (Action trigger) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={quickActionForm.action}
+                  onChange={(e) => setQuickActionForm({ ...quickActionForm, action: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium"
+                >
+                  <option value="explore">Khám phá: Điều hướng / xem danh sách phòng</option>
+                  <option value="quiz">Ghép bạn: Mở Quiz trắc nghiệm tìm bạn ở ghép</option>
+                  <option value="logistics">Chuyển trọ: Mở bảng tính cước xe ba gác / tải nhỏ</option>
+                  <option value="pass">Pass phòng: Mở form chuyển nhượng cọc trọ</option>
+                  <option value="safe">Đăng tin Safe: Mở form đăng tin trọ có kiểm duyệt</option>
+                  <option value="custom">Tùy chỉnh khác</option>
+                </select>
+              </div>
+
+              {/* Chọn Biểu tượng Icon */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Biểu tượng (Icon hiển thị)
+                </label>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {[
+                    { id: "Compass", label: "La bàn", icon: Compass },
+                    { id: "Users", label: "Người", icon: Users },
+                    { id: "Truck", label: "Xe tải", icon: Truck },
+                    { id: "KeyRound", label: "Chìa khóa", icon: KeyRound },
+                    { id: "ShieldCheck", label: "Khiên", icon: ShieldCheck },
+                    { id: "Sparkles", label: "Lấp lánh", icon: Sparkles },
+                    { id: "Building2", label: "Tòa nhà", icon: Building2 },
+                    { id: "GraduationCap", label: "Trường", icon: GraduationCap },
+                    { id: "MapPin", label: "Vị trí", icon: MapPin },
+                    { id: "Phone", label: "Hotline", icon: Phone },
+                    { id: "Search", label: "Tìm kiếm", icon: Search },
+                  ].map((ic) => {
+                    const IconComp = ic.icon;
+                    const isSelected = quickActionForm.icon === ic.id;
+                    return (
+                      <button
+                        key={ic.id}
+                        type="button"
+                        onClick={() => setQuickActionForm({ ...quickActionForm, icon: ic.id })}
+                        className={cn(
+                          "p-2 rounded-xl border text-center flex flex-col items-center gap-1 transition-all",
+                          isSelected
+                            ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-bold ring-2 ring-emerald-500/20 shadow-xs"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        )}
+                      >
+                        <IconComp className="w-4 h-4" />
+                        <span className="text-[9px] truncate max-w-full">{ic.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Trạng thái Bật / Tắt */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Hiển thị cho sinh viên</div>
+                  <div className="text-[11px] text-slate-500">Bật để hiển thị nút này trên trang chủ</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuickActionForm({ ...quickActionForm, enabled: !quickActionForm.enabled })}
+                  className={cn(
+                    "w-11 h-6 rounded-full p-0.5 transition-colors",
+                    quickActionForm.enabled ? "bg-emerald-600" : "bg-slate-300"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-5 h-5 rounded-full bg-white transition-transform",
+                      quickActionForm.enabled && "translate-x-5"
+                    )}
+                  />
+                </button>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickActionModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{editingQuickAction ? "Lưu thay đổi" : "Thêm mới"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* CÁC MODAL CHẠY THỬ TÍNH NĂNG TRỰC TIẾP TỪ ADMIN                      */}
+      {/* =================================================================== */}
+      <RoommateQuiz
+        open={testQuizOpen}
+        onClose={() => setTestQuizOpen(false)}
+        onComplete={() => {
+          setTestQuizOpen(false);
+          showToast("Đã hoàn thành khảo sát ghép bạn (Chế độ chạy thử admin)!");
+        }}
+      />
+      <LogisticsCalculator
+        open={testLogisticsOpen}
+        onClose={() => setTestLogisticsOpen(false)}
+      />
+      <PassRoomDialog
+        open={testPassOpen}
+        onClose={() => setTestPassOpen(false)}
+        onBoost={() => {
+          setTestPassOpen(false);
+          showToast("Đã gửi yêu cầu Pass phòng (Chế độ chạy thử admin)!");
+        }}
+      />
+      <SafeListingModal
+        open={testSafeOpen}
+        onClose={() => setTestSafeOpen(false)}
+        onSafe={() => {
+          setTestSafeOpen(false);
+          showToast("Đã hoàn tất kiểm duyệt Safe (Chế độ chạy thử admin)!");
+        }}
+      />
 
     </div>
   );

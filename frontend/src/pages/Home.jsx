@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { ShieldCheck, Users, Truck, KeyRound, Search, MapPin, Compass } from "lucide-react";
+import { ShieldCheck, Users, Truck, KeyRound, Search, MapPin, Compass, Sparkles, Building2, GraduationCap, Phone } from "lucide-react";
 import { getHeroConfig, getQuickActionsConfig } from "@/lib/adminConfig";
 import AppHeader from "@/components/AppHeader";
 import FilterBar from "@/components/FilterBar";
@@ -144,6 +144,42 @@ export default function Home() {
                     </div>
                 </div>
             </section>
+
+            {/* Desktop / Tablet Quick Actions bar */}
+            <div className="hidden md:block bg-white border-b border-slate-200/80 shadow-xs">
+                <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-600 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="font-display">Truy cập nhanh SmartStay:</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 overflow-x-auto py-0.5">
+                        {quickActions.filter(a => a.enabled !== false).map((a) => {
+                            const iconMap = { Users, Truck, KeyRound, ShieldCheck, Compass, Search, Sparkles, Building2, GraduationCap, Phone, MapPin };
+                            const IconComp = iconMap[a.icon] || Compass;
+                            const clickHandler = a.action === "quiz" ? () => setQuizOpen(true)
+                                : a.action === "logistics" ? () => setLogisticsOpen(true)
+                                : a.action === "pass" ? () => setPassOpen(true)
+                                : a.action === "safe" ? () => setSafeOpen(true)
+                                : () => {
+                                    const el = document.getElementById("room-listings-section");
+                                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                                    else window.scrollTo({ top: 400, behavior: "smooth" });
+                                };
+                            return (
+                                <button
+                                    key={a.id || a.label}
+                                    onClick={clickHandler}
+                                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 border border-slate-200 text-xs font-semibold text-slate-700 transition-all shadow-xs shrink-0 cursor-pointer active:scale-95"
+                                    title={a.desc || a.label}
+                                >
+                                    <IconComp className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>{a.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
 
             {/* Main bento layout */}
             <main id="room-listings-section" className="max-w-7xl mx-auto px-4 py-6 pb-32 md:pb-10">
