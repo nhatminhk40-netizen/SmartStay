@@ -59,9 +59,9 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
     if (!newComment.trim() || !roomId) return;
     setSubmittingReview(true);
     try {
-      await base44.entities.Review.create({
+      const res = await base44.entities.Review.create({
         room: roomId,
-        studentName: newStudentName.trim() || 'Sinh viên ẩn danh',
+        studentName: newStudentName.trim() || 'Sinh viên Cần Thơ',
         rating: newRating,
         isCostAccurate: newIsAccurate,
         actualMonthlyCost: Number(newActualCost) || room.price,
@@ -69,11 +69,15 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
         has_stayed: true,
         stayed_period: 'Kỳ học gần nhất'
       });
-      setReviewSuccess(true);
-      setShowAddReview(false);
-      setNewComment("");
-      setNewStudentName("");
-      loadReviews();
+      if (res && res.success) {
+        setReviewSuccess(true);
+        setShowAddReview(false);
+        setNewComment("");
+        setNewStudentName("");
+        loadReviews();
+      } else {
+        alert(res?.error || 'Có lỗi khi lưu đánh giá. Vui lòng thử lại!');
+      }
     } catch (err) {
       console.error('Lỗi khi gửi review:', err);
     } finally {

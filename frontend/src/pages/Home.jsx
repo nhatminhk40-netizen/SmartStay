@@ -71,36 +71,48 @@ export default function Home() {
 
     return (
         <div className="min-h-screen bg-slate-50 font-body">
-            <AppHeader />
+            <AppHeader
+                onOpenExplore={() => {
+                    const el = document.getElementById("room-listings-section");
+                    if (el) {
+                        el.scrollIntoView({ behavior: "smooth" });
+                    } else {
+                        window.scrollTo({ top: 450, behavior: "smooth" });
+                    }
+                }}
+                onOpenQuiz={() => setQuizOpen(true)}
+                onOpenLogistics={() => setLogisticsOpen(true)}
+                onOpenPass={() => setPassOpen(true)}
+                onOpenSafe={() => setSafeOpen(true)}
+            />
 
-            {/* Dynamic hero banner */}
-            <section className="relative overflow-hidden bg-slate-900 text-white">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-slate-900 to-emerald-900 opacity-90"></div>
-                <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500/30 rounded-full blur-3xl mix-blend-screen animate-pulse"></div>
-                <div className="absolute -bottom-24 right-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl mix-blend-screen animate-pulse" style={{ animationDelay: '1s' }}></div>
-                
-                <div className="relative max-w-7xl mx-auto px-4 py-12 md:py-20 z-10">
+            {/* Static hero banner */}
+            <section className="bg-slate-900 text-white">
+                <div className="max-w-7xl mx-auto px-4 py-8 md:py-10">
                     <div className="max-w-3xl">
-                        <h1 className="font-display font-extrabold tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-300" style={{ fontSize: "clamp(2rem, 4vw, 3.5rem)", lineHeight: 1.15 }}>
-                            Thuê trọ <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 drop-shadow-sm">minh bạch</span><br />cho sinh viên Cần Thơ
+                        <h1 className="font-display font-extrabold tracking-tight mb-2.5" style={{ fontSize: "clamp(1.5rem, 3vw, 2.3rem)", lineHeight: 1.15 }}>
+                            Thuê trọ <span className="text-emerald-400">minh bạch</span> cho sinh viên Cần Thơ
                         </h1>
-                        <p className="text-slate-300 text-base md:text-lg leading-relaxed mb-8 max-w-2xl font-light">
-                            Tìm phòng đúng khu vực, đúng túi tiền — review ẩn danh có xác thực, ghép bạn hợp tính, chuyển trọ niêm yết.
+                        <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                            Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.
                         </p>
-                        <div className="flex flex-wrap gap-4">
-                            <button onClick={() => setSafeOpen(true)} className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm hover:from-emerald-400 hover:to-teal-400 flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:-translate-y-0.5">
-                                <ShieldCheck className="w-5 h-5" /> Đăng tin Safe
-                            </button>
-                            <button onClick={() => setQuizOpen(true)} className="px-6 py-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold text-sm hover:bg-white/20 flex items-center gap-2 transition-all hover:-translate-y-0.5">
-                                <Users className="w-5 h-5" /> Tìm bạn ở ghép
-                            </button>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-medium">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 100% kiểm duyệt Safe Badge
+                            </span>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                <KeyRound className="w-3.5 h-3.5 text-amber-400" /> Sang nhượng cọc an toàn
+                            </span>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                <Truck className="w-3.5 h-3.5 text-teal-400" /> Giá chuyển trọ sinh viên niêm yết
+                            </span>
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* Main bento layout */}
-            <main className="max-w-7xl mx-auto px-4 py-6 pb-32 md:pb-10">
+            <main id="room-listings-section" className="max-w-7xl mx-auto px-4 py-6 pb-32 md:pb-10">
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5">
                     {/* Left rail */}
                     <aside className="lg:sticky lg:top-20 lg:self-start space-y-4">
@@ -117,28 +129,6 @@ export default function Home() {
                             soundproof={soundproof}
                             setSoundproof={setSoundproof}
                         />
-
-                        {/* Quick actions */}
-                        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
-                            <h3 className="font-display font-bold text-slate-900 text-sm mb-1">Truy cập nhanh</h3>
-                            {[
-                                { label: "Ghép bạn", icon: Users, color: "indigo", onClick: () => setQuizOpen(true) },
-                                { label: "Chuyển trọ", icon: Truck, color: "emerald", onClick: () => setLogisticsOpen(true) },
-                                { label: "Đăng tin Safe", icon: ShieldCheck, color: "emerald", onClick: () => setSafeOpen(true) },
-                                { label: "Pass phòng", icon: KeyRound, color: "indigo", onClick: () => setPassOpen(true) },
-                            ].map((a) => (
-                                <button
-                                    key={a.label}
-                                    onClick={a.onClick}
-                                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left"
-                                >
-                                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", a.color === "emerald" ? "bg-emerald-100 text-emerald-600" : "bg-indigo-100 text-indigo-600")}>
-                                        <a.icon className="w-4 h-4" />
-                                    </div>
-                                    <span className="text-sm font-semibold text-slate-700">{a.label}</span>
-                                </button>
-                            ))}
-                        </div>
                     </aside>
 
                     {/* Center grid */}

@@ -50,7 +50,7 @@ const roomSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Tự đồng bộ ảnh và badge trước khi lưu
-roomSchema.pre('save', function (next) {
+roomSchema.pre('save', function () {
     if (!this.image_url && this.images && this.images.length > 0) {
         this.image_url = this.images[0];
     }
@@ -60,7 +60,6 @@ roomSchema.pre('save', function (next) {
     if (this.listingType === 'pass') {
         this.has_pass = true;
     }
-    next();
 });
 
 module.exports = mongoose.model('Room', roomSchema);
