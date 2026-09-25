@@ -71,7 +71,20 @@ export default function Home() {
 
     return (
         <div className="min-h-screen bg-slate-50 font-body">
-            <AppHeader />
+            <AppHeader
+                onOpenExplore={() => {
+                    const el = document.getElementById("room-listings-section");
+                    if (el) {
+                        el.scrollIntoView({ behavior: "smooth" });
+                    } else {
+                        window.scrollTo({ top: 450, behavior: "smooth" });
+                    }
+                }}
+                onOpenQuiz={() => setQuizOpen(true)}
+                onOpenLogistics={() => setLogisticsOpen(true)}
+                onOpenPass={() => setPassOpen(true)}
+                onOpenSafe={() => setSafeOpen(true)}
+            />
 
             {/* Static hero banner */}
             <section className="bg-slate-900 text-white">
@@ -96,7 +109,7 @@ export default function Home() {
             </section>
 
             {/* Main bento layout */}
-            <main className="max-w-7xl mx-auto px-4 py-6 pb-32 md:pb-10">
+            <main id="room-listings-section" className="max-w-7xl mx-auto px-4 py-6 pb-32 md:pb-10">
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5">
                     {/* Left rail */}
                     <aside className="lg:sticky lg:top-20 lg:self-start space-y-4">
