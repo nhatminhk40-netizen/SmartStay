@@ -10,6 +10,7 @@ const AMENITY_ICONS = {
   "Gác lửng": Layers,
   "Máy giặt": RotateCw,
   "Tủ quần áo": Shirt,
+  "Cách âm": VolumeOff,
 };
 
 export default function FilterBar({ campus, setCampus, priceRange, setPriceRange, seekingRoommate, setSeekingRoommate, onSeekingRoommate, selectedAmenities, toggleAmenity, soundproof, setSoundproof }) {
@@ -93,7 +94,7 @@ export default function FilterBar({ campus, setCampus, priceRange, setPriceRange
                 )}
               >
                 <span className={cn("w-4 h-4 rounded flex items-center justify-center shrink-0", active ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-400")}>
-                  {active ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+                  {active ? <Check className="w-3 h-3" /> : (Icon ? <Icon className="w-3 h-3" /> : null)}
                 </span>
                 {a.label}
               </button>

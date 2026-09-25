@@ -20,19 +20,25 @@ const seedReviews = async () => {
         const sampleReviews = [
             {
                 room: room._id,
-                studentName: 'Đặng Tuấn Kiệt',
+                studentName: 'Đặng Tuấn Kiệt (K18 ĐH FPT)',
                 rating: 5,
                 isCostAccurate: true,
                 actualMonthlyCost: 2850000,
-                comment: 'Phòng đúng giá như niêm yết, đồng hồ điện nước riêng rõ ràng, chủ trọ thân thiện.'
+                comment: 'Phòng đúng giá như niêm yết, đồng hồ điện nước riêng rõ ràng, chủ trọ thân thiện.',
+                has_stayed: true,
+                trust_score: 98,
+                stayed_period: 'Đã ở 6 tháng (Kỳ Fall 2023)'
             },
             {
                 room: room._id,
-                studentName: 'Lê Hoàng Nam',
+                studentName: 'Lê Hoàng Nam (K47 ĐH Cần Thơ)',
                 rating: 4,
                 isCostAccurate: true,
                 actualMonthlyCost: 2900000,
-                comment: 'An ninh tốt, chi phí minh bạch không có phụ phí phát sinh thêm.'
+                comment: 'An ninh tốt, chi phí minh bạch không có phụ phí phát sinh thêm.',
+                has_stayed: true,
+                trust_score: 92,
+                stayed_period: 'Đã ở 1 năm (Kỳ Spring 2024)'
             }
         ];
 

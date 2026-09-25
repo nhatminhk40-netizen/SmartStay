@@ -25,7 +25,11 @@ export default function RoomCard({ room, onOpen }) {
       className="group text-left bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
     >
       <div className="relative h-40 bg-slate-100 overflow-hidden">
-        <img src={room.image_url} alt={room.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+        <img
+          src={room.image_url || (room.images && room.images[0]) || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"}
+          alt={room.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
         <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
           {room.safe_badge && (
             <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500 text-white text-[10px] font-bold shadow-md">

@@ -29,11 +29,16 @@ export default function Home() {
     const [safeOpen, setSafeOpen] = useState(false);
     const [passOpen, setPassOpen] = useState(false);
 
-    useEffect(() => {
+    const loadRooms = () => {
+        setLoading(true);
         base44.entities.Room.list("-safe_badge", 50)
             .then(setRooms)
             .catch(() => setRooms([]))
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        loadRooms();
     }, []);
 
     const filtered = useMemo(() => {
@@ -57,25 +62,11 @@ export default function Home() {
     };
 
     const markSafe = () => {
-        setRooms((prev) => {
-            const idx = prev.findIndex((r) => !r.safe_badge);
-            if (idx === -1) return prev;
-            const next = [...prev];
-            next[idx] = { ...next[idx], safe_badge: true };
-            base44.entities.Room.update(next[idx].id, { safe_badge: true }).catch(() => { });
-            return next;
-        });
+        loadRooms();
     };
 
     const markBoosted = () => {
-        setRooms((prev) => {
-            const idx = prev.findIndex((r) => r.has_pass || !r.is_boosted);
-            if (idx === -1) return prev;
-            const next = [...prev];
-            next[idx] = { ...next[idx], is_boosted: true };
-            base44.entities.Room.update(next[idx].id, { is_boosted: true }).catch(() => { });
-            return next;
-        });
+        loadRooms();
     };
 
     return (
@@ -90,7 +81,7 @@ export default function Home() {
                             Thuê trọ <span className="text-emerald-400">minh bạch</span> cho sinh viên Cần Thơ
                         </h1>
                         <p className="text-slate-300 text-sm md:text-base leading-relaxed mb-5">
-                            Tìm phòng đúng khu vực, đúng túi tiền — review ẩn danh có xác thực, ghép bạn hợp tính, chuyển trọ niêm yết.
+                            Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.
                         </p>
                         <div className="flex flex-wrap gap-3">
                             <button onClick={() => setSafeOpen(true)} className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white font-bold text-sm hover:bg-emerald-400 flex items-center gap-2 transition-colors">

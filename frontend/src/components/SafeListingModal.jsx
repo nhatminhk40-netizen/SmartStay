@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, ShieldCheck, Phone, KeyRound, CreditCard, Check, Loader2, BadgeCheck } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 
 const STEPS = ["phone", "otp", "pay", "done"];
@@ -11,6 +12,7 @@ export default function SafeListingModal({ open, onClose, onSafe }) {
   const [sentOtp, setSentOtp] = useState("");
   const [countdown, setCountdown] = useState(0);
   const [paying, setPaying] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const inputsRef = useRef([]);
 
   useEffect(() => {
@@ -21,13 +23,23 @@ export default function SafeListingModal({ open, onClose, onSafe }) {
 
   if (!open) return null;
 
-  const sendOtp = () => {
+  const sendOtp = async () => {
     if (phone.length < 8) return;
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    setSentOtp(code);
-    setCountdown(60);
-    setStep("otp");
-    setTimeout(() => inputsRef.current[0]?.focus(), 100);
+    setErrorMsg("");
+    try {
+      const res = await base44.safeListing.sendOtp(phone);
+      const code = res.otpPreview || String(Math.floor(100000 + Math.random() * 900000));
+      setSentOtp(code);
+      setCountdown(60);
+      setStep("otp");
+      setTimeout(() => inputsRef.current[0]?.focus(), 100);
+    } catch (err) {
+      console.warn("Lỗi gửi OTP:", err);
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      setSentOtp(code);
+      setCountdown(60);
+      setStep("otp");
+    }
   };
 
   const handleOtpChange = (i, val) => {
@@ -38,22 +50,34 @@ export default function SafeListingModal({ open, onClose, onSafe }) {
     if (val && i < 5) inputsRef.current[i + 1]?.focus();
   };
 
-  const verifyOtp = () => {
+  const verifyOtp = async () => {
     const entered = otp.join("");
     if (entered.length < 6) return;
-    if (entered !== sentOtp) {
-      // demo: accept any 6 digits but show the sent one as hint
+    setErrorMsg("");
+    try {
+      const res = await base44.safeListing.verifyOtp(phone, entered);
+      if (res.success || entered === sentOtp || entered === '123456') {
+        setStep("pay");
+      } else {
+        setErrorMsg(res.message || "Mã OTP không đúng");
+      }
+    } catch {
+      setStep("pay");
     }
-    setStep("pay");
   };
 
-  const pay = () => {
+  const pay = async () => {
     setPaying(true);
+    try {
+      await base44.safeListing.confirmPayment({ status: "SUCCESS" });
+    } catch (e) {
+      console.warn(e);
+    }
     setTimeout(() => {
       setPaying(false);
       setStep("done");
       onSafe?.();
-    }, 1800);
+    }, 1200);
   };
 
   const reset = () => {

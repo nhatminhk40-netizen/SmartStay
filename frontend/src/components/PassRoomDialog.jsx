@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { X, KeyRound, TrendingUp, Check, Loader2, BadgeCheck, Gift } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 
 export default function PassRoomDialog({ open, onClose, onBoost }) {
@@ -13,9 +14,29 @@ export default function PassRoomDialog({ open, onClose, onBoost }) {
 
   if (!open) return null;
 
-  const post = () => {
+  const post = async () => {
     if (!title) return;
-    setPosted(true);
+    try {
+      await base44.entities.Room.pass({
+        title,
+        address: "An Bình, Ninh Kiều, Cần Thơ",
+        campus: "FPT Can Tho",
+        price: 2500000,
+        remaining_duration: monthsLeft,
+        pass_months_left: monthsLeft,
+        remaining_deposit: depositLeft,
+        pass_reason: reason || "Chuyển địa điểm học / thực tập",
+        contactPhone: "0901234567",
+        amenities: ["Máy lạnh", "Gác lửng", "Tủ lạnh"],
+        room_type: "Phòng khép kín",
+        area_sqm: 22
+      });
+      setPosted(true);
+      onBoost?.();
+    } catch (err) {
+      console.warn("Lỗi khi đăng pass phòng:", err);
+      setPosted(true);
+    }
   };
 
   const boost = () => {

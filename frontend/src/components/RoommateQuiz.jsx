@@ -1,33 +1,58 @@
 import React, { useState } from "react";
-import { X, Users, Check, Heart, ArrowRight, ArrowLeft, Radar } from "lucide-react";
+import { X, Users, Check, Heart, ArrowRight, ArrowLeft, Radar, Phone, Sparkles } from "lucide-react";
 import { QUIZ_QUESTIONS, MOCK_CANDIDATES, calcCompatibility } from "@/lib/smartstayData";
+import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 
 export default function RoommateQuiz({ open, onClose, onComplete }) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState([]);
+  const [answers, setAnswers] = useState({});
   const [done, setDone] = useState(false);
+  const [userName, setUserName] = useState("Sinh viên SmartStay");
+  const [contactZalo, setContactZalo] = useState("");
 
   if (!open) return null;
 
+  const currentQ = QUIZ_QUESTIONS[step];
   const isLast = step === QUIZ_QUESTIONS.length - 1;
   const progress = ((step + (done ? 1 : 0)) / QUIZ_QUESTIONS.length) * 100;
 
-  const pick = (opt) => {
-    const next = [...answers];
-    next[step] = opt;
-    setAnswers(next);
+  const pick = async (optionId) => {
+    const nextAnswers = { ...answers, [currentQ.id]: optionId };
+    setAnswers(nextAnswers);
+
     if (isLast) {
       setDone(true);
-      onComplete?.(next);
+      onComplete?.(nextAnswers);
+      // Gửi hồ sơ lên backend
+      try {
+        await base44.entities.Survey.create({
+          name: userName,
+          contactZalo: contactZalo || "0901234567",
+          campus: "FPT Can Tho",
+          gender: "Linh hoạt",
+          ...nextAnswers
+        });
+      } catch (err) {
+        console.warn("Lưu survey lên backend:", err);
+      }
     } else {
       setStep(step + 1);
     }
   };
 
   const candidates = done
-    ? MOCK_CANDIDATES.map((c) => ({ ...c, compat: calcCompatibility(answers, c.answers) })).sort((a, b) => b.compat - a.compat)
+    ? MOCK_CANDIDATES.map((c) => ({
+        ...c,
+        compat: calcCompatibility(answers, c.answers)
+      })).sort((a, b) => b.compat - a.compat)
     : [];
+
+  const reset = () => {
+    setStep(0);
+    setAnswers({});
+    setDone(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -41,8 +66,8 @@ export default function RoommateQuiz({ open, onClose, onComplete }) {
                 <Radar className="w-5 h-5" />
               </div>
               <div>
-                <div className="font-display font-bold text-base">Roommate Matcher</div>
-                <div className="text-[11px] text-indigo-100">5 câu hỏi · tính % tương thích</div>
+                <div className="font-display font-bold text-base">Smart Matcher (Tìm bạn ở ghép)</div>
+                <div className="text-[11px] text-indigo-100">5 câu hỏi thói quen sống · tính % tương thích</div>
               </div>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20">
@@ -66,58 +91,87 @@ export default function RoommateQuiz({ open, onClose, onComplete }) {
         <div className="flex-1 overflow-y-auto p-5">
           {!done ? (
             <div>
-              <h3 className="font-display font-bold text-slate-900 text-lg mb-4">{QUIZ_QUESTIONS[step].q}</h3>
-              <div className="space-y-2">
-                {QUIZ_QUESTIONS[step].options.map((opt, i) => (
-                  <button
-                    key={opt}
-                    onClick={() => pick(opt)}
-                    className="w-full flex items-center justify-between p-3.5 rounded-xl border-2 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left group"
-                  >
-                    <span className="text-sm font-semibold text-slate-700">{opt}</span>
-                    <div className="w-6 h-6 rounded-full border-2 border-slate-200 group-hover:border-indigo-500 flex items-center justify-center">
-                      {answers[step] === opt && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                    </div>
-                  </button>
-                ))}
+              <h3 className="font-display font-bold text-slate-900 text-base mb-1">{currentQ.text}</h3>
+              <p className="text-xs text-slate-400 mb-4">Chọn phương án phản ánh đúng nhất nếp sống của bạn:</p>
+
+              <div className="space-y-2.5">
+                {currentQ.options.map((opt) => {
+                  const isSelected = answers[currentQ.id] === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => pick(opt.id)}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all text-left group",
+                        isSelected
+                          ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                          : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                      )}
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">{opt.label}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">{opt.desc}</div>
+                      </div>
+                      <div className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ml-2",
+                        isSelected ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 group-hover:border-indigo-400"
+                      )}>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
+
               {step > 0 && (
-                <button onClick={() => setStep(step - 1)} className="mt-4 flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
-                  <ArrowLeft className="w-4 h-4" /> Quay lại
+                <button onClick={() => setStep(step - 1)} className="mt-4 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
+                  <ArrowLeft className="w-3.5 h-3.5" /> Câu trước
                 </button>
               )}
             </div>
           ) : (
             <div>
-              <div className="text-center mb-4">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-2">
-                  <Heart className="w-7 h-7 text-emerald-600" />
+              <div className="text-center mb-5">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-2 text-emerald-600">
+                  <Sparkles className="w-6 h-6" />
                 </div>
-                <h3 className="font-display font-bold text-slate-900 text-lg">Ứng viên ghép phòng</h3>
-                <p className="text-sm text-slate-500">Sắp xếp theo % tương thích thói quen</p>
+                <h3 className="font-display font-bold text-slate-900 text-lg">Ứng viên tương thích cao nhất</h3>
+                <p className="text-xs text-slate-500">Mỗi tiêu chí trùng khớp đóng góp +20% độ tương thích</p>
               </div>
-              <div className="space-y-2.5">
+
+              <div className="space-y-3">
                 {candidates.map((c) => (
-                  <div key={c.display_name} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors">
-                    <div className="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center text-xl shrink-0">
-                      {c.avatar_emoji}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-sm">{c.display_name}</span>
-                        <span className="text-[10px] text-slate-400">{c.campus}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 line-clamp-1">{c.bio}</p>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div key={c.id} className="p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all bg-white">
+                    <div className="flex items-start gap-3">
+                      <img src={c.avatar} alt={c.name} className="w-11 h-11 rounded-full object-cover shrink-0 border border-slate-200" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold text-slate-900 text-sm">{c.name}</span>
+                          <span className={cn("text-xs font-extrabold px-2 py-0.5 rounded-md", c.compat >= 80 ? "bg-emerald-100 text-emerald-700" : c.compat >= 60 ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-700")}>
+                            {c.compat}% tương thích
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{c.campus} · {c.gender}</div>
+                        <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{c.bio}</p>
+
+                        {/* Progress bar */}
+                        <div className="mt-2.5 h-2 rounded-full bg-slate-100 overflow-hidden">
                           <div
-                            className={cn("h-full rounded-full", c.compat >= 70 ? "bg-emerald-500" : c.compat >= 40 ? "bg-amber-400" : "bg-slate-400")}
+                            className={cn("h-full rounded-full transition-all duration-500", c.compat >= 80 ? "bg-emerald-500" : c.compat >= 60 ? "bg-indigo-500" : "bg-slate-400")}
                             style={{ width: `${c.compat}%` }}
                           />
                         </div>
-                        <span className={cn("text-xs font-bold", c.compat >= 70 ? "text-emerald-600" : c.compat >= 40 ? "text-amber-600" : "text-slate-500")}>
-                          {c.compat}%
-                        </span>
+
+                        <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
+                          <a
+                            href={`https://zalo.me/${c.contactZalo}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                          >
+                            <Phone className="w-3.5 h-3.5" /> Kết nối Zalo: {c.contactZalo}
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -128,9 +182,12 @@ export default function RoommateQuiz({ open, onClose, onComplete }) {
         </div>
 
         {done && (
-          <div className="p-4 border-t border-slate-100">
-            <button onClick={onClose} className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500 flex items-center justify-center gap-2">
-              Hoàn tất <ArrowRight className="w-4 h-4" />
+          <div className="p-4 border-t border-slate-100 flex gap-2">
+            <button onClick={reset} className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50">
+              Làm lại Quiz
+            </button>
+            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500 flex items-center justify-center gap-1.5">
+              Hoàn tất <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         )}

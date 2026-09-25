@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Truck, MapPin, Navigation, Calculator, Check } from "lucide-react";
 import { LOGISTICS_VEHICLES } from "@/lib/smartstayData";
+import { base44 } from "@/api/base44Client";
 import { cn } from "@/lib/utils";
 
 export default function LogisticsCalculator({ open, onClose }) {
@@ -12,6 +13,22 @@ export default function LogisticsCalculator({ open, onClose }) {
 
   const selected = LOGISTICS_VEHICLES.find((v) => v.id === vehicle);
   const total = selected.basePrice + selected.perKm * distance;
+
+  const handleBooking = async () => {
+    try {
+      await base44.entities.Logistics.create({
+        vehicleType: selected.name,
+        distanceKm: distance,
+        estimatedPrice: total,
+        pickupAddress: "Khu vực Cần Thơ",
+        dropoffAddress: "Phòng trọ mới",
+        phone: "0901234567"
+      });
+    } catch (e) {
+      console.warn(e);
+    }
+    setSubmitted(true);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -96,7 +113,7 @@ export default function LogisticsCalculator({ open, onClose }) {
           </div>
 
           <button
-            onClick={() => setSubmitted(true)}
+            onClick={handleBooking}
             className="w-full mt-4 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 flex items-center justify-center gap-2"
           >
             {submitted ? <><Check className="w-4 h-4" /> Đã ghi nhận yêu cầu</> : "Đặt xe chuyển trọ"}
