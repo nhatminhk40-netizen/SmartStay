@@ -18,7 +18,7 @@ export default function FilterBar({ campus, setCampus, priceRange, setPriceRange
   const [minP, maxP] = priceRange;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+    <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-slate-200/60 p-5 shadow-xl shadow-slate-200/20">
       <div className="flex items-center gap-2 mb-4">
         <SlidersHorizontal className="w-4 h-4 text-emerald-600" />
         <h3 className="font-display font-bold text-slate-900 text-sm uppercase tracking-wide">Bộ lọc phòng</h3>

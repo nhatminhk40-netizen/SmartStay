@@ -6,10 +6,10 @@ export const LOGISTICS_VEHICLES = [
 
 export const CAMPUSES = [
   "Tất cả khu vực",
-  "FPT Can Tho",
-  "ĐH Cần Thơ (Khu 2)",
+  "ĐH Cần Thơ",
   "ĐH Y Dược Cần Thơ",
-  "ĐH Nam Cần Thơ"
+  "ĐH Nam Cần Thơ",
+  "ĐH FPT Cần Thơ",
 ];
 
 export const AMENITIES = [

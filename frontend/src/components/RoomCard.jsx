@@ -22,7 +22,7 @@ export default function RoomCard({ room, onOpen }) {
   return (
     <button
       onClick={onOpen}
-      className="group text-left bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+      className="group text-left bg-white rounded-3xl border border-slate-100/50 shadow-sm overflow-hidden hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-300 ring-1 ring-slate-200/50"
     >
       <div className="relative h-40 bg-slate-100 overflow-hidden">
         <img
@@ -52,8 +52,8 @@ export default function RoomCard({ room, onOpen }) {
             <Users className="w-3 h-3" /> Tìm ghép
           </span>
         )}
-        <div className="absolute bottom-2 right-2 bg-slate-900/90 text-white px-2.5 py-1 rounded-lg text-sm font-display font-extrabold">
-          {formatPrice(room.price)}<span className="text-[10px] font-body font-normal text-slate-300">/tháng</span>
+        <div className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-sm font-display font-extrabold shadow-lg border border-white/10">
+          {formatPrice(room.price)}<span className="text-[10px] font-body font-medium text-slate-300/90 ml-0.5">/tháng</span>
         </div>
       </div>
       <div className="p-4">

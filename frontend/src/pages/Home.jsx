@@ -73,22 +73,26 @@ export default function Home() {
         <div className="min-h-screen bg-slate-50 font-body">
             <AppHeader />
 
-            {/* Static hero banner */}
-            <section className="bg-slate-900 text-white">
-                <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
-                    <div className="max-w-2xl">
-                        <h1 className="font-display font-extrabold tracking-tight mb-3" style={{ fontSize: "clamp(1.5rem, 3vw, 2.5rem)", lineHeight: 1.15 }}>
-                            Thuê trọ <span className="text-emerald-400">minh bạch</span> cho sinh viên Cần Thơ
+            {/* Dynamic hero banner */}
+            <section className="relative overflow-hidden bg-slate-900 text-white">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-slate-900 to-emerald-900 opacity-90"></div>
+                <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500/30 rounded-full blur-3xl mix-blend-screen animate-pulse"></div>
+                <div className="absolute -bottom-24 right-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl mix-blend-screen animate-pulse" style={{ animationDelay: '1s' }}></div>
+                
+                <div className="relative max-w-7xl mx-auto px-4 py-12 md:py-20 z-10">
+                    <div className="max-w-3xl">
+                        <h1 className="font-display font-extrabold tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-300" style={{ fontSize: "clamp(2rem, 4vw, 3.5rem)", lineHeight: 1.15 }}>
+                            Thuê trọ <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 drop-shadow-sm">minh bạch</span><br />cho sinh viên Cần Thơ
                         </h1>
-                        <p className="text-slate-300 text-sm md:text-base leading-relaxed mb-5">
-                            Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.
+                        <p className="text-slate-300 text-base md:text-lg leading-relaxed mb-8 max-w-2xl font-light">
+                            Tìm phòng đúng khu vực, đúng túi tiền — review ẩn danh có xác thực, ghép bạn hợp tính, chuyển trọ niêm yết.
                         </p>
-                        <div className="flex flex-wrap gap-3">
-                            <button onClick={() => setSafeOpen(true)} className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white font-bold text-sm hover:bg-emerald-400 flex items-center gap-2 transition-colors">
-                                <ShieldCheck className="w-4 h-4" /> Đăng tin Safe
+                        <div className="flex flex-wrap gap-4">
+                            <button onClick={() => setSafeOpen(true)} className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm hover:from-emerald-400 hover:to-teal-400 flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:-translate-y-0.5">
+                                <ShieldCheck className="w-5 h-5" /> Đăng tin Safe
                             </button>
-                            <button onClick={() => setQuizOpen(true)} className="px-5 py-2.5 rounded-xl bg-white/10 text-white font-bold text-sm hover:bg-white/20 flex items-center gap-2 transition-colors">
-                                <Users className="w-4 h-4" /> Tìm bạn ở ghép
+                            <button onClick={() => setQuizOpen(true)} className="px-6 py-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold text-sm hover:bg-white/20 flex items-center gap-2 transition-all hover:-translate-y-0.5">
+                                <Users className="w-5 h-5" /> Tìm bạn ở ghép
                             </button>
                         </div>
                     </div>
