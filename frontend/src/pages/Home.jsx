@@ -88,21 +88,24 @@ export default function Home() {
 
             {/* Static hero banner */}
             <section className="bg-slate-900 text-white">
-                <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
-                    <div className="max-w-2xl">
-                        <h1 className="font-display font-extrabold tracking-tight mb-3" style={{ fontSize: "clamp(1.5rem, 3vw, 2.5rem)", lineHeight: 1.15 }}>
+                <div className="max-w-7xl mx-auto px-4 py-8 md:py-10">
+                    <div className="max-w-3xl">
+                        <h1 className="font-display font-extrabold tracking-tight mb-2.5" style={{ fontSize: "clamp(1.5rem, 3vw, 2.3rem)", lineHeight: 1.15 }}>
                             Thuê trọ <span className="text-emerald-400">minh bạch</span> cho sinh viên Cần Thơ
                         </h1>
-                        <p className="text-slate-300 text-sm md:text-base leading-relaxed mb-5">
+                        <p className="text-slate-300 text-sm leading-relaxed mb-4">
                             Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.
                         </p>
-                        <div className="flex flex-wrap gap-3">
-                            <button onClick={() => setSafeOpen(true)} className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white font-bold text-sm hover:bg-emerald-400 flex items-center gap-2 transition-colors">
-                                <ShieldCheck className="w-4 h-4" /> Đăng tin Safe
-                            </button>
-                            <button onClick={() => setQuizOpen(true)} className="px-5 py-2.5 rounded-xl bg-white/10 text-white font-bold text-sm hover:bg-white/20 flex items-center gap-2 transition-colors">
-                                <Users className="w-4 h-4" /> Tìm bạn ở ghép
-                            </button>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-medium">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 100% kiểm duyệt Safe Badge
+                            </span>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                <KeyRound className="w-3.5 h-3.5 text-amber-400" /> Sang nhượng cọc an toàn
+                            </span>
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur">
+                                <Truck className="w-3.5 h-3.5 text-teal-400" /> Giá chuyển trọ sinh viên niêm yết
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -126,28 +129,6 @@ export default function Home() {
                             soundproof={soundproof}
                             setSoundproof={setSoundproof}
                         />
-
-                        {/* Quick actions */}
-                        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
-                            <h3 className="font-display font-bold text-slate-900 text-sm mb-1">Truy cập nhanh</h3>
-                            {[
-                                { label: "Ghép bạn", icon: Users, color: "indigo", onClick: () => setQuizOpen(true) },
-                                { label: "Chuyển trọ", icon: Truck, color: "emerald", onClick: () => setLogisticsOpen(true) },
-                                { label: "Đăng tin Safe", icon: ShieldCheck, color: "emerald", onClick: () => setSafeOpen(true) },
-                                { label: "Pass phòng", icon: KeyRound, color: "indigo", onClick: () => setPassOpen(true) },
-                            ].map((a) => (
-                                <button
-                                    key={a.label}
-                                    onClick={a.onClick}
-                                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left"
-                                >
-                                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", a.color === "emerald" ? "bg-emerald-100 text-emerald-600" : "bg-indigo-100 text-indigo-600")}>
-                                        <a.icon className="w-4 h-4" />
-                                    </div>
-                                    <span className="text-sm font-semibold text-slate-700">{a.label}</span>
-                                </button>
-                            ))}
-                        </div>
                     </aside>
 
                     {/* Center grid */}

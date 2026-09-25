@@ -99,11 +99,11 @@ const SAMPLE_STUDENTS = [
 ];
 
 export default function AppHeader({
-  onOpenExplore = () => {},
-  onOpenQuiz = () => {},
-  onOpenLogistics = () => {},
-  onOpenPass = () => {},
-  onOpenSafe = () => {}
+  onOpenExplore = () => { },
+  onOpenQuiz = () => { },
+  onOpenLogistics = () => { },
+  onOpenPass = () => { },
+  onOpenSafe = () => { }
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -450,50 +450,17 @@ export default function AppHeader({
                 </div>
 
                 {/* Profile Actions */}
-                <div className="p-2 space-y-1">
+                <div className="p-2">
                   <button
                     onClick={() => {
                       setEditForm(profile);
                       setShowEditProfileModal(true);
                       setShowProfile(false);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-left"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors text-center"
                   >
-                    <Edit3 className="w-4 h-4 text-slate-500" />
-                    <span>Chỉnh sửa hồ sơ sinh viên</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowProfile(false);
-                      onOpenSafe();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors text-left"
-                  >
-                    <Plus className="w-4 h-4 text-emerald-600" />
-                    <span>Đăng tin phòng Safe Badge</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowProfile(false);
-                      onOpenLogistics();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-50 rounded-xl transition-colors text-left"
-                  >
-                    <Truck className="w-4 h-4 text-teal-600" />
-                    <span>Đặt xe chuyển trọ (giảm giá SV)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowProfile(false);
-                      onOpenPass();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-xl transition-colors text-left"
-                  >
-                    <KeyRound className="w-4 h-4 text-amber-600" />
-                    <span>Chuyển nhượng tiền cọc (Pass phòng)</span>
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Chỉnh sửa thông tin sinh viên</span>
                   </button>
                 </div>
 

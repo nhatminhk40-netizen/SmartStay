@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema({
     fullName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     phone: { type: String, required: true },
-    studentId: { type: String }, // Mã số sinh viên (nếu có)
+    studentId: { type: String },
     campus: { type: String, default: 'FPT Can Tho' },
     role: { type: String, enum: ['student', 'landlord'], default: 'student' }
 }, { timestamps: true });
