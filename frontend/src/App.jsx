@@ -1,19 +1,28 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
-import ErrorBoundary from './components/ErrorBoundary';
+
 // Add page imports here
 import Home from '@/pages/Home';
+import Roommates from '@/pages/Roommates';
+import Transfers from '@/pages/Transfers';
+import RoomPass from '@/pages/RoomPass';
+import Layout from '@/components/smartstay/Layout';
 import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
 import Admin from '@/pages/Admin';
+import EmployeeDashboard from '@/pages/EmployeeDashboard';
+import LandlordConfirmPage from '@/pages/LandlordConfirmPage';
 
 const AuthenticatedApp = () => {
-  const { user, isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -38,30 +47,24 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
+      {/* Auth routes - no Layout wrapper */}
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={isAuthenticated ? <Home /> : <Navigate to="/login" replace />} />
-      <Route
-        path="/admin"
-        element={
-          !isAuthenticated ? (
-            <Navigate to="/login?returnTo=/admin" replace />
-          ) : user?.role === 'admin' ? (
-            <Admin />
-          ) : (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-body">
-              <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center max-w-md shadow-xl">
-                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 font-bold text-xl">⚠️</div>
-                <h2 className="text-lg font-bold font-display text-slate-900 mb-2">Quyền truy cập bị từ chối</h2>
-                <p className="text-xs text-slate-500 mb-6">Trang này chỉ dành riêng cho tài khoản Quản trị viên (Admin). Bạn hiện đang đăng nhập với vai trò người dùng bình thường.</p>
-                <div className="flex gap-2">
-                  <a href="/" className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors">Về trang chủ</a>
-                  <a href="/login?returnTo=/admin" className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors">Đổi tài khoản Admin</a>
-                </div>
-              </div>
-            </div>
-          )
-        }
-      />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Admin route - full screen with own layout */}
+      <Route path="/admin" element={<Admin />} />
+      {/* Employee route - full screen with own layout */}
+      <Route path="/employee" element={<EmployeeDashboard />} />
+      {/* Landlord confirm route */}
+      <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
+      {/* Main app routes */}
+      <Route element={<Layout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/ghep-ban" element={<Roommates />} />
+        <Route path="/chuyen-tro" element={<Transfers />} />
+        <Route path="/pass-phong" element={<RoomPass />} />
+      </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
@@ -69,19 +72,16 @@ const AuthenticatedApp = () => {
 
 
 function App() {
-
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <ScrollToTop />
-            <AuthenticatedApp />
-          </Router>
-          <Toaster />
-        </QueryClientProvider>
-      </AuthProvider>
-    </ErrorBoundary>
+    <AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <Router>
+          <ScrollToTop />
+          <AuthenticatedApp />
+        </Router>
+        <Toaster />
+      </QueryClientProvider>
+    </AuthProvider>
   )
 }
 
