@@ -393,12 +393,17 @@ export const base44 = {
               id: s._id || s.id,
               name: s.name,
               gender: s.gender || 'Nam',
-              age: 20,
+              age: s.age || 20,
               campus: s.campus || 'ĐH Cần Thơ',
-              budget: s.budgetRange === 'high' ? 3.0 : (s.budgetRange === 'low' ? 1.5 : 2.2),
-              habits: `${s.sleepSchedule || ''}, ${s.cleanliness || ''}, ${s.smokingDrinking || ''}`.replace(/^, |, $/g, ''),
-              description: `Tìm bạn ở ghép cùng trường ${s.campus || 'Cần Thơ'}, văn minh, tôn trọng sinh hoạt chung.`,
-              contact: s.contactZalo || '0901234567'
+              budget: s.budget !== undefined ? s.budget : (s.budgetRange === 'high' ? 3.2 : (s.budgetRange === 'low' ? 1.5 : 2.2)),
+              hasPet: Boolean(s.hasPet),
+              petPolicy: s.petPolicy || (s.hasPet ? 'pet_friendly' : 'no_pet'),
+              smokingDrinking: s.smokingDrinking || 'none',
+              sleepSchedule: s.sleepSchedule || 'flexible',
+              habits: s.habits || `${s.sleepSchedule === 'night_owl' ? 'Thức khuya' : (s.sleepSchedule === 'early_bird' ? 'Ngủ sớm' : 'Linh hoạt')}, ${s.smokingDrinking === 'none' ? 'Không hút thuốc' : ''}, ${s.hasPet ? 'Có thú cưng' : 'Không nuôi pet'}`.replace(/^, |, $/g, ''),
+              description: s.description || `Tìm bạn ở ghép cùng trường ${s.campus || 'Cần Thơ'}, văn minh, tôn trọng sinh hoạt chung.`,
+              contact: s.contactZalo || '0901***567',
+              rawContact: s.rawContact || s.contactZalo || ''
             }));
             return { items: mapped, count: mapped.length };
           }

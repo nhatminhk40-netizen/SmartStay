@@ -90,6 +90,8 @@ export default function RoomDetail() {
     const [comment, setComment] = useState("");
     const [proofUrl, setProofUrl] = useState("");
     const [isAnonymous, setIsAnonymous] = useState(false);
+    const [hasStayed, setHasStayed] = useState(true);
+    const [stayedPeriod, setStayedPeriod] = useState("Đã ở 6 tháng");
     const [submittingReview, setSubmittingReview] = useState(false);
     const [reviewMessage, setReviewMessage] = useState({ text: "", type: "" });
 
@@ -196,7 +198,7 @@ export default function RoomDetail() {
     // Gửi đánh giá thực tế
     const handleReviewSubmit = async (e) => {
         e.preventDefault();
-        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const token = base44.auth.getToken() || localStorage.getItem("smartstay_token") || localStorage.getItem("token") || sessionStorage.getItem("token");
         if (!token) {
             setReviewMessage({
                 text: "Vui lòng đăng nhập tài khoản để gửi đánh giá và tích lũy điểm uy tín.",
@@ -223,14 +225,19 @@ export default function RoomDetail() {
                     actualMonthlyCost: Number(actualMonthlyCost),
                     comment,
                     verificationProofUrl: proofUrl,
-                    isAnonymous
+                    isAnonymous,
+                    has_stayed: Boolean(hasStayed),
+                    stayed_period: hasStayed ? stayedPeriod : "Người quan tâm thuê",
+                    studentName: user?.full_name || user?.fullName || user?.name || "Sinh viên SmartStay"
                 })
             });
 
             const json = await res.json();
             if (json.success) {
                 setReviewMessage({
-                    text: "Gửi đánh giá thành công! Đánh giá đã được ghi nhận vào hệ thống.",
+                    text: hasStayed
+                        ? "Gửi đánh giá thành công! Đánh giá đã được gắn huy hiệu ✓ Đã ở thật."
+                        : "Gửi đánh giá thành công! Đánh giá đã được ghi nhận vào hệ thống.",
                     type: "success"
                 });
                 setComment("");
@@ -238,7 +245,7 @@ export default function RoomDetail() {
                 fetchRoomData();
             } else {
                 setReviewMessage({
-                    text: json.message || "Không thể gửi đánh giá, vui lòng thử lại.",
+                    text: json.message || json.error || "Không thể gửi đánh giá, vui lòng thử lại.",
                     type: "error"
                 });
             }
@@ -732,8 +739,8 @@ export default function RoomDetail() {
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold text-foreground">{rev.anonymous_name || rev.studentName}</span>
                                                     {rev.has_stayed ? (
-                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Đã ở thật
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300/60 shadow-xs">
+                                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Đã ở thật {rev.stayed_period ? `• ${rev.stayed_period}` : ""}
                                                         </span>
                                                     ) : (
                                                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[10px]">
@@ -765,6 +772,24 @@ export default function RoomDetail() {
                                     Gửi đánh giá trải nghiệm thực tế
                                 </h3>
 
+                                {/* Thông tin tài khoản người đang đánh giá */}
+                                {user ? (
+                                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-50/80 text-blue-900 border border-blue-200/80 text-xs">
+                                        <UserCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                                        <span className="truncate">
+                                            Đang đánh giá với: <strong>{user.full_name || user.fullName || user.name || user.email}</strong>
+                                            <span className="ml-1.5 inline-block bg-blue-600 text-white text-[10px] px-1.5 py-0.2 rounded font-semibold">
+                                                {user.role === 'landlord' || user.role === 'chu_tro' ? 'Chủ trọ' : 'Sinh viên'}
+                                            </span>
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs">
+                                        <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                                        <span>Vui lòng đăng nhập tài khoản để gửi đánh giá và nhận huy hiệu xác minh.</span>
+                                    </div>
+                                )}
+
                                 {reviewMessage.text && (
                                     <div className={`p-3 rounded-xl text-xs font-medium ${
                                         reviewMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -772,6 +797,38 @@ export default function RoomDetail() {
                                         {reviewMessage.text}
                                     </div>
                                 )}
+
+                                {/* Xác nhận đã từng ở thực tế */}
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 space-y-2">
+                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
+                                        <input
+                                            type="checkbox"
+                                            checked={hasStayed}
+                                            onChange={(e) => setHasStayed(e.target.checked)}
+                                            className="rounded text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span className="flex items-center gap-1 text-emerald-800 font-bold">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Tôi đã / đang sinh sống tại phòng trọ này
+                                        </span>
+                                    </label>
+
+                                    {hasStayed && (
+                                        <div className="pt-1">
+                                            <label className="text-[11px] text-muted-foreground block mb-1">Thời gian bạn đã ở (*)</label>
+                                            <select
+                                                value={stayedPeriod}
+                                                onChange={(e) => setStayedPeriod(e.target.value)}
+                                                className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs bg-white focus:ring-2 focus:ring-accent/30 outline-none"
+                                            >
+                                                <option value="Đã ở 1 - 3 tháng">Đã ở 1 - 3 tháng</option>
+                                                <option value="Đã ở 6 tháng">Đã ở 6 tháng</option>
+                                                <option value="Đã ở 1 năm">Đã ở 1 năm</option>
+                                                <option value="Đã ở trên 1 năm">Đã ở trên 1 năm</option>
+                                                <option value="Đang sinh sống hiện tại">Đang sinh sống hiện tại</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div>
                                     <label className="text-[11px] text-muted-foreground block mb-1">Mức độ hài lòng (1 - 5 sao)</label>
@@ -831,7 +888,7 @@ export default function RoomDetail() {
                                         type="url"
                                         value={proofUrl}
                                         onChange={(e) => setProofUrl(e.target.value)}
-                                        placeholder="https://... (để được gắn nhãn Đã ở thật)"
+                                        placeholder="https://... (để tăng thêm độ tin cậy)"
                                         className="w-full px-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none"
                                     />
                                 </div>

@@ -47,10 +47,10 @@ reviewSchema.pre('save', function () {
     if (!this.content && this.comment) {
         this.content = this.comment;
     }
-    // Nếu có minh chứng đã được duyệt, gắn nhãn has_stayed = true và tăng điểm trust_score
-    if (this.verificationStatus === 'verified') {
+    // Nếu người thuê xác nhận đã ở hoặc minh chứng hợp lệ, gắn nhãn has_stayed = true và tăng điểm trust_score
+    if (this.verificationStatus === 'verified' || this.has_stayed) {
         this.has_stayed = true;
-        this.trust_score = Math.max(this.trust_score, 90);
+        this.trust_score = Math.max(this.trust_score, 85);
     }
 });
 

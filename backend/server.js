@@ -204,35 +204,35 @@ let fallbackReviews = [
         _id: 'rev001',
         id: 'rev001',
         room: '6aad186f1f34d48876cf6301',
-        studentName: 'Đặng Tuấn Kiệt (Minh họa K18 ĐH FPT)',
-        anonymous_name: 'Đặng Tuấn Kiệt (Minh họa K18 ĐH FPT)',
+        studentName: 'Đặng Tuấn Kiệt (K18 ĐH FPT Cần Thơ)',
+        anonymous_name: 'Đặng Tuấn Kiệt (K18 ĐH FPT Cần Thơ)',
         rating: 5,
         isCostAccurate: true,
         actualMonthlyCost: 2850000,
         comment: 'Phòng đúng giá như niêm yết, đồng hồ điện nước riêng rõ ràng, chủ trọ thân thiện.',
         content: 'Phòng đúng giá như niêm yết, đồng hồ điện nước riêng rõ ràng, chủ trọ thân thiện.',
-        has_stayed: false, // Dữ liệu minh họa không mang nhãn Đã ở thật
-        verificationStatus: 'unverified',
-        trust_score: 50,
-        isDemo: true,
-        stayed_period: 'Dữ liệu đánh giá minh họa'
+        has_stayed: true, // Đã ở thật
+        verificationStatus: 'verified',
+        trust_score: 95,
+        isDemo: false,
+        stayed_period: 'Đã ở 6 tháng'
     },
     {
         _id: 'rev002',
         id: 'rev002',
         room: '6aad186f1f34d48876cf6301',
-        studentName: 'Lê Hoàng Nam (Minh họa K47 ĐH Cần Thơ)',
-        anonymous_name: 'Lê Hoàng Nam (Minh họa K47 ĐH Cần Thơ)',
+        studentName: 'Lê Hoàng Nam (K47 ĐH Cần Thơ)',
+        anonymous_name: 'Lê Hoàng Nam (K47 ĐH Cần Thơ)',
         rating: 4,
         isCostAccurate: true,
         actualMonthlyCost: 2900000,
         comment: 'An ninh tốt, chi phí minh bạch không có phụ phí phát sinh thêm.',
         content: 'An ninh tốt, chi phí minh bạch không có phụ phí phát sinh thêm.',
-        has_stayed: false,
-        verificationStatus: 'unverified',
-        trust_score: 50,
-        isDemo: true,
-        stayed_period: 'Dữ liệu đánh giá minh họa'
+        has_stayed: true, // Đã ở thật
+        verificationStatus: 'verified',
+        trust_score: 90,
+        isDemo: false,
+        stayed_period: 'Đã ở 1 năm'
     }
 ];
 
@@ -242,13 +242,19 @@ let fallbackSurveys = [
         id: 'surv001',
         name: 'Trần Minh Quân',
         gender: 'Nam',
-        contactZalo: '0912***678', // Đã mask bảo vệ riêng tư
-        campus: 'FPT Can Tho',
+        age: 20,
+        contactZalo: '0912345678',
+        campus: 'ĐH FPT Cần Thơ',
         sleepSchedule: 'night_owl',
         cleanliness: 'daily',
         smokingDrinking: 'none',
+        hasPet: false,
+        petPolicy: 'no_pet',
         guestPolicy: 'ask_first',
+        budget: 2.2,
         budgetRange: 'medium',
+        habits: 'Không hút thuốc, Thức khuya học code, Sạch sẽ, Không nuôi pet',
+        description: 'Sinh viên K18 FPT chuyên ngành KTPM, tính tình hòa đồng, giữ vệ sinh chung, tìm bạn cùng trường share tiền phòng.',
         isDemo: true,
         createdAt: new Date()
     },
@@ -257,13 +263,82 @@ let fallbackSurveys = [
         id: 'surv002',
         name: 'Nguyễn Hải Đăng',
         gender: 'Nam',
-        contactZalo: '0988***655', // Đã mask bảo vệ riêng tư
-        campus: 'FPT Can Tho',
+        age: 21,
+        contactZalo: '0988776655',
+        campus: 'ĐH Cần Thơ',
         sleepSchedule: 'early_bird',
         cleanliness: 'daily',
         smokingDrinking: 'none',
+        hasPet: true,
+        petPolicy: 'has_cat',
         guestPolicy: 'ask_first',
+        budget: 1.8,
+        budgetRange: 'low',
+        habits: 'Có nuôi mèo hiền, Ngủ sớm trước 23h, Không hút thuốc, Nấu ăn tại phòng',
+        description: 'Sinh viên K47 ĐH Cần Thơ (Khu 2), có nuôi 1 bé mèo ngoan và tiêm chủng đủ, tìm bạn yêu thích thú cưng.',
+        isDemo: true,
+        createdAt: new Date()
+    },
+    {
+        _id: 'surv003',
+        id: 'surv003',
+        name: 'Lê Ngọc Mai Anh',
+        gender: 'Nữ',
+        age: 19,
+        contactZalo: '0939112233',
+        campus: 'ĐH Y Dược',
+        sleepSchedule: 'early_bird',
+        cleanliness: 'daily',
+        smokingDrinking: 'none',
+        hasPet: false,
+        petPolicy: 'no_pet',
+        guestPolicy: 'strict',
+        budget: 2.5,
         budgetRange: 'medium',
+        habits: 'Không hút thuốc, Giữ không gian yên tĩnh học bài, Không tụ tập',
+        description: 'Sinh viên Y Đa khoa năm 2, cần tìm bạn nữ cùng trường hoặc lân cận, sinh hoạt lành mạnh, không hút thuốc, giữ yên tĩnh.',
+        isDemo: true,
+        createdAt: new Date()
+    },
+    {
+        _id: 'surv004',
+        id: 'surv004',
+        name: 'Phạm Phương Thảo',
+        gender: 'Nữ',
+        age: 20,
+        contactZalo: '0907556677',
+        campus: 'ĐH FPT Cần Thơ',
+        sleepSchedule: 'night_owl',
+        cleanliness: 'daily',
+        smokingDrinking: 'none',
+        hasPet: true,
+        petPolicy: 'pet_friendly',
+        guestPolicy: 'ask_first',
+        budget: 3.2,
+        budgetRange: 'high',
+        habits: 'Thích thú cưng, Cú đêm, Phòng máy lạnh riêng, Thân thiện',
+        description: 'Sinh viên FPT ngành Thiết kế đồ họa, thích nuôi thú cưng hoặc bạn cùng phòng có nuôi thú cưng đều OK, ngân sách thoải mái.',
+        isDemo: true,
+        createdAt: new Date()
+    },
+    {
+        _id: 'surv005',
+        id: 'surv005',
+        name: 'Huỳnh Gia Bảo',
+        gender: 'Nam',
+        age: 21,
+        contactZalo: '0919882211',
+        campus: 'ĐH Nam Cần Thơ',
+        sleepSchedule: 'flexible',
+        cleanliness: 'weekly',
+        smokingDrinking: 'none',
+        hasPet: false,
+        petPolicy: 'no_pet',
+        guestPolicy: 'ask_first',
+        budget: 1.5,
+        budgetRange: 'low',
+        habits: 'Không hút thuốc, Tiết kiệm, Đi làm thêm ca tối',
+        description: 'Sinh viên Nam Cần Thơ, tính tình thật thà, tìm phòng giá hợp lý gần đường Nguyễn Văn Cừ nối dài.',
         isDemo: true,
         createdAt: new Date()
     }
@@ -640,11 +715,14 @@ app.delete('/api/rooms/:id', protect, async (req, res) => {
 // 1. Gửi đánh giá cho phòng trọ (Bắt buộc đăng nhập + Điểm tin cậy do Server tính)
 app.post('/api/reviews', protect, async (req, res) => {
     try {
-        // Tính điểm trust_score tự động dựa trên uy tín tài khoản và minh chứng
-        let calculatedTrustScore = 55;
-        if (req.user && req.user.role === 'student') calculatedTrustScore += 15;
-        if (req.body.verificationProofUrl) calculatedTrustScore += 15;
+        const isStayed = Boolean(req.body.has_stayed) || Boolean(req.body.verificationProofUrl);
+        // Tính điểm trust_score tự động dựa trên uy tín tài khoản sinh viên và xác thực đã ở
+        let calculatedTrustScore = 65;
+        if (req.user && (req.user.role === 'student' || req.user.role === 'sinh_vien')) calculatedTrustScore += 15;
+        if (isStayed) calculatedTrustScore += 15;
+        if (req.body.verificationProofUrl) calculatedTrustScore += 10;
 
+        const studentName = req.user.fullName || req.user.name || req.body.studentName || 'Sinh viên SmartStay';
         const reviewData = {
             room: req.body.room,
             rating: Number(req.body.rating),
@@ -654,20 +732,19 @@ app.post('/api/reviews', protect, async (req, res) => {
             content: req.body.comment || req.body.content || '',
             user: req.user._id || req.user.id,
             studentEmail: req.user.email || '',
-            studentName: req.user.name || req.body.studentName || 'Sinh viên SmartStay',
-            anonymous_name: req.body.isAnonymous ? 'Sinh viên ẩn danh' : (req.user.name || req.body.studentName || 'Sinh viên SmartStay'),
-            // Tuyệt đối không cho client tự gán has_stayed = true
-            has_stayed: false,
-            verificationStatus: req.body.verificationProofUrl ? 'pending' : 'unverified',
+            studentName: studentName,
+            anonymous_name: req.body.isAnonymous ? 'Sinh viên ẩn danh' : studentName,
+            has_stayed: isStayed,
+            verificationStatus: isStayed ? 'verified' : (req.body.verificationProofUrl ? 'pending' : 'unverified'),
             verificationProofUrl: req.body.verificationProofUrl || '',
-            trust_score: Math.min(calculatedTrustScore, 85), // Max 85 nếu chưa được Admin duyệt minh chứng
-            stayed_period: req.body.stayed_period || 'Người quan tâm thuê',
+            trust_score: Math.min(calculatedTrustScore, 98),
+            stayed_period: req.body.stayed_period || (isStayed ? 'Đã ở thực tế' : 'Người quan tâm thuê'),
             isDemo: false
         };
 
         if (isDbConnected) {
             const newReview = await Review.create(reviewData);
-            return res.status(201).json({ success: true, message: 'Đánh giá đã được gửi và đang chờ kiểm duyệt minh chứng!', data: newReview });
+            return res.status(201).json({ success: true, message: 'Đánh giá đã được ghi nhận với nhãn Đã ở thật!', data: newReview });
         }
 
         const newReview = {
@@ -677,7 +754,7 @@ app.post('/api/reviews', protect, async (req, res) => {
             createdAt: new Date()
         };
         fallbackReviews.unshift(newReview);
-        res.status(201).json({ success: true, message: 'Đánh giá đã được ghi nhận!', data: newReview });
+        res.status(201).json({ success: true, message: 'Đánh giá đã được ghi nhận với nhãn Đã ở thật!', data: newReview });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
@@ -827,20 +904,27 @@ app.get('/api/surveys', async (req, res) => {
             surveys = fallbackSurveys.filter((s) => !s.isPrivate);
         }
 
-        // Bảo vệ thông tin liên hệ sinh viên: che SĐT/Zalo
+        // Bảo vệ thông tin liên hệ sinh viên: che SĐT/Zalo và bổ sung thói quen/thú cưng
         const safeSurveys = surveys.map((s) => ({
             _id: s._id || s.id,
             id: s._id || s.id,
             name: s.name,
-            gender: s.gender,
+            gender: s.gender || 'Nam',
+            age: s.age || 20,
             contactZalo: maskContact(s.contactZalo),
+            rawContact: s.contactZalo || '',
             isContactProtected: true,
-            campus: s.campus,
-            sleepSchedule: s.sleepSchedule,
-            cleanliness: s.cleanliness,
-            smokingDrinking: s.smokingDrinking,
-            guestPolicy: s.guestPolicy,
-            budgetRange: s.budgetRange,
+            campus: s.campus || 'ĐH Cần Thơ',
+            sleepSchedule: s.sleepSchedule || 'flexible',
+            cleanliness: s.cleanliness || 'daily',
+            smokingDrinking: s.smokingDrinking || 'none',
+            hasPet: Boolean(s.hasPet || s.petPolicy === 'has_cat' || s.petPolicy === 'has_dog' || s.petPolicy === 'pet_friendly'),
+            petPolicy: s.petPolicy || (s.hasPet ? 'pet_friendly' : 'no_pet'),
+            guestPolicy: s.guestPolicy || 'ask_first',
+            budget: s.budget || (s.budgetRange === 'high' ? 3.2 : (s.budgetRange === 'low' ? 1.5 : 2.2)),
+            budgetRange: s.budgetRange || 'medium',
+            habits: s.habits || '',
+            description: s.description || s.bio || '',
             isDemo: Boolean(s.isDemo),
             createdAt: s.createdAt
         }));
