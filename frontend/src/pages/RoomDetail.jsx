@@ -9,6 +9,7 @@ import {
     BadgeCheck,
     CheckCircle2,
     XCircle,
+    X,
     AlertTriangle,
     Flame,
     Clock,
