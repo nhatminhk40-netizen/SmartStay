@@ -22,6 +22,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import Admin from '@/pages/Admin';
 import EmployeeDashboard from '@/pages/EmployeeDashboard';
 import LandlordConfirmPage from '@/pages/LandlordConfirmPage';
+import RoomDetail from '@/pages/RoomDetail';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -71,6 +72,7 @@ const AuthenticatedApp = () => {
       {/* Main app routes */}
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/phong/:id" element={<RoomDetail />} />
         <Route path="/ghep-ban" element={<Roommates />} />
         <Route path="/chuyen-tro" element={<Transfers />} />
         <Route path="/pass-phong" element={<RoomPass />} />

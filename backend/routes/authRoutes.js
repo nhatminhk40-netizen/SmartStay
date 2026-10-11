@@ -4,11 +4,12 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { protect, generateToken } = require('../middleware/auth');
 
-// Danh sách tài khoản demo khởi tạo sẵn (dành cho chế độ Fallback In-Memory hoặc test)
-const defaultDemoUsers = [
+// Danh sách tài khoản demo (CHỈ dành cho môi trường local development khi MongoDB chưa sẵn sàng)
+const isProd = process.env.NODE_ENV === 'production';
+const defaultDemoUsers = isProd ? [] : [
     {
         _id: 'usr_admin_001',
-        fullName: 'Quản trị viên Hệ thống (Admin)',
+        fullName: 'Quản trị viên Hệ thống (Dev Mode)',
         email: 'admin@smartstay.vn',
         phone: '0901234567',
         role: 'admin',
@@ -17,22 +18,12 @@ const defaultDemoUsers = [
     },
     {
         _id: 'usr_emp_001',
-        fullName: 'Nhân viên Vận hành SmartStay',
+        fullName: 'Nhân viên Vận hành SmartStay (Dev Mode)',
         email: 'employee@smartstay.vn',
         phone: '0912345678',
         role: 'employee',
         campus: 'FPT Can Tho',
         passwordHash: bcrypt.hashSync('Employee@123456', 10)
-    },
-    {
-        _id: 'usr_std_001',
-        fullName: 'Đinh Trịnh Nhật Minh',
-        email: 'student@fpt.edu.vn',
-        phone: '0987654321',
-        role: 'student',
-        studentId: 'CE180001',
-        campus: 'FPT Can Tho',
-        passwordHash: bcrypt.hashSync('123456', 10)
     }
 ];
 
@@ -45,8 +36,13 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ họ tên, email và mật khẩu.' });
         }
 
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu phải chứa ít nhất 6 ký tự.' });
+        }
+
         const normalizedEmail = email.toLowerCase().trim();
-        const userRole = role === 'admin' ? 'student' : (role || 'student'); // Không cho tự phong Admin qua public register
+        // Không cho phép đăng ký trực tiếp vai trò admin từ public API
+        const userRole = (role === 'admin' || role === 'employee') ? 'student' : (role || 'student');
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
@@ -87,7 +83,11 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // B. Chế độ Fallback In-Memory
+        // B. Chế độ Fallback In-Memory (chỉ cho phép khi dev)
+        if (isProd) {
+            return res.status(503).json({ success: false, message: 'Cơ sở dữ liệu chưa sẵn sàng trong môi trường Production.' });
+        }
+
         let fallbackUsers = req.app.locals.fallbackUsers;
         if (!fallbackUsers) {
             fallbackUsers = [...defaultDemoUsers];
@@ -121,7 +121,7 @@ router.post('/register', async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Đăng ký tài khoản thành công (Chế độ Fallback)!',
+            message: 'Đăng ký tài khoản thành công (Chế độ Local Dev)!',
             access_token: token,
             user: {
                 id: newUser._id,
@@ -148,81 +148,60 @@ router.post('/login', async (req, res) => {
 
         const cleanEmail = email.toLowerCase().trim();
 
-        // Xử lý Alias nhanh tiện dụng cho môi trường DEV ("admin", "employee")
-        let targetEmail = cleanEmail;
-        if (cleanEmail === 'admin') targetEmail = 'admin@smartstay.vn';
-        if (cleanEmail === 'employee') targetEmail = 'employee@smartstay.vn';
-
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
-            let user = await User.findOne({ email: targetEmail });
-            
-            // Nếu chưa có tài khoản admin/employee mẫu trong DB, tự động seed vào DB
-            if (!user && (targetEmail === 'admin@smartstay.vn' || targetEmail === 'employee@smartstay.vn')) {
-                const demoTemplate = defaultDemoUsers.find(u => u.email === targetEmail);
-                if (demoTemplate) {
-                    user = await User.create({
-                        fullName: demoTemplate.fullName,
-                        email: demoTemplate.email,
-                        password: targetEmail === 'admin@smartstay.vn' ? 'Admin@123456' : '123456',
-                        role: demoTemplate.role,
-                        phone: demoTemplate.phone,
-                        campus: demoTemplate.campus
-                    });
-                }
+            const user = await User.findOne({ email: cleanEmail });
+
+            if (!user) {
+                return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
             }
 
-            if (user) {
-                // Kiểm tra mật khẩu (hỗ trợ cả mật khẩu chuẩn và mật khẩu rút gọn cho employee)
-                const isMatch = await user.matchPassword(password);
-                const isEmployeeShortcut = (user.role === 'employee' || user.email === 'employee@smartstay.vn') && password === '123456';
-                const isAdminShortcut = user.role === 'admin' && (password === 'Admin@123456' || password === '123456');
-
-                if (isMatch || isEmployeeShortcut || isAdminShortcut) {
-                    const token = generateToken({
-                        id: user._id,
-                        email: user.email,
-                        role: user.role,
-                        fullName: user.fullName
-                    });
-
-                    return res.status(200).json({
-                        success: true,
-                        message: 'Đăng nhập thành công!',
-                        access_token: token,
-                        user: {
-                            id: user._id,
-                            fullName: user.fullName,
-                            email: user.email,
-                            role: user.role,
-                            phone: user.phone,
-                            campus: user.campus
-                        }
-                    });
-                }
+            // Nghiêm ngặt: Luôn so khớp mật khẩu bằng bcrypt, không dùng shortcut
+            const isMatch = await user.matchPassword(password);
+            if (!isMatch) {
+                return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
             }
 
-            return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
+            const token = generateToken({
+                id: user._id,
+                email: user.email,
+                role: user.role,
+                fullName: user.fullName
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Đăng nhập thành công!',
+                access_token: token,
+                user: {
+                    id: user._id,
+                    fullName: user.fullName,
+                    email: user.email,
+                    role: user.role,
+                    phone: user.phone,
+                    campus: user.campus
+                }
+            });
         }
 
-        // B. Chế độ Fallback In-Memory
+        // B. Chế độ Fallback In-Memory (Chỉ cho phép khi dev)
+        if (isProd) {
+            return res.status(503).json({ success: false, message: 'Dịch vụ xác thực cơ sở dữ liệu tạm thời gián đoạn.' });
+        }
+
         let fallbackUsers = req.app.locals.fallbackUsers;
         if (!fallbackUsers) {
             fallbackUsers = [...defaultDemoUsers];
             req.app.locals.fallbackUsers = fallbackUsers;
         }
 
-        const user = fallbackUsers.find(u => u.email === targetEmail);
+        const user = fallbackUsers.find(u => u.email === cleanEmail);
         if (!user) {
             return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
         }
 
-        // So khớp mật khẩu fallback
         const isMatch = await bcrypt.compare(password, user.passwordHash);
-        const isShortcut = (targetEmail === 'employee@smartstay.vn' && password === '123456') ||
-                           (targetEmail === 'admin@smartstay.vn' && (password === '123456' || password === 'Admin@123456'));
-
-        if (!isMatch && !isShortcut) {
+        if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
         }
 
@@ -235,7 +214,7 @@ router.post('/login', async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Đăng nhập thành công (Chế độ Fallback)!',
+            message: 'Đăng nhập thành công (Chế độ Local Dev)!',
             access_token: token,
             user: {
                 id: user._id,

@@ -22,8 +22,13 @@ const FALLBACK_ROOMS = [
     depositMonths: 1,
     extraFees: { wifi: 50000, trash: 30000, parking: 0 },
     listingType: 'safe',
-    isSafeBadge: true,
-    safe_badge: true,
+    isSafeBadge: false, // Dữ liệu minh họa: Không tự nhận Verified
+    safe_badge: false,
+    verificationStatus: 'unverified',
+    fireSafetyCertified: true,
+    fireSafetyDetails: 'Có bình chữa cháy và lối thoát hiểm hành lang',
+    isDemo: true,
+    demoNote: 'Dữ liệu minh họa SmartStay',
     seeking_roommate: true,
     rating: 4.8
   },
@@ -50,6 +55,10 @@ const FALLBACK_ROOMS = [
     listingType: 'standard',
     isSafeBadge: false,
     safe_badge: false,
+    verificationStatus: 'unverified',
+    fireSafetyCertified: false,
+    isDemo: true,
+    demoNote: 'Dữ liệu minh họa SmartStay',
     seeking_roommate: false,
     rating: 4.5
   },
@@ -74,13 +83,18 @@ const FALLBACK_ROOMS = [
     depositMonths: 2,
     extraFees: { wifi: 0, trash: 0, parking: 0 },
     listingType: 'pass',
-    isSafeBadge: true,
-    safe_badge: true,
+    isSafeBadge: false,
+    safe_badge: false,
+    verificationStatus: 'unverified',
+    fireSafetyCertified: true,
+    fireSafetyDetails: 'Cầu thang thoát hiểm ngoài trời và hệ thống báo cháy',
     has_pass: true,
     remaining_duration: 5,
     pass_months_left: 5,
     remaining_deposit: 5600000,
-    is_boosted: true,
+    is_boosted: false,
+    isDemo: true,
+    demoNote: 'Dữ liệu minh họa SmartStay Pass',
     seeking_roommate: false,
     rating: 4.7
   },
@@ -104,9 +118,13 @@ const FALLBACK_ROOMS = [
     hasSeparateMeter: true,
     depositMonths: 1,
     extraFees: { wifi: 0, trash: 20000, parking: 0 },
-    listingType: 'safe',
-    isSafeBadge: true,
-    safe_badge: true,
+    listingType: 'standard',
+    isSafeBadge: false,
+    safe_badge: false,
+    verificationStatus: 'unverified',
+    fireSafetyCertified: false,
+    isDemo: true,
+    demoNote: 'Dữ liệu minh họa SmartStay',
     seeking_roommate: true,
     rating: 4.9
   }
@@ -120,22 +138,28 @@ export const base44 = {
           const res = await fetch(`${API_BASE}/rooms`);
           const json = await res.json();
           if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            window.__SMARTSTAY_IS_FALLBACK = Boolean(json.isFallbackMode);
+            window.__SMARTSTAY_API_ONLINE = true;
             return json.data.map(room => ({
               ...room,
               id: room._id || room.id,
               location: room.location || room.address || 'Cần Thơ',
               image_url: room.image_url || (room.images && room.images[0]) || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267',
-              safe_badge: room.safe_badge || room.isSafeBadge || false,
+              safe_badge: Boolean(room.safe_badge || room.isSafeBadge) && !room.isDemo,
               has_pass: room.has_pass || room.listingType === 'pass' || false,
               pass_months_left: room.pass_months_left || room.remaining_duration || 0,
               area_sqm: room.area_sqm || 20,
               room_type: room.room_type || 'Phòng trọ',
-              amenities: room.amenities || []
+              amenities: room.amenities || [],
+              isDemo: Boolean(room.isDemo || json.isFallbackMode)
             }));
           }
+          window.__SMARTSTAY_IS_FALLBACK = true;
           return FALLBACK_ROOMS;
         } catch (error) {
-          console.warn('Lỗi kết nối Backend API, tự động kích hoạt Fallback Mock Data:', error);
+          console.warn('⚠️ Lỗi kết nối Backend API SmartStay, chuyển sang chế độ dữ liệu minh họa:', error.message);
+          window.__SMARTSTAY_IS_FALLBACK = true;
+          window.__SMARTSTAY_API_ONLINE = false;
           return FALLBACK_ROOMS;
         }
       },

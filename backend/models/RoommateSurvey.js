@@ -10,6 +10,15 @@ const roommateSurveySchema = new mongoose.Schema({
         default: 'Linh hoạt' 
     },
 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    userEmail: { type: String, default: '' },
+    isPrivate: { type: Boolean, default: false }, // Cho phép người dùng ẩn hồ sơ của mình
+    allowShareContact: { type: Boolean, default: false }, // Chỉ chia sẻ liên hệ khi có yêu cầu ghép bạn được chấp thuận
+    isDemo: { type: Boolean, default: false },
+
     // 5 Tiêu chí khảo sát tìm bạn cùng phòng
     sleepSchedule: {
         type: String,

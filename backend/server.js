@@ -8,7 +8,7 @@ const Room = require('./models/Room');
 const Review = require('./models/Review');
 const RoommateSurvey = require('./models/RoommateSurvey');
 const authRoutes = require('./routes/authRoutes');
-const { protect, authorize } = require('./middleware/auth');
+const { protect, authorize, checkRoomOwnership } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +32,16 @@ app.locals.fallbackUsers = [];
 // Helper chống ReDoS & NoSQL Injection cho Regex
 const escapeRegex = (str) => (str ? str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') : '');
 
+// Helper bảo vệ quyền riêng tư: Ẩn số điện thoại / Zalo công khai
+const maskContact = (contact) => {
+    if (!contact) return '';
+    const str = String(contact).trim();
+    if (str.length <= 6) return '***';
+    const start = str.slice(0, 4);
+    const end = str.slice(-3);
+    return `${start}***${end}`;
+};
+
 // Kết nối MongoDB Atlas
 if (process.env.MONGO_URI) {
     mongoose.connect(process.env.MONGO_URI, {
@@ -54,7 +64,7 @@ if (process.env.MONGO_URI) {
 app.use('/api/auth', authRoutes);
 
 
-// Bộ dữ liệu dự phòng (Fallback Data) chuẩn theo dự án SmartStay
+// Bộ dữ liệu dự phòng (Fallback Data) - Ghi rõ nhãn "Dữ liệu minh họa" để bảo vệ tính trung thực
 let fallbackRooms = [
     {
         _id: '6aad186f1f34d48876cf6301',
@@ -77,8 +87,13 @@ let fallbackRooms = [
         depositMonths: 1,
         extraFees: { wifi: 50000, trash: 30000, parking: 0 },
         listingType: 'safe',
-        isSafeBadge: true,
-        safe_badge: true,
+        isSafeBadge: false, // Không tự nhận Safe thật nếu là mock data
+        safe_badge: false,
+        verificationStatus: 'unverified',
+        fireSafetyCertified: true,
+        fireSafetyDetails: 'Có bình chữa cháy và thang thoát hiểm hành lang',
+        isDemo: true,
+        demoNote: 'Dữ liệu minh họa SmartStay',
         seeking_roommate: true,
         createdAt: new Date()
     },
@@ -105,6 +120,10 @@ let fallbackRooms = [
         listingType: 'standard',
         isSafeBadge: false,
         safe_badge: false,
+        verificationStatus: 'unverified',
+        fireSafetyCertified: false,
+        isDemo: true,
+        demoNote: 'Dữ liệu minh họa SmartStay',
         seeking_roommate: false,
         createdAt: new Date()
     },
@@ -129,14 +148,19 @@ let fallbackRooms = [
         depositMonths: 2,
         extraFees: { wifi: 0, trash: 0, parking: 0 },
         listingType: 'pass',
-        isSafeBadge: true,
-        safe_badge: true,
+        isSafeBadge: false,
+        safe_badge: false,
+        verificationStatus: 'unverified',
+        fireSafetyCertified: true,
+        fireSafetyDetails: 'Cầu thang thoát hiểm ngoài trời và hệ thống báo cháy',
+        isDemo: true,
+        demoNote: 'Dữ liệu minh họa SmartStay Pass',
         has_pass: true,
         remaining_duration: 5,
         pass_months_left: 5,
         remaining_deposit: 5600000,
         pass_reason: 'Chuyển chỗ thực tập lên TP.HCM',
-        is_boosted: true,
+        is_boosted: false,
         seeking_roommate: false,
         createdAt: new Date()
     },
@@ -160,9 +184,13 @@ let fallbackRooms = [
         hasSeparateMeter: true,
         depositMonths: 1,
         extraFees: { wifi: 0, trash: 20000, parking: 0 },
-        listingType: 'safe',
-        isSafeBadge: true,
-        safe_badge: true,
+        listingType: 'standard',
+        isSafeBadge: false,
+        safe_badge: false,
+        verificationStatus: 'unverified',
+        fireSafetyCertified: false,
+        isDemo: true,
+        demoNote: 'Dữ liệu minh họa SmartStay',
         seeking_roommate: true,
         createdAt: new Date()
     }
@@ -173,31 +201,35 @@ let fallbackReviews = [
         _id: 'rev001',
         id: 'rev001',
         room: '6aad186f1f34d48876cf6301',
-        studentName: 'Đặng Tuấn Kiệt (K18 ĐH FPT)',
-        anonymous_name: 'Đặng Tuấn Kiệt (K18 ĐH FPT)',
+        studentName: 'Đặng Tuấn Kiệt (Minh họa K18 ĐH FPT)',
+        anonymous_name: 'Đặng Tuấn Kiệt (Minh họa K18 ĐH FPT)',
         rating: 5,
         isCostAccurate: true,
         actualMonthlyCost: 2850000,
         comment: 'Phòng đúng giá như niêm yết, đồng hồ điện nước riêng rõ ràng, chủ trọ thân thiện.',
         content: 'Phòng đúng giá như niêm yết, đồng hồ điện nước riêng rõ ràng, chủ trọ thân thiện.',
-        has_stayed: true,
-        trust_score: 98,
-        stayed_period: 'Đã ở 6 tháng (Kỳ Fall 2023)'
+        has_stayed: false, // Dữ liệu minh họa không mang nhãn Đã ở thật
+        verificationStatus: 'unverified',
+        trust_score: 50,
+        isDemo: true,
+        stayed_period: 'Dữ liệu đánh giá minh họa'
     },
     {
         _id: 'rev002',
         id: 'rev002',
         room: '6aad186f1f34d48876cf6301',
-        studentName: 'Lê Hoàng Nam (K47 ĐH Cần Thơ)',
-        anonymous_name: 'Lê Hoàng Nam (K47 ĐH Cần Thơ)',
+        studentName: 'Lê Hoàng Nam (Minh họa K47 ĐH Cần Thơ)',
+        anonymous_name: 'Lê Hoàng Nam (Minh họa K47 ĐH Cần Thơ)',
         rating: 4,
         isCostAccurate: true,
         actualMonthlyCost: 2900000,
         comment: 'An ninh tốt, chi phí minh bạch không có phụ phí phát sinh thêm.',
         content: 'An ninh tốt, chi phí minh bạch không có phụ phí phát sinh thêm.',
-        has_stayed: true,
-        trust_score: 92,
-        stayed_period: 'Đã ở 1 năm (Kỳ Spring 2024)'
+        has_stayed: false,
+        verificationStatus: 'unverified',
+        trust_score: 50,
+        isDemo: true,
+        stayed_period: 'Dữ liệu đánh giá minh họa'
     }
 ];
 
@@ -207,13 +239,14 @@ let fallbackSurveys = [
         id: 'surv001',
         name: 'Trần Minh Quân',
         gender: 'Nam',
-        contactZalo: '0912345678',
+        contactZalo: '0912***678', // Đã mask bảo vệ riêng tư
         campus: 'FPT Can Tho',
         sleepSchedule: 'night_owl',
         cleanliness: 'daily',
         smokingDrinking: 'none',
         guestPolicy: 'ask_first',
         budgetRange: 'medium',
+        isDemo: true,
         createdAt: new Date()
     },
     {
@@ -221,13 +254,14 @@ let fallbackSurveys = [
         id: 'surv002',
         name: 'Nguyễn Hải Đăng',
         gender: 'Nam',
-        contactZalo: '0988776655',
+        contactZalo: '0988***655', // Đã mask bảo vệ riêng tư
         campus: 'FPT Can Tho',
         sleepSchedule: 'early_bird',
         cleanliness: 'daily',
         smokingDrinking: 'none',
         guestPolicy: 'ask_first',
         budgetRange: 'medium',
+        isDemo: true,
         createdAt: new Date()
     }
 ];
@@ -318,7 +352,7 @@ app.get('/api/rooms', async (req, res) => {
             if (type) query.listingType = type;
 
             const rooms = await Room.find(query).sort({ is_boosted: -1, safe_badge: -1, createdAt: -1 });
-            return res.status(200).json({ success: true, count: rooms.length, data: rooms });
+            return res.status(200).json({ success: true, count: rooms.length, isFallbackMode: false, data: rooms });
         }
 
         // Chế độ dự phòng khi DB chưa kết nối
@@ -348,7 +382,13 @@ app.get('/api/rooms', async (req, res) => {
             return 0;
         });
 
-        res.status(200).json({ success: true, count: list.length, data: list });
+        res.status(200).json({
+            success: true,
+            count: list.length,
+            isFallbackMode: true,
+            notice: 'Đang hiển thị dữ liệu minh họa SmartStay (Chưa kết nối cơ sở dữ liệu)',
+            data: list
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -385,23 +425,38 @@ app.get('/api/rooms/pass/:id', async (req, res) => {
     }
 });
 
-// 4. Chủ trọ xác nhận / từ chối Pass phòng
-app.post('/api/rooms/pass/:id/confirm', async (req, res) => {
+// 4. Chủ trọ xác nhận / từ chối Pass phòng (Cần quyền Landlord hoặc Admin)
+app.post('/api/rooms/pass/:id/confirm', protect, async (req, res) => {
     try {
         const { id } = req.params;
         const { status, note } = req.body; // status: 'landlord_confirmed' | 'landlord_rejected' | 'landlord_conditional'
+
+        let targetRoom = null;
+        if (isDbConnected) {
+            targetRoom = await Room.findById(id);
+        } else {
+            targetRoom = fallbackRooms.find((r) => String(r._id) === id || String(r.id) === id);
+        }
+
+        if (!targetRoom) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để xác nhận' });
+        }
+
+        // Kiểm tra quyền: Chỉ Admin, Landlord quản lý phòng hoặc chính chủ trọ mới được duyệt
+        const isAuthorized = req.user.role === 'admin' || req.user.role === 'landlord' || checkRoomOwnership(targetRoom, req.user);
+        if (!isAuthorized) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xác nhận yêu cầu sang nhượng của phòng này.' });
+        }
 
         if (isDbConnected) {
             const updated = await Room.findByIdAndUpdate(id, {
                 pass_status: status,
                 landlordNote: note || ''
             }, { new: true });
-            if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để xác nhận' });
             return res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt thành công', data: updated });
         }
 
         const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
-        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
         fallbackRooms[idx].pass_status = status;
         fallbackRooms[idx].landlordNote = note || '';
         res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt thành công', data: fallbackRooms[idx] });
@@ -429,16 +484,21 @@ app.get('/api/rooms/:id', async (req, res) => {
     }
 });
 
-// 6. Đăng tin phòng trọ mới
-app.post('/api/rooms', async (req, res) => {
+// 6. Đăng tin phòng trọ mới (Bắt buộc đăng nhập - protect)
+app.post('/api/rooms', protect, async (req, res) => {
     try {
         const data = { ...req.body };
         if (!data.image_url && data.images && data.images.length > 0) {
             data.image_url = data.images[0];
         }
-        if (data.isSafeBadge) {
-            data.safe_badge = true;
-        }
+
+        // Bảo mật: Không cho phép client tự gán Safe Badge khi chưa kiểm duyệt
+        data.isSafeBadge = false;
+        data.safe_badge = false;
+        data.verificationStatus = 'unverified';
+        data.owner = req.user._id || req.user.id;
+        data.ownerEmail = req.user.email || '';
+        data.lastAvailabilityConfirmedAt = new Date();
 
         if (isDbConnected) {
             const newRoom = await Room.create(data);
@@ -458,15 +518,21 @@ app.post('/api/rooms', async (req, res) => {
     }
 });
 
-// 7. SmartStay Pass - Đăng tin sang nhượng phòng (Tuần G)
-app.post('/api/rooms/pass', async (req, res) => {
+// 7. SmartStay Pass - Đăng tin sang nhượng phòng (Bắt buộc đăng nhập - protect)
+app.post('/api/rooms/pass', protect, async (req, res) => {
     try {
         const passData = {
             ...req.body,
             listingType: 'pass',
             has_pass: true,
             pass_status: 'pending_landlord',
-            pass_months_left: req.body.remaining_duration || req.body.pass_months_left || 3
+            pass_months_left: req.body.remaining_duration || req.body.pass_months_left || 3,
+            isSafeBadge: false,
+            safe_badge: false,
+            verificationStatus: 'unverified',
+            owner: req.user._id || req.user.id,
+            ownerEmail: req.user.email || '',
+            lastAvailabilityConfirmedAt: new Date()
         };
 
         if (isDbConnected) {
@@ -487,24 +553,46 @@ app.post('/api/rooms/pass', async (req, res) => {
     }
 });
 
-// 8. Cập nhật phòng trọ (Admin / Landlord CRUD)
-app.put('/api/rooms/:id', async (req, res) => {
+// 8. Cập nhật phòng trọ (Bắt buộc đăng nhập + Kiểm tra quyền sở hữu)
+app.put('/api/rooms/:id', protect, async (req, res) => {
     try {
         const { id } = req.params;
+
+        let targetRoom = null;
+        if (isDbConnected) {
+            targetRoom = await Room.findById(id);
+        } else {
+            targetRoom = fallbackRooms.find((r) => String(r._id) === id || String(r.id) === id);
+        }
+
+        if (!targetRoom) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để cập nhật' });
+        }
+
+        // Kiểm tra quyền sở hữu
+        if (!checkRoomOwnership(targetRoom, req.user)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền chỉnh sửa thông tin phòng này.' });
+        }
+
         const updateData = { ...req.body };
-        if (updateData.isSafeBadge) updateData.safe_badge = true;
+        // Chỉ admin mới có quyền can thiệp trạng thái Safe Badge và Verification
+        if (req.user.role !== 'admin') {
+            delete updateData.isSafeBadge;
+            delete updateData.safe_badge;
+            delete updateData.verificationStatus;
+            delete updateData.verificationEvidence;
+        }
+
         if (updateData.images && updateData.images.length > 0 && !updateData.image_url) {
             updateData.image_url = updateData.images[0];
         }
 
         if (isDbConnected) {
             const updated = await Room.findByIdAndUpdate(id, updateData, { new: true });
-            if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để cập nhật' });
             return res.status(200).json({ success: true, message: 'Cập nhật phòng thành công', data: updated });
         }
 
         const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
-        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
         fallbackRooms[idx] = { ...fallbackRooms[idx], ...updateData, updatedAt: new Date() };
         res.status(200).json({ success: true, message: 'Cập nhật phòng thành công (Fallback)', data: fallbackRooms[idx] });
     } catch (error) {
@@ -512,19 +600,32 @@ app.put('/api/rooms/:id', async (req, res) => {
     }
 });
 
-// 9. Xóa phòng trọ (Admin CRUD)
-app.delete('/api/rooms/:id', async (req, res) => {
+// 9. Xóa phòng trọ (Bắt buộc đăng nhập + Kiểm tra quyền sở hữu hoặc Admin)
+app.delete('/api/rooms/:id', protect, async (req, res) => {
     try {
         const { id } = req.params;
 
+        let targetRoom = null;
+        if (isDbConnected) {
+            targetRoom = await Room.findById(id);
+        } else {
+            targetRoom = fallbackRooms.find((r) => String(r._id) === id || String(r.id) === id);
+        }
+
+        if (!targetRoom) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để xóa' });
+        }
+
+        if (!checkRoomOwnership(targetRoom, req.user)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xóa phòng này.' });
+        }
+
         if (isDbConnected) {
             const deleted = await Room.findByIdAndDelete(id);
-            if (!deleted) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để xóa' });
             return res.status(200).json({ success: true, message: 'Xóa phòng thành công', data: deleted });
         }
 
         const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
-        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
         const [removed] = fallbackRooms.splice(idx, 1);
         res.status(200).json({ success: true, message: 'Xóa phòng thành công (Fallback)', data: removed });
     } catch (error) {
@@ -533,21 +634,37 @@ app.delete('/api/rooms/:id', async (req, res) => {
 });
 
 // ==================== APIS REVIEWS ====================
-// 1. Gửi đánh giá cho phòng trọ
-app.post('/api/reviews', async (req, res) => {
+// 1. Gửi đánh giá cho phòng trọ (Bắt buộc đăng nhập + Điểm tin cậy do Server tính)
+app.post('/api/reviews', protect, async (req, res) => {
     try {
+        // Tính điểm trust_score tự động dựa trên uy tín tài khoản và minh chứng
+        let calculatedTrustScore = 55;
+        if (req.user && req.user.role === 'student') calculatedTrustScore += 15;
+        if (req.body.verificationProofUrl) calculatedTrustScore += 15;
+
         const reviewData = {
-            ...req.body,
-            anonymous_name: req.body.studentName || req.body.anonymous_name || 'Sinh viên ẩn danh',
+            room: req.body.room,
+            rating: Number(req.body.rating),
+            isCostAccurate: Boolean(req.body.isCostAccurate),
+            actualMonthlyCost: Number(req.body.actualMonthlyCost),
+            comment: req.body.comment || req.body.content || '',
             content: req.body.comment || req.body.content || '',
-            has_stayed: req.body.has_stayed !== undefined ? req.body.has_stayed : true,
-            trust_score: req.body.trust_score || (req.body.isCostAccurate ? 95 : 60),
-            stayed_period: req.body.stayed_period || 'Đã từng ở tại đây'
+            user: req.user._id || req.user.id,
+            studentEmail: req.user.email || '',
+            studentName: req.user.name || req.body.studentName || 'Sinh viên SmartStay',
+            anonymous_name: req.body.isAnonymous ? 'Sinh viên ẩn danh' : (req.user.name || req.body.studentName || 'Sinh viên SmartStay'),
+            // Tuyệt đối không cho client tự gán has_stayed = true
+            has_stayed: false,
+            verificationStatus: req.body.verificationProofUrl ? 'pending' : 'unverified',
+            verificationProofUrl: req.body.verificationProofUrl || '',
+            trust_score: Math.min(calculatedTrustScore, 85), // Max 85 nếu chưa được Admin duyệt minh chứng
+            stayed_period: req.body.stayed_period || 'Người quan tâm thuê',
+            isDemo: false
         };
 
         if (isDbConnected) {
             const newReview = await Review.create(reviewData);
-            return res.status(201).json({ success: true, data: newReview });
+            return res.status(201).json({ success: true, message: 'Đánh giá đã được gửi và đang chờ kiểm duyệt minh chứng!', data: newReview });
         }
 
         const newReview = {
@@ -557,7 +674,7 @@ app.post('/api/reviews', async (req, res) => {
             createdAt: new Date()
         };
         fallbackReviews.unshift(newReview);
-        res.status(201).json({ success: true, data: newReview });
+        res.status(201).json({ success: true, message: 'Đánh giá đã được ghi nhận!', data: newReview });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
@@ -601,28 +718,35 @@ app.get('/api/reviews/room/:roomId', async (req, res) => {
 });
 
 // ==================== APIS ROOMMATE MATCHER ====================
-// 1. Lưu hồ sơ khảo sát
+// 1. Lưu hồ sơ khảo sát (Hỗ trợ liên kết tài khoản nếu có đăng nhập)
 app.post('/api/surveys', async (req, res) => {
     try {
+        const surveyData = {
+            ...req.body,
+            isPrivate: req.body.isPrivate || false,
+            allowShareContact: req.body.allowShareContact || false,
+            isDemo: false
+        };
+
         if (isDbConnected) {
-            const newSurvey = await RoommateSurvey.create(req.body);
-            return res.status(201).json({ success: true, data: newSurvey });
+            const newSurvey = await RoommateSurvey.create(surveyData);
+            return res.status(201).json({ success: true, message: 'Đã lưu hồ sơ tìm bạn ở ghép!', data: newSurvey });
         }
 
         const newSurvey = {
             _id: `surv_${Date.now()}`,
             id: `surv_${Date.now()}`,
-            ...req.body,
+            ...surveyData,
             createdAt: new Date()
         };
         fallbackSurveys.unshift(newSurvey);
-        res.status(201).json({ success: true, data: newSurvey });
+        res.status(201).json({ success: true, message: 'Đã lưu hồ sơ tìm bạn ở ghép!', data: newSurvey });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
     }
 });
 
-// 2. Thuật toán tìm người tương thích (5 tiêu chí x 20%)
+// 2. Thuật toán tìm người tương thích (5 tiêu chí x 20%) - Luôn che thông tin liên hệ ứng viên
 app.get('/api/surveys/matches/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -633,14 +757,14 @@ app.get('/api/surveys/matches/:id', async (req, res) => {
         if (isDbConnected) {
             mySurvey = await RoommateSurvey.findById(id);
             if (!mySurvey) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ của bạn' });
-            otherSurveys = await RoommateSurvey.find({ _id: { $ne: mySurvey._id } });
+            // Không ghép với những người chọn ẩn hồ sơ (isPrivate = true)
+            otherSurveys = await RoommateSurvey.find({ _id: { $ne: mySurvey._id }, isPrivate: { $ne: true } });
         } else {
             mySurvey = fallbackSurveys.find((s) => String(s._id) === id || String(s.id) === id);
             if (!mySurvey) {
-                // Nếu chưa có, dùng hồ sơ đầu tiên
                 mySurvey = fallbackSurveys[0];
             }
-            otherSurveys = fallbackSurveys.filter((s) => String(s._id) !== String(mySurvey?._id));
+            otherSurveys = fallbackSurveys.filter((s) => String(s._id) !== String(mySurvey?._id) && !s.isPrivate);
         }
 
         const criteria = ['sleepSchedule', 'cleanliness', 'smokingDrinking', 'guestPolicy', 'budgetRange'];
@@ -660,7 +784,9 @@ app.get('/api/surveys/matches/:id', async (req, res) => {
                 candidateId: candidate._id || candidate.id,
                 name: candidate.name,
                 gender: candidate.gender,
-                contactZalo: candidate.contactZalo,
+                // Bảo vệ quyền riêng tư: Luôn mask số liên hệ Zalo
+                contactZalo: maskContact(candidate.contactZalo),
+                isContactProtected: true,
                 campus: candidate.campus,
                 matchPercentage: `${matchScore}%`,
                 rawScore: matchScore,
@@ -688,16 +814,89 @@ app.get('/api/surveys/matches/:id', async (req, res) => {
     }
 });
 
-// 3. Lấy toàn bộ danh sách khảo sát
+// 3. Lấy toàn bộ danh sách khảo sát (Che số liên lạc công khai & lọc bỏ hồ sơ ẩn)
 app.get('/api/surveys', async (req, res) => {
     try {
+        let surveys = [];
         if (isDbConnected) {
-            const surveys = await RoommateSurvey.find().sort({ createdAt: -1 });
-            return res.status(200).json({ success: true, count: surveys.length, data: surveys });
+            surveys = await RoommateSurvey.find({ isPrivate: { $ne: true } }).sort({ createdAt: -1 });
+        } else {
+            surveys = fallbackSurveys.filter((s) => !s.isPrivate);
         }
-        res.status(200).json({ success: true, count: fallbackSurveys.length, data: fallbackSurveys });
+
+        // Bảo vệ thông tin liên hệ sinh viên: che SĐT/Zalo
+        const safeSurveys = surveys.map((s) => ({
+            _id: s._id || s.id,
+            id: s._id || s.id,
+            name: s.name,
+            gender: s.gender,
+            contactZalo: maskContact(s.contactZalo),
+            isContactProtected: true,
+            campus: s.campus,
+            sleepSchedule: s.sleepSchedule,
+            cleanliness: s.cleanliness,
+            smokingDrinking: s.smokingDrinking,
+            guestPolicy: s.guestPolicy,
+            budgetRange: s.budgetRange,
+            isDemo: Boolean(s.isDemo),
+            createdAt: s.createdAt
+        }));
+
+        res.status(200).json({ success: true, count: safeSurveys.length, data: safeSurveys });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 4. Bật / Tắt ẩn hồ sơ khảo sát (Bảo vệ quyền riêng tư)
+app.put('/api/surveys/:id/privacy', protect, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isPrivate, allowShareContact } = req.body;
+
+        if (isDbConnected) {
+            const survey = await RoommateSurvey.findById(id);
+            if (!survey) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ' });
+            if (survey.user && String(survey.user) !== String(req.user._id) && req.user.role !== 'admin') {
+                return res.status(403).json({ success: false, message: 'Không có quyền cập nhật hồ sơ này' });
+            }
+            if (isPrivate !== undefined) survey.isPrivate = isPrivate;
+            if (allowShareContact !== undefined) survey.allowShareContact = allowShareContact;
+            await survey.save();
+            return res.status(200).json({ success: true, message: 'Cập nhật trạng thái riêng tư thành công!', data: survey });
+        }
+
+        const idx = fallbackSurveys.findIndex((s) => String(s._id) === id || String(s.id) === id);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ' });
+        if (isPrivate !== undefined) fallbackSurveys[idx].isPrivate = isPrivate;
+        if (allowShareContact !== undefined) fallbackSurveys[idx].allowShareContact = allowShareContact;
+        res.status(200).json({ success: true, message: 'Cập nhật trạng thái riêng tư thành công!', data: fallbackSurveys[idx] });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 5. Xóa hồ sơ khảo sát ghép bạn
+app.delete('/api/surveys/:id', protect, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (isDbConnected) {
+            const survey = await RoommateSurvey.findById(id);
+            if (!survey) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ' });
+            if (survey.user && String(survey.user) !== String(req.user._id) && req.user.role !== 'admin') {
+                return res.status(403).json({ success: false, message: 'Không có quyền xóa hồ sơ này' });
+            }
+            await RoommateSurvey.findByIdAndDelete(id);
+            return res.status(200).json({ success: true, message: 'Đã xóa hồ sơ tìm bạn cùng phòng thành công!' });
+        }
+
+        const idx = fallbackSurveys.findIndex((s) => String(s._id) === id || String(s.id) === id);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ' });
+        fallbackSurveys.splice(idx, 1);
+        res.status(200).json({ success: true, message: 'Đã xóa hồ sơ tìm bạn cùng phòng thành công!' });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
     }
 });
 
@@ -764,36 +963,75 @@ app.post('/api/logistics-request', (req, res) => {
     }
 });
 
-// ==================== APIS SAFE LISTING: OTP & THANH TOÁN (Tuần E-F) ====================
-// 1. Gửi mã OTP xác thực số điện thoại
+// ==================== APIS SAFE LISTING: OTP & THANH TOÁN (P0) ====================
+// 1. Gửi mã OTP xác thực số điện thoại (Có Rate Limiting 3 lần / 10 phút)
 app.post('/api/safe-listing/send-otp', (req, res) => {
     const { phone } = req.body;
     if (!phone || phone.length < 8) {
         return res.status(400).json({ success: false, message: 'Số điện thoại không hợp lệ' });
     }
 
+    const now = Date.now();
+    const tenMinutes = 10 * 60 * 1000;
+    const existing = otpStore[phone];
+
+    // Rate Limiting: Tối đa 3 lần trong 10 phút
+    if (existing && existing.firstSentAt && (now - existing.firstSentAt < tenMinutes)) {
+        if (existing.sendCount >= 3) {
+            const minutesLeft = Math.ceil((tenMinutes - (now - existing.firstSentAt)) / 60000);
+            return res.status(429).json({
+                success: false,
+                message: `Bạn đã yêu cầu gửi mã OTP quá số lần quy định. Vui lòng thử lại sau ${minutesLeft} phút.`
+            });
+        }
+    }
+
     const code = String(Math.floor(100000 + Math.random() * 900000));
     otpStore[phone] = {
         code,
-        expiresAt: Date.now() + 5 * 60 * 1000 // Hết hạn sau 5 phút
+        expiresAt: now + 5 * 60 * 1000, // Hết hạn sau 5 phút
+        sendCount: (existing && (now - existing.firstSentAt < tenMinutes)) ? existing.sendCount + 1 : 1,
+        firstSentAt: (existing && (now - existing.firstSentAt < tenMinutes)) ? existing.firstSentAt : now,
+        attempts: 0
     };
 
-    console.log(`📱 [OTP SERVICE] Gửi OTP ${code} đến SĐT ${phone}`);
+    // TUYỆT ĐỐI KHÔNG GHI MÃ VÀO LOG Ở PRODUCTION
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`📱 [OTP DEV LOG] Gửi OTP ${code} đến SĐT ${phone}`);
+    }
+
     res.status(200).json({
         success: true,
         message: 'Mã OTP đã được gửi đến số điện thoại của bạn!',
-        otpPreview: process.env.NODE_ENV === 'production' ? undefined : code // Chỉ hiển thị preview ở dev sandbox
+        otpPreview: process.env.NODE_ENV === 'production' ? undefined : code // Chỉ preview ở dev sandbox
     });
 });
 
-// 2. Xác thực mã OTP
+// 2. Xác thực mã OTP (Giới hạn tối đa 5 lần thử sai)
 app.post('/api/safe-listing/verify-otp', (req, res) => {
     const { phone, otp } = req.body;
     const record = otpStore[phone];
 
-    // Cho phép mã demo '123456' khi ở môi trường Sandbox/Dev
-    const isSandboxDemo = process.env.NODE_ENV !== 'production' && otp === '123456';
-    if (isSandboxDemo || (record && record.code === otp && Date.now() <= record.expiresAt)) {
+    if (!record) {
+        return res.status(400).json({ success: false, message: 'Yêu cầu gửi mã OTP trước khi xác thực' });
+    }
+
+    // Kiểm tra số lần thử sai
+    record.attempts = (record.attempts || 0) + 1;
+    if (record.attempts > 5) {
+        delete otpStore[phone];
+        return res.status(400).json({
+            success: false,
+            message: 'Mã OTP đã bị khóa do nhập sai quá 5 lần. Vui lòng yêu cầu gửi mã mới.'
+        });
+    }
+
+    // Ở production: Không cho phép mã shortcut '123456'
+    const isProd = process.env.NODE_ENV === 'production';
+    const isSandboxDemo = !isProd && otp === '123456';
+
+    if (isSandboxDemo || (record.code === otp && Date.now() <= record.expiresAt)) {
+        delete otpStore[phone]; // Xác thực xong thì xóa mã
         return res.status(200).json({
             success: true,
             message: 'Xác thực số điện thoại thành công!',
@@ -801,14 +1039,17 @@ app.post('/api/safe-listing/verify-otp', (req, res) => {
         });
     }
 
-    res.status(400).json({ success: false, message: 'Mã OTP không đúng hoặc đã hết hạn' });
+    res.status(400).json({
+        success: false,
+        message: `Mã OTP không đúng hoặc đã hết hạn (còn ${5 - record.attempts} lần thử)`
+    });
 });
 
-// 3. Tạo phiên thanh toán Sandbox & Tự động duyệt gắn nhãn Safe (IPN Webhook)
-app.post('/api/safe-listing/create-payment', async (req, res) => {
+// 3. Tạo phiên thanh toán phí thẩm định Safe Listing
+app.post('/api/safe-listing/create-payment', protect, async (req, res) => {
     try {
         const { roomId, amount, provider } = req.body; // provider: 'momo' | 'vnpay'
-        const transactionId = `TRANS_${Date.now()}`;
+        const transactionId = `SAFE_TRANS_${Date.now()}`;
 
         // Mô phỏng link thanh toán Sandbox
         const paymentUrl = `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?orderId=${transactionId}&amount=${amount || 50000}`;
@@ -817,29 +1058,48 @@ app.post('/api/safe-listing/create-payment', async (req, res) => {
             success: true,
             transactionId,
             paymentUrl,
-            message: 'Khởi tạo link thanh toán sandbox thành công'
+            message: 'Khởi tạo link thanh toán phí thẩm định Safe Listing thành công'
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 4. Webhook IPN xử lý thanh toán tự động -> Kích hoạt safe_badge
+// 4. Webhook IPN xử lý kết quả thanh toán phí thẩm định
+// BẢO MẬT: Bắt buộc xác thực Secret Token / Chữ ký webhook; không tự cấp huy hiệu mà chuyển sang 'pending' thẩm định
 app.post('/api/safe-listing/payment-webhook', async (req, res) => {
     try {
-        const { roomId, transactionId, status } = req.body;
+        const { roomId, transactionId, status, secretToken } = req.body;
+        const headerSecret = req.headers['x-webhook-secret'];
+
+        // Kiểm tra chữ ký bí mật
+        const expectedSecret = process.env.WEBHOOK_SECRET || 'smartstay_webhook_sandbox_secret';
+        if (headerSecret !== expectedSecret && secretToken !== expectedSecret) {
+            return res.status(401).json({
+                success: false,
+                message: 'Từ chối webhook: Chữ ký xác thực hoặc Secret Token không hợp lệ.'
+            });
+        }
 
         if (status === 'SUCCESS' || status === '00') {
+            // Thanh toán thành công -> Đăng ký thẩm định an toàn (verificationStatus: 'pending')
+            // TUYỆT ĐỐI KHÔNG GÁN safe_badge = true NGAY LẬP TỨC. Chỉ gắn sau khi Admin duyệt biên bản PCCC & quyền sở hữu.
             if (isDbConnected && roomId) {
-                await Room.findByIdAndUpdate(roomId, { safe_badge: true, isSafeBadge: true });
+                await Room.findByIdAndUpdate(roomId, {
+                    verificationStatus: 'pending',
+                    listingType: 'safe'
+                });
             } else if (roomId) {
                 const target = fallbackRooms.find((r) => String(r._id) === roomId || String(r.id) === roomId);
                 if (target) {
-                    target.safe_badge = true;
-                    target.isSafeBadge = true;
+                    target.verificationStatus = 'pending';
+                    target.listingType = 'safe';
                 }
             }
-            return res.status(200).json({ success: true, message: 'Đã tự động xác nhận và gắn nhãn Safe Listing cho phòng!' });
+            return res.status(200).json({
+                success: true,
+                message: 'Giao dịch thanh toán phí thẩm định được xác nhận! Hồ sơ đã được chuyển sang trạng thái [Chờ kiểm duyệt thực tế].'
+            });
         }
 
         res.status(400).json({ success: false, message: 'Giao dịch không thành công' });
@@ -848,7 +1108,43 @@ app.post('/api/safe-listing/payment-webhook', async (req, res) => {
     }
 });
 
-// ==================== APIS CẤU HÌNH HỆ THỐNG (SYSTEM CONFIG) ====================
+// 5. API Admin duyệt cấp Huy hiệu Safe Listing sau khi kiểm tra biên bản thực địa (P0)
+app.post('/api/safe-listing/admin/verify/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isApproved, inspectorNotes, fireSafetyInspected, landlordOwnershipVerified } = req.body;
+
+        const updateData = {
+            verificationStatus: isApproved ? 'verified' : 'rejected',
+            safe_badge: Boolean(isApproved),
+            isSafeBadge: Boolean(isApproved),
+            fireSafetyCertified: Boolean(fireSafetyInspected),
+            verificationEvidence: {
+                idCardVerified: true,
+                landlordOwnershipVerified: Boolean(landlordOwnershipVerified),
+                fireSafetyInspected: Boolean(fireSafetyInspected),
+                verifiedAt: new Date(),
+                verifiedBy: req.user.email || 'Admin SmartStay',
+                inspectorNotes: inspectorNotes || 'Đã kiểm tra thực địa đạt chuẩn SmartStay Safe'
+            }
+        };
+
+        if (isDbConnected) {
+            const updated = await Room.findByIdAndUpdate(id, updateData, { new: true });
+            if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng' });
+            return res.status(200).json({ success: true, message: 'Duyệt cấp Huy hiệu An toàn thành công!', data: updated });
+        }
+
+        const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
+        fallbackRooms[idx] = { ...fallbackRooms[idx], ...updateData };
+        res.status(200).json({ success: true, message: 'Duyệt cấp Huy hiệu An toàn thành công!', data: fallbackRooms[idx] });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== APIS CẤU HÌNH HỆ THỐNG (SYSTEM CONFIG - P0) ====================
 let systemConfig = {
     hero: null,
     campuses: null,
@@ -861,7 +1157,8 @@ app.get('/api/config', (req, res) => {
     res.status(200).json({ success: true, data: systemConfig });
 });
 
-app.post('/api/config', (req, res) => {
+// BẢO MẬT: Bắt buộc đăng nhập với quyền Admin mới được cập nhật cấu hình hệ thống
+app.post('/api/config', protect, authorize('admin'), (req, res) => {
     systemConfig = { ...systemConfig, ...req.body };
     res.status(200).json({ success: true, message: 'Lưu cấu hình hệ thống thành công!', data: systemConfig });
 });

@@ -1,7 +1,17 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'smartstay_jwt_secret_fallback_key';
+// Kiểm tra bảo mật JWT Secret nghiêm ngặt
+const isProd = process.env.NODE_ENV === 'production';
+const rawSecret = process.env.JWT_SECRET;
+
+if (isProd && (!rawSecret || rawSecret === 'smartstay_jwt_secret_fallback_key' || rawSecret.length < 24)) {
+    console.error('❌ [CRITICAL SECURITY ERROR] Không thể khởi động môi trường Production với JWT_SECRET mặc định hoặc không an toàn!');
+    console.error('👉 Vui lòng cấu hình biến môi trường JWT_SECRET với khóa tối thiểu 24 ký tự ngẫu nhiên.');
+    process.exit(1);
+}
+
+const JWT_SECRET = rawSecret || 'smartstay_jwt_secret_fallback_key';
 
 // Middleware xác thực JWT token
 const protect = async (req, res, next) => {
@@ -16,11 +26,13 @@ const protect = async (req, res, next) => {
             if (req.app.locals.isDbConnected) {
                 req.user = await User.findById(decoded.id).select('-password');
                 if (!req.user) {
-                    // Nếu user không tồn tại trong DB nhưng token hợp lệ (vd: từ in-memory)
-                    req.user = decoded;
+                    return res.status(401).json({ success: false, message: 'Tài khoản không tồn tại hoặc đã bị xóa.' });
                 }
             } else {
-                // Chế độ in-memory fallback
+                // Chế độ in-memory fallback chỉ cho phép khi không phải production
+                if (isProd) {
+                    return res.status(503).json({ success: false, message: 'Dịch vụ xác thực cơ sở dữ liệu tạm thời gián đoạn.' });
+                }
                 const fallbackUsers = req.app.locals.fallbackUsers || [];
                 const found = fallbackUsers.find(u => String(u._id) === String(decoded.id) || u.email === decoded.email);
                 req.user = found || decoded;
@@ -28,13 +40,12 @@ const protect = async (req, res, next) => {
 
             return next();
         } catch (error) {
-            console.error('JWT verification error:', error.message);
             return res.status(401).json({ success: false, message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' });
         }
     }
 
     if (!token) {
-        return res.status(401).json({ success: false, message: 'Yêu cầu đăng nhập để truy cập tài nguyên này.' });
+        return res.status(401).json({ success: false, message: 'Yêu cầu đăng nhập để thực hiện thao tác này.' });
     }
 };
 
@@ -51,6 +62,15 @@ const authorize = (...roles) => {
     };
 };
 
+// Helper kiểm tra quyền sở hữu phòng (Owner hoặc Admin)
+const checkRoomOwnership = (room, user) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (room.owner && String(room.owner) === String(user._id || user.id)) return true;
+    if (room.ownerEmail && room.ownerEmail === user.email) return true;
+    return false;
+};
+
 // Helper tạo JWT token
 const generateToken = (payload) => {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
@@ -59,6 +79,7 @@ const generateToken = (payload) => {
 module.exports = {
     protect,
     authorize,
+    checkRoomOwnership,
     generateToken,
     JWT_SECRET
 };

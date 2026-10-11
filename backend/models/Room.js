@@ -29,14 +29,50 @@ const roomSchema = new mongoose.Schema({
         parking: { type: Number, default: 0 }
     },
 
+    // Xác thực chủ sở hữu & Trạng thái kiểm duyệt
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    ownerEmail: { type: String, default: '' },
+    isDemo: { type: Boolean, default: false }, // Đánh dấu tin demo/minh họa
+    demoNote: { type: String, default: '' },
+
     // Phân loại: standard / safe (Safe Listing) / pass (SmartStay Pass)
     listingType: {
         type: String,
         enum: ['standard', 'safe', 'pass'],
         default: 'standard'
     },
+    // Quy trình xác minh Safe Badge có căn cứ
+    verificationStatus: {
+        type: String,
+        enum: ['unverified', 'pending', 'verified', 'rejected'],
+        default: 'unverified'
+    },
+    verificationEvidence: {
+        idCardVerified: { type: Boolean, default: false },
+        landlordOwnershipVerified: { type: Boolean, default: false },
+        fireSafetyInspected: { type: Boolean, default: false },
+        verifiedAt: { type: Date },
+        verifiedBy: { type: String, default: '' },
+        inspectorNotes: { type: String, default: '' }
+    },
     isSafeBadge: { type: Boolean, default: false },
     safe_badge: { type: Boolean, default: false },
+
+    // Thông tin an toàn thực tế & Điều kiện sinh hoạt (P1)
+    fireSafetyCertified: { type: Boolean, default: false }, // Có lối thoát hiểm & bình chữa cháy
+    fireSafetyDetails: { type: String, default: 'Đã trang bị bình chữa cháy và lối thoát hiểm thứ 2' },
+    curfewType: {
+        type: String,
+        enum: ['tu_do', 'co_gio_gioi_nghiem'],
+        default: 'tu_do'
+    },
+    curfewDetails: { type: String, default: 'Giờ giấc tự do, chìa khóa/vân tay riêng' },
+    isWithLandlord: { type: Boolean, default: false }, // Không chung chủ
+    petAllowed: { type: Boolean, default: false },       // Cho nuôi thú cưng
+    lastAvailabilityConfirmedAt: { type: Date, default: Date.now }, // Ngày xác nhận còn phòng gần nhất
 
     // Roommate Matcher
     seeking_roommate: { type: Boolean, default: false },
@@ -63,8 +99,10 @@ roomSchema.pre('save', function () {
     if (!this.image_url && this.images && this.images.length > 0) {
         this.image_url = this.images[0];
     }
-    if (this.isSafeBadge) {
+    // Chỉ cấp safe_badge khi đã qua xác minh verified
+    if (this.verificationStatus === 'verified') {
         this.safe_badge = true;
+        this.isSafeBadge = true;
     }
     if (this.listingType === 'pass') {
         this.has_pass = true;
