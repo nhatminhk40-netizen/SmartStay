@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Maximize, BadgeCheck, ShieldCheck, Flame, Info } from "lucide-react";
+import { MapPin, Maximize, BadgeCheck, ShieldCheck, Flame, Info, Columns } from "lucide-react";
 import { Image } from "@/components/ui/image";
 
 export default function RoomCard({ room }) {
