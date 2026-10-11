@@ -30,6 +30,7 @@ const FEATURES = [
 ];
 
 export default function Register() {
+  const [role, setRole] = useState("student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -49,7 +50,7 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await base44.auth.register({ email, password });
+      await base44.auth.register({ email, password, role });
       setShowOtp(true);
     } catch (err) {
       setError(err.message || "Đăng ký thất bại. Vui lòng thử lại.");
@@ -343,6 +344,39 @@ export default function Register() {
           <ErrorBlock />
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* Lựa chọn vai trò */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Bạn tham gia SmartStay với vai trò:
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRole("student")}
+                  className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-semibold transition ${
+                    role === "student"
+                      ? "border-orange-500 bg-orange-50/70 text-orange-900 ring-2 ring-orange-400/20"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="text-sm">🎓</span>
+                  <span>Sinh viên / Người thuê</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole("landlord")}
+                  className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-semibold transition ${
+                    role === "landlord"
+                      ? "border-orange-500 bg-orange-50/70 text-orange-900 ring-2 ring-orange-400/20"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="text-sm">🏡</span>
+                  <span>Chủ nhà trọ</span>
+                </button>
+              </div>
+            </div>
+
             {/* Email */}
             <div className="space-y-1.5">
               <Label htmlFor="reg-email" className="text-sm font-medium text-foreground">

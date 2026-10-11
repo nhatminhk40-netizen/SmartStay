@@ -390,6 +390,8 @@ export default function Header() {
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-orange-100 text-orange-700 uppercase">
                             {user?.role === "admin"
                               ? "Quản trị viên"
+                              : user?.role === "landlord"
+                              ? "Chủ nhà trọ"
                               : user?.role === "employee"
                               ? "Nhân viên"
                               : "Sinh viên"}
@@ -403,6 +405,21 @@ export default function Header() {
 
                     {/* Menu items */}
                     <div className="py-1 space-y-0.5 text-xs">
+                      {/* Chủ trọ: Đăng phòng Safe Badge */}
+                      {user?.role === "landlord" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenUserMenu(false);
+                            setOpenSafeListing(true);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold transition text-left"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-orange-600" />
+                          <span>Đăng phòng trọ (Safe Badge)</span>
+                        </button>
+                      )}
+
                       {/* Xem hồ sơ cá nhân */}
                       <button
                         type="button"
