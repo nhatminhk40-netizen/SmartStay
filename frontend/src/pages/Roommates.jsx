@@ -113,13 +113,21 @@ export default function Roommates() {
         }
     };
 
-    // Gửi tin nhắn qua hệ thống SmartStay
+    // Gửi tin nhắn qua hệ thống SmartStay & kích hoạt Cửa sổ chatbox
     const handleSendDirect = () => {
         setSentStatus(true);
+        window.dispatchEvent(
+            new CustomEvent("smartstay:open_chat", {
+                detail: {
+                    recipient: selectedRoommate,
+                    initialMessage: customMessage
+                }
+            })
+        );
         setTimeout(() => {
             setSentStatus(false);
             setSelectedRoommate(null);
-        }, 1800);
+        }, 350);
     };
 
     // Xóa toàn bộ bộ lọc
@@ -658,15 +666,15 @@ export default function Roommates() {
                                     type="button"
                                     onClick={handleSendDirect}
                                     disabled={sentStatus}
-                                    className="flex-1 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition flex items-center justify-center gap-1.5"
+                                    className="flex-1 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                                 >
                                     {sentStatus ? (
                                         <>
-                                            <Check className="w-3.5 h-3.5 text-emerald-400" /> Đã gửi!
+                                            <Check className="w-3.5 h-3.5 text-emerald-200" /> Đang mở chat...
                                         </>
                                     ) : (
                                         <>
-                                            <Send className="w-3.5 h-3.5" /> Gửi qua SmartStay
+                                            <MessageCircle className="w-3.5 h-3.5" /> Gửi & Mở Chat SmartStay
                                         </>
                                     )}
                                 </button>

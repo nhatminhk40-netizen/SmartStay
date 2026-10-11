@@ -164,11 +164,36 @@ export async function geocodePlaceName(name) {
     };
   }
 
-  // 3. Tra cứu qua OpenStreetMap Nominatim Geocoding API
+  // 3. Tra cứu qua Photon Komoot API (rất nhạy và chính xác cao theo tọa độ Cần Thơ)
+  try {
+    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(clean)}&lat=10.03&lon=105.78&limit=3`;
+    const res = await fetch(photonUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.features && data.features.length > 0) {
+        const feature = data.features[0];
+        const [lon, lat] = feature.geometry.coordinates;
+        if (lat >= 9.5 && lat <= 10.6 && lon >= 105.2 && lon <= 106.2) {
+          const props = feature.properties || {};
+          const title = props.name || props.street || clean;
+          return {
+            name: title,
+            address: `${title}${props.city ? `, ${props.city}` : ""}, Cần Thơ`,
+            lat,
+            lng: lon
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Lỗi Photon Geocoding:", err);
+  }
+
+  // 4. Tra cứu qua OpenStreetMap Nominatim Geocoding API với viewbox Cần Thơ
   try {
     const query = clean.includes("Cần Thơ") ? clean : `${clean}, Cần Thơ, Việt Nam`;
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=105.50,9.80,105.90,10.20&bounded=0&limit=1`,
       { headers: { "User-Agent": "SmartStay-CanTho-App" } }
     );
     if (res.ok) {
@@ -284,12 +309,17 @@ export default function InteractiveLogisticsMap({
   const [mapType, setMapType] = useState("satellite"); // 'satellite' (Vệ tinh Google) hoặc 'roadmap' (Bản đồ Google)
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [clickMode, setClickMode] = useState("pickup"); // 'pickup' hoặc 'dropoff'
+  const clickModeRef = useRef(clickMode);
   const [searchInput, setSearchInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const [syncingUrl, setSyncingUrl] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [routeInfo, setRouteInfo] = useState({ distanceKm: distance, durationMin: 15 });
+
+  useEffect(() => {
+    clickModeRef.current = clickMode;
+  }, [clickMode]);
 
   // Cập nhật Layer bản đồ Google (Chuẩn đường hoặc Vệ tinh Hybrid có nhãn đường phố)
   const updateTileLayer = (type) => {
@@ -335,19 +365,18 @@ export default function InteractiveLogisticsMap({
     };
     window.addEventListener("resize", handleResize);
 
-    // Click trực tiếp trên bản đồ để cắm ghim A hoặc B
+    // Click trực tiếp trên bản đồ để cắm ghim A hoặc B (Giữ nguyên chế độ đang chọn để người dùng dễ tinh chỉnh)
     map.on("click", (e) => {
       const { lat, lng } = e.latlng;
       const coordStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
-      if (clickMode === "pickup") {
+      if (clickModeRef.current === "pickup") {
         onPickupChange({
           name: `Vị trí ghim A (${coordStr})`,
           address: `Tọa độ: ${coordStr} - Cần Thơ`,
           lat,
           lng
         });
-        setClickMode("dropoff");
       } else {
         onDropoffChange({
           name: `Vị trí ghim B (${coordStr})`,
@@ -355,7 +384,6 @@ export default function InteractiveLogisticsMap({
           lat,
           lng
         });
-        setClickMode("pickup");
       }
     });
 
@@ -634,7 +662,6 @@ export default function InteractiveLogisticsMap({
       };
       if (clickMode === "pickup") {
         onPickupChange(loc);
-        setClickMode("dropoff");
       } else {
         onDropoffChange(loc);
       }
@@ -644,7 +671,7 @@ export default function InteractiveLogisticsMap({
       return;
     }
 
-    // Geocode qua từ điển hoặc OpenStreetMap
+    // Geocode qua từ điển, Photon hoặc OpenStreetMap
     setSyncingUrl(true);
     setSyncStatus("⏳ Đang tìm kiếm địa điểm...");
     const geocoded = await geocodePlaceName(searchInput);
@@ -652,15 +679,14 @@ export default function InteractiveLogisticsMap({
     if (geocoded) {
       if (clickMode === "pickup") {
         onPickupChange(geocoded);
-        setClickMode("dropoff");
       } else {
         onDropoffChange(geocoded);
       }
       setShowSuggestions(false);
       mapInstanceRef.current?.setView([geocoded.lat, geocoded.lng], 15);
-      setSyncStatus(`✅ Đã định vị: ${geocoded.name}`);
+      setSyncStatus(`✅ Đã định vị ${clickMode === "pickup" ? "Điểm đón A" : "Điểm đến B"}: ${geocoded.name}`);
     } else {
-      setSyncStatus("⚠️ Không tìm thấy địa điểm. Hãy thử chọn từ danh sách gợi ý.");
+      setSyncStatus("⚠️ Không tìm thấy địa danh tự động. Hãy nhấp chuột trực tiếp lên bản đồ hoặc dán link/tọa độ Google Maps!");
     }
   };
 
@@ -674,14 +700,13 @@ export default function InteractiveLogisticsMap({
     };
     if (clickMode === "pickup") {
       onPickupChange(loc);
-      setClickMode("dropoff");
     } else {
       onDropoffChange(loc);
     }
     setSearchInput(place.name);
     setShowSuggestions(false);
     mapInstanceRef.current?.setView([place.lat, place.lng], 15);
-    setSyncStatus(`✅ Đã chọn địa điểm: ${place.name}`);
+    setSyncStatus(`✅ Đã chọn ${clickMode === "pickup" ? "Điểm đón A" : "Điểm đến B"}: ${place.name}`);
   };
 
   // Lấy vị trí GPS hiện tại từ thiết bị
@@ -704,7 +729,6 @@ export default function InteractiveLogisticsMap({
         };
         if (clickMode === "pickup") {
           onPickupChange(gpsLoc);
-          setClickMode("dropoff");
         } else {
           onDropoffChange(gpsLoc);
         }
@@ -750,12 +774,56 @@ export default function InteractiveLogisticsMap({
             </h4>
           </div>
         </div>
-        <span className="text-[11px] font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-full">
-          Google Maps Live
-        </span>
+        <div className="flex items-center gap-2">
+          <a
+            href="https://www.google.com/maps/@10.025,105.755,14z"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200 transition"
+            title="Mở Google Maps để tra cứu địa điểm và copy tọa độ nếu cần"
+          >
+            <ExternalLink className="w-3 h-3" /> Mở Google Maps
+          </a>
+          <span className="text-[11px] font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-full">
+            Google Maps Live
+          </span>
+        </div>
       </div>
 
-      {/* 2. Thanh tìm kiếm địa điểm / dán link Google Maps */}
+      {/* 2. Chế độ chọn ghim A / B trước khi tìm kiếm để không bị nhầm */}
+      <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs">
+        <span className="text-[11px] font-bold text-slate-600 pl-1.5 hidden sm:inline">
+          Chọn điểm cần chỉnh:
+        </span>
+        <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+          <button
+            type="button"
+            onClick={() => setClickMode("pickup")}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              clickMode === "pickup"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:text-slate-900"
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white inline-block" />
+            Ghim A (Điểm đón)
+          </button>
+          <button
+            type="button"
+            onClick={() => setClickMode("dropoff")}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              clickMode === "dropoff"
+                ? "bg-orange-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:text-slate-900"
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-400 border border-white inline-block" />
+            Ghim B (Điểm đến)
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Thanh tìm kiếm địa điểm / dán link / tọa độ Google Maps */}
       <div className="relative">
         <form onSubmit={handleSearchSubmit} className="relative flex items-center">
           <Search className="w-4 h-4 text-orange-400 absolute left-3.5 pointer-events-none" />
@@ -767,7 +835,11 @@ export default function InteractiveLogisticsMap({
               setShowSuggestions(true);
             }}
             onFocus={() => setShowSuggestions(true)}
-            placeholder="Tìm địa điểm, tên quán, tên đường (Ví dụ: Nguyễn Văn Cừ, Cái Khế, Trọ...) hoặc dán link Google Maps..."
+            placeholder={
+              clickMode === "pickup"
+                ? "Tìm địa chỉ ĐÓN (Ghim A): Tên đường, trọ hoặc dán link/tọa độ Google Maps..."
+                : "Tìm địa chỉ ĐẾN (Ghim B): Tên đường, trọ hoặc dán link/tọa độ Google Maps..."
+            }
             className="w-full h-11 pl-10 pr-24 rounded-2xl border border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200/50 text-xs text-slate-800 placeholder:text-slate-400 outline-none shadow-xs transition"
           />
           <button
@@ -799,7 +871,7 @@ export default function InteractiveLogisticsMap({
         )}
       </div>
 
-      {/* 3. Hàng chức năng: GPS & Chuyển đổi loại bản đồ (Bản đồ Google / Vệ tinh Google) */}
+      {/* 4. Hàng chức năng: GPS & Chuyển đổi loại bản đồ */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         {/* Nút GPS */}
         <button
@@ -811,34 +883,6 @@ export default function InteractiveLogisticsMap({
           <Globe className="w-3.5 h-3.5 text-orange-500" />
           {gpsLoading ? "Đang lấy GPS..." : "Lấy vị trí GPS của tôi"}
         </button>
-
-        {/* Chế độ chọn ghim A / B */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setClickMode("pickup")}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-              clickMode === "pickup"
-                ? "bg-emerald-500 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-white inline-block" />
-            Ghim A (Đón)
-          </button>
-          <button
-            type="button"
-            onClick={() => setClickMode("dropoff")}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-              clickMode === "dropoff"
-                ? "bg-orange-500 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-white inline-block" />
-            Ghim B (Đến)
-          </button>
-        </div>
 
         {/* Nút chuyển đổi loại bản đồ Google */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/70">
