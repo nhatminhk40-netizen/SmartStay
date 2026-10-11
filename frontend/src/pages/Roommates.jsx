@@ -17,7 +17,6 @@ import {
     Check,
     ExternalLink,
     Send,
-    ShieldCheck,
     Sparkles,
     User
 } from "lucide-react";
@@ -260,7 +259,7 @@ export default function Roommates() {
                         <div className="md:col-span-2 flex items-center justify-between pb-3 border-b border-border">
                             <div>
                                 <h2 className="font-heading font-bold text-foreground text-lg">Đăng tìm bạn ở ghép</h2>
-                                <p className="text-xs text-muted-foreground">Thông tin liên lạc của bạn sẽ được ẩn bảo mật và chỉ mở khi kết nối.</p>
+                                <p className="text-xs text-muted-foreground">Tìm bạn cùng phòng văn minh, cùng chí hướng nhanh chóng và tiện lợi.</p>
                             </div>
                             <button
                                 type="button"
@@ -358,7 +357,7 @@ export default function Roommates() {
                             />
                         </Field>
 
-                        <Field label="Số Zalo / Liên hệ (Được ẩn bảo mật)">
+                        <Field label="Số Zalo / Liên hệ">
                             <Input
                                 value={form.contact}
                                 onChange={(e) => setForm({ ...form, contact: e.target.value })}
@@ -616,10 +615,6 @@ export default function Roommates() {
                             <p className="text-slate-600 line-clamp-2">
                                 <strong>Thói quen:</strong> {selectedRoommate.habits || "Sạch sẽ, văn minh"}
                             </p>
-                            <div className="pt-1 flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Số điện thoại được bảo vệ an toàn trên SmartStay</span>
-                            </div>
                         </div>
 
                         {/* Khung tin nhắn mẫu có thể chỉnh sửa */}

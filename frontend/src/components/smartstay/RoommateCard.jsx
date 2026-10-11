@@ -4,7 +4,6 @@ import {
     Wallet,
     User,
     Sparkles,
-    ShieldCheck,
     MessageCircle,
     Moon,
     Sun,
@@ -108,12 +107,12 @@ export default function RoommateCard({ item, onConnect }) {
                 )}
             </div>
 
-            {/* Footer: Bảo vệ quyền riêng tư (Không để lộ SĐT thô) + Nút Nhắn tin kiểu Messenger */}
+            {/* Footer: Trạng thái & Nút Nhắn tin kiểu Messenger */}
             <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground" title="SmartStay bảo mật số liên lạc của sinh viên để tránh spam">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>SĐT ẩn bảo mật</span>
-                </div>
+                <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                    Đang tìm bạn ở ghép
+                </span>
 
                 <button
                     type="button"
