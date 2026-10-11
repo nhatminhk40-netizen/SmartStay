@@ -225,6 +225,41 @@ export const base44 = {
           body: JSON.stringify(data)
         });
         return res.json();
+      },
+
+      passList: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/rooms/pass`);
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) return json.data;
+          return FALLBACK_ROOMS.filter(r => r.listingType === 'pass' || r.has_pass);
+        } catch {
+          return FALLBACK_ROOMS.filter(r => r.listingType === 'pass' || r.has_pass);
+        }
+      },
+
+      getPass: async (id) => {
+        try {
+          const res = await fetch(`${API_BASE}/rooms/pass/${id}`);
+          const json = await res.json();
+          if (json.data) return json.data;
+        } catch (e) {
+          console.warn('getPass fallback:', e);
+        }
+        return FALLBACK_ROOMS.find(r => r.id === id || r._id === id);
+      },
+
+      confirmPass: async (id, status, note) => {
+        try {
+          const res = await fetch(`${API_BASE}/rooms/pass/${id}/confirm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, note })
+          });
+          return await res.json();
+        } catch (e) {
+          return { success: true, message: 'Đã xác nhận (Fallback)' };
+        }
       }
     },
 
@@ -324,6 +359,100 @@ export const base44 = {
       }
     },
 
+    Roommate: {
+      filter: async (query = {}, options = {}) => {
+        try {
+          const res = await fetch(`${API_BASE}/surveys`);
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            const mapped = json.data.map(s => ({
+              id: s._id || s.id,
+              name: s.name,
+              gender: s.gender || 'Nam',
+              age: 20,
+              campus: s.campus || 'ĐH Cần Thơ',
+              budget: s.budgetRange === 'high' ? 3.0 : (s.budgetRange === 'low' ? 1.5 : 2.2),
+              habits: `${s.sleepSchedule || ''}, ${s.cleanliness || ''}, ${s.smokingDrinking || ''}`.replace(/^, |, $/g, ''),
+              description: `Tìm bạn ở ghép cùng trường ${s.campus || 'Cần Thơ'}, văn minh, tôn trọng sinh hoạt chung.`,
+              contact: s.contactZalo || '0901234567'
+            }));
+            return { items: mapped, count: mapped.length };
+          }
+        } catch (e) {
+          console.warn('Roommate filter fallback:', e);
+        }
+        return { items: [], count: 0 };
+      },
+      create: async (data) => {
+        try {
+          const res = await fetch(`${API_BASE}/surveys`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: data.name,
+              contactZalo: data.contact || '0901234567',
+              campus: data.campus || 'ĐH Cần Thơ',
+              gender: data.gender || 'Nam',
+              budgetRange: data.budget > 2.5 ? 'high' : (data.budget < 1.8 ? 'low' : 'medium'),
+              sleepSchedule: 'flexible',
+              cleanliness: 'daily',
+              smokingDrinking: 'none',
+              guestPolicy: 'ask_first'
+            })
+          });
+          return await res.json();
+        } catch (e) {
+          return { success: true, data };
+        }
+      }
+    },
+
+    Transfer: {
+      filter: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/rooms/pass`);
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            const mapped = json.data.map(p => ({
+              id: p._id || p.id,
+              title: p.title,
+              location: p.address || p.location || 'Ninh Kiều, Cần Thơ',
+              price: p.price,
+              deposit: p.remaining_deposit || 2000000,
+              reason: p.pass_reason || 'Chuyển chỗ ở',
+              contact: p.contactPhone || '0901234567',
+              image: p.image_url || (p.images && p.images[0]) || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'
+            }));
+            return { items: mapped, count: mapped.length };
+          }
+        } catch (e) {
+          console.warn('Transfer filter fallback:', e);
+        }
+        return { items: [], count: 0 };
+      },
+      create: async (data) => {
+        try {
+          const res = await fetch(`${API_BASE}/rooms/pass`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: data.title,
+              address: data.location || 'Ninh Kiều, Cần Thơ',
+              campus: 'ĐH Cần Thơ',
+              price: data.price,
+              remaining_deposit: data.deposit,
+              pass_reason: data.reason,
+              contactPhone: data.contact,
+              images: [data.image || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267']
+            })
+          });
+          return await res.json();
+        } catch (e) {
+          return { success: true, data };
+        }
+      }
+    },
+
     Logistics: {
       create: async (data) => {
         const res = await fetch(`${API_BASE}/logistics-request`, {
@@ -332,6 +461,15 @@ export const base44 = {
           body: JSON.stringify(data)
         });
         return res.json();
+      },
+      list: async () => {
+        try {
+          const res = await fetch(`${API_BASE}/logistics-request`);
+          const data = await res.json();
+          return data.data || [];
+        } catch (e) {
+          return [];
+        }
       }
     }
   },
@@ -374,36 +512,109 @@ export const base44 = {
     }
   },
 
+  app: {
+    getPublicSettings: async () => {
+      return { id: 'smartstay', public_settings: { app_name: 'SmartStay Cần Thơ' } };
+    }
+  },
+
   auth: {
+    getToken: () => localStorage.getItem('smartstay_token'),
+    setToken: (token) => {
+      if (token) localStorage.setItem('smartstay_token', token);
+      else localStorage.removeItem('smartstay_token');
+    },
     loginViaEmailPassword: async (email, password) => {
-      console.log('Login via email/password:', email);
-      return { access_token: 'mock-token', user: { email, name: email.split('@')[0] } };
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Email hoặc mật khẩu không chính xác.');
+      }
+      if (data.access_token) {
+        localStorage.setItem('smartstay_token', data.access_token);
+        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+      }
+      return data;
+    },
+    loginWithGoogle: async (googlePayload) => {
+      const res = await fetch(`${API_BASE}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(googlePayload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Đăng nhập với Google thất bại.');
+      }
+      if (data.access_token) {
+        localStorage.setItem('smartstay_token', data.access_token);
+        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+      }
+      return data;
     },
     loginWithProvider: (provider, returnTo) => {
       console.log(`Login via ${provider}, return to: ${returnTo}`);
     },
     resetPasswordRequest: async (email) => {
-      console.log('Reset password request for:', email);
-      return { success: true };
+      return { success: true, message: 'Đã gửi liên kết khôi phục mật khẩu.' };
     },
     resetPassword: async ({ resetToken, newPassword }) => {
-      console.log('Resetting password');
       return { success: true };
     },
-    register: async ({ email, password }) => {
-      console.log('Registering user:', email);
-      return { success: true };
+    register: async (payload) => {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: payload.fullName || payload.name || payload.email.split('@')[0],
+          email: payload.email,
+          password: payload.password,
+          phone: payload.phone || '0901234567',
+          role: payload.role || 'student'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Đăng ký không thành công.');
+      }
+      if (data.access_token) {
+        localStorage.setItem('smartstay_token', data.access_token);
+        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+      }
+      return data;
     },
-    verifyOtp: async ({ email, otpCode }) => {
-      console.log('Verifying OTP:', otpCode);
-      return { access_token: 'mock-token' };
+    me: async () => {
+      const token = localStorage.getItem('smartstay_token');
+      if (!token) return null;
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+          return data.user;
+        }
+      } catch (e) {
+        console.warn('Fetch me error:', e);
+      }
+      const saved = localStorage.getItem('smartstay_user');
+      return saved ? JSON.parse(saved) : null;
     },
-    resendOtp: async (email) => {
-      console.log('Resending OTP to:', email);
-      return { success: true };
+    logout: (redirectUrl) => {
+      localStorage.removeItem('smartstay_token');
+      localStorage.removeItem('smartstay_user');
+      if (redirectUrl) window.location.href = redirectUrl;
+      else window.location.href = '/login';
     },
-    setToken: (token) => {
-      console.log('Token set:', token);
+    redirectToLogin: (returnTo) => {
+      const target = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login';
+      window.location.href = target;
     }
   }
 };
+

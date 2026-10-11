@@ -27,7 +27,8 @@ export const AuthProvider = ({ children }) => {
         setAppPublicSettings(publicSettings);
 
         // If we got the app public settings successfully, check if user is authenticated
-        if (appParams.token) {
+        const hasToken = base44.auth.getToken() || appParams.token;
+        if (hasToken) {
           await checkUserAuth();
         } else {
           setIsLoadingAuth(false);
@@ -82,12 +83,18 @@ export const AuthProvider = ({ children }) => {
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(true);
+      if (currentUser) {
+        setUser(currentUser);
+        setIsAuthenticated(true);
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
       setIsLoadingAuth(false);
       setAuthChecked(true);
     } catch (error) {
       console.error('User auth check failed:', error);
+      setUser(null);
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
       setAuthChecked(true);

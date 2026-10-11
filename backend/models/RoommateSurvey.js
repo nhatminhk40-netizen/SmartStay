@@ -4,33 +4,37 @@ const roommateSurveySchema = new mongoose.Schema({
     name: { type: String, required: true },
     contactZalo: { type: String, required: true },
     campus: { type: String, default: 'FPT Can Tho' },
-    gender: { type: String, enum: ['Nam', 'Nu', 'Khac'], required: true },
+    gender: { 
+        type: String, 
+        enum: ['Nam', 'Nữ', 'Nu', 'Khác', 'Khac', 'Linh hoạt', 'Nam/Nữ'], 
+        default: 'Linh hoạt' 
+    },
 
     // 5 Tiêu chí khảo sát tìm bạn cùng phòng
     sleepSchedule: {
         type: String,
-        enum: ['early', 'night_owl'],
-        required: true // 'early': Ngủ sớm (trước 23h), 'night_owl': Cú đêm (sau 0h)
+        enum: ['early', 'early_bird', 'night_owl', 'flexible'],
+        default: 'flexible'
     },
     cleanliness: {
         type: String,
         enum: ['daily', 'weekly', 'flexible'],
-        required: true // 'daily': Dọn mỗi ngày, 'weekly': 1-2 lần/tuần, 'flexible': Khi nào bẩn mới dọn
+        default: 'daily'
     },
     smokingDrinking: {
         type: String,
-        enum: ['none', 'sometimes', 'regular'],
-        required: true // 'none': Tuyệt đối không, 'sometimes': Thỉnh thoảng, 'regular': Thường xuyên
+        enum: ['none', 'sometimes', 'regular', 'rarely', 'smoker_friendly'],
+        default: 'none'
     },
     guestPolicy: {
         type: String,
-        enum: ['strict', 'ask_first', 'open'],
-        required: true // 'strict': Không dẫn người lạ, 'ask_first': Báo trước, 'open': Thoải mái
+        enum: ['strict', 'ask_first', 'open', 'daytime_only', 'free'],
+        default: 'ask_first'
     },
     budgetRange: {
         type: String,
-        enum: ['low', 'medium', 'high'],
-        required: true // 'low': Dưới 1.5tr, 'medium': 1.5tr - 2.5tr, 'high': Trên 2.5tr
+        enum: ['low', 'medium', 'high', 'economy', 'standard', 'premium'],
+        default: 'medium'
     }
 }, { timestamps: true });
 

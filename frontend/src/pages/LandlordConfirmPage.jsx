@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { CheckCircle, XCircle, AlertCircle, ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { base44 } from "@/api/base44Client";
 
 export default function LandlordConfirmPage() {
     const { id } = useParams();
@@ -14,20 +15,48 @@ export default function LandlordConfirmPage() {
     const [reason, setReason] = useState("");
 
     useEffect(() => {
-        const loadData = () => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const apiRoom = await base44.entities.Room.getPass(id);
+                if (apiRoom) {
+                    setRoom({
+                        id: apiRoom._id || apiRoom.id,
+                        title: apiRoom.title,
+                        campus: apiRoom.campus,
+                        price: apiRoom.price,
+                        deposit: apiRoom.remaining_deposit || 2000000,
+                        moveOutDate: apiRoom.moveOutDate || 'Linh hoạt',
+                        contractRemaining: apiRoom.pass_months_left || apiRoom.remaining_duration || 3,
+                        status: apiRoom.pass_status || 'pending_landlord',
+                        landlordNote: apiRoom.landlordNote || '',
+                        posterName: apiRoom.posterName || 'Sinh viên'
+                    });
+                    setLoading(false);
+                    return;
+                }
+            } catch (e) {
+                console.warn('API getPass error:', e);
+            }
+
             const data = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
             const found = data.find(r => r.id === id);
             setRoom(found);
             setLoading(false);
         };
-        // Simulate network delay
-        setTimeout(loadData, 500);
+        loadData();
     }, [id]);
 
-    const handleConfirm = (status) => {
+    const handleConfirm = async (status) => {
         if ((status === "landlord_rejected" || status === "landlord_conditional") && !reason.trim()) {
             alert("Vui lòng nhập lý do / điều kiện!");
             return;
+        }
+
+        try {
+            await base44.entities.Room.confirmPass(id, status, reason);
+        } catch (e) {
+            console.warn('API confirmPass error:', e);
         }
 
         const data = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
@@ -36,8 +65,8 @@ export default function LandlordConfirmPage() {
             data[idx].status = status;
             data[idx].landlordNote = reason;
             localStorage.setItem("pass_rooms", JSON.stringify(data));
-            setIsConfirmed(true);
         }
+        setIsConfirmed(true);
     };
 
     if (loading) {

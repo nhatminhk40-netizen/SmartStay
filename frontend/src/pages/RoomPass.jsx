@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import PageHero from "@/components/smartstay/PageHero";
 import { cn } from "@/lib/utils";
 
+import { base44 } from "@/api/base44Client";
+
 const MOCK_CAMPUSES = ["ĐH Cần Thơ", "ĐH Y Dược", "ĐH Nam Cần Thơ", "ĐH FPT", "Khác"];
 
 // Helper function to generate unique ID
@@ -107,11 +109,33 @@ export default function RoomPass() {
         loadData();
     }, []);
 
-    const loadData = () => {
+    const loadData = async () => {
         setLoading(true);
-        const data = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
-        setItems(data);
-        setLoading(false);
+        try {
+            const apiRooms = await base44.entities.Room.passList();
+            const localRooms = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
+            const combined = [
+                ...(apiRooms || []).map(r => ({
+                    id: r._id || r.id,
+                    title: r.title,
+                    campus: r.campus,
+                    price: r.price,
+                    deposit: r.remaining_deposit || 2000000,
+                    moveOutDate: r.moveOutDate || 'Linh hoạt',
+                    contractRemaining: r.pass_months_left || r.remaining_duration || 3,
+                    image: r.image_url || (r.images && r.images[0]) || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267',
+                    status: r.pass_status || 'pending_landlord',
+                    landlordNote: r.landlordNote || ''
+                })),
+                ...localRooms.filter(lr => !(apiRooms || []).some(ar => String(ar._id || ar.id) === String(lr.id)))
+            ];
+            setItems(combined);
+        } catch {
+            const data = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
+            setItems(data);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleRemove = (id) => {
@@ -120,22 +144,32 @@ export default function RoomPass() {
         setItems(newData);
     };
 
-    const submit = (e) => {
+    const submit = async (e) => {
         e.preventDefault();
         setSaving(true);
         
-        // Mock API call
-        setTimeout(() => {
+        try {
+            const res = await base44.entities.Room.pass({
+                title: form.title,
+                campus: form.campus,
+                price: Number(form.price) || 2000000,
+                remaining_deposit: Number(form.deposit) || 2000000,
+                remaining_duration: Number(form.contractRemaining) || 3,
+                moveOutDate: form.moveOutDate,
+                landlordName: form.landlordName,
+                landlordPhone: form.landlordPhone,
+                images: [form.image || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"]
+            });
+            const created = res?.data || res;
             const newItem = {
                 ...form,
-                id: generateId(),
-                status: "pending_landlord", // Initial status
+                id: created?._id || created?.id || generateId(),
+                status: "pending_landlord",
                 posterName: "Bạn (Người đăng)"
             };
             
             const newData = [newItem, ...items];
             localStorage.setItem("pass_rooms", JSON.stringify(newData));
-            
             setItems(newData);
             setShowForm(false);
             setForm({
@@ -143,11 +177,12 @@ export default function RoomPass() {
                 contractRemaining: "", image: "", landlordName: "", landlordPhone: "", 
                 contractImage: "", confirmedLandlord: false
             });
+            alert("Đã đăng yêu cầu Pass phòng thành công lên hệ thống! Đang chờ chủ trọ xác nhận.");
+        } catch (err) {
+            console.warn("Lỗi đăng pass:", err);
+        } finally {
             setSaving(false);
-            
-            // Mock notification
-            alert("Đã đăng yêu cầu! Đang chờ chủ trọ xác nhận.");
-        }, 800);
+        }
     };
 
     const displayedItems = filterConfirmed ? items.filter(i => i.status === "landlord_confirmed") : items;

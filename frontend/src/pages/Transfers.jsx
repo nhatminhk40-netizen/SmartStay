@@ -1,184 +1,969 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Truck, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
+import {
+  Truck,
+  Loader2,
+  Navigation,
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
+  Phone,
+  MapPin,
+  Calendar,
+  Package,
+  Sparkles,
+  Info,
+  ChevronRight,
+  AlertCircle,
+  ExternalLink,
+  Crosshair,
+  ArrowLeftRight,
+  Route
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import PageHero from "@/components/smartstay/PageHero";
-import TransferCard from "@/components/smartstay/TransferCard";
-import { Field, EmptyState } from "@/components/smartstay/FormBits";
+import { LOGISTICS_VEHICLES } from "@/lib/smartstayData";
+import { cn } from "@/lib/utils";
+import InteractiveLogisticsMap, { parseCoordinates } from "@/components/InteractiveLogisticsMap";
 
-const empty = {
-    title: "",
-    location: "",
-    price: "",
-    deposit: "",
-    reason: "",
-    contact: "",
-    image: "",
-};
+// Danh sách các địa điểm & khu trọ phổ biến tại TP Cần Thơ
+const CAN_THO_LOCATIONS = [
+  {
+    name: "Can Tho Ecolodge (Cái Răng)",
+    address: "Can Tho Ecolodge, 542, Khu vực 3, Ba Láng, Cái Răng, Cần Thơ",
+    lat: 9.9878,
+    lng: 105.7415,
+    tag: "Khu du lịch"
+  },
+  {
+    name: "Đền thờ Vua Hùng (Bình Thủy)",
+    address: "Đền thờ Vua Hùng, Võ Văn Kiệt, Bình Thủy, Cần Thơ",
+    lat: 10.0676,
+    lng: 105.7317,
+    tag: "Di tích"
+  },
+  {
+    name: "Supper Trọ 686 (An Bình)",
+    address: "Supper Trọ 686, Ấp Mỹ Phước, P. An Bình, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0090,
+    lng: 105.7380,
+    tag: "Khu trọ"
+  },
+  {
+    name: "LOTTE Mart Cần Thơ (Mậu Thân)",
+    address: "LOTTE Mart Cần Thơ, 84 Đ. Mậu Thân, P. An Hòa, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0465,
+    lng: 105.7725,
+    tag: "Trung tâm"
+  },
+  {
+    name: "Hẻm 51 Đường 3/2 (Khu trọ sinh viên)",
+    address: "Hẻm 51, Đ. 3 Tháng 2, P. Xuân Khánh, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0270,
+    lng: 105.7720,
+    tag: "Khu trọ"
+  },
+  {
+    name: "ĐH FPT Cần Thơ (KDC An Bình / Hồng Phát)",
+    address: "Số 600, Đ. Nguyễn Văn Cừ nối dài, P. An Bình, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0125,
+    lng: 105.7325,
+    tag: "Đại học"
+  },
+  {
+    name: "ĐH Cần Thơ - Khu 2 (Đ. 3 Tháng 2)",
+    address: "Khu II, Đ. 3 Tháng 2, P. Xuân Khánh, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0299,
+    lng: 105.7706,
+    tag: "Đại học"
+  },
+  {
+    name: "ĐH Y Dược Cần Thơ (Đ. Nguyễn Văn Cừ)",
+    address: "179 Đ. Nguyễn Văn Cừ, P. An Khánh, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0350,
+    lng: 105.7570,
+    tag: "Đại học"
+  },
+  {
+    name: "ĐH Nam Cần Thơ (Nguyễn Văn Cừ nối dài)",
+    address: "168 Đ. Nguyễn Văn Cừ nối dài, P. An Bình, Q. Ninh Kiều, Cần Thơ",
+    lat: 9.9960,
+    lng: 105.7350,
+    tag: "Đại học"
+  },
+  {
+    name: "KDC 91B, P. An Khánh, Ninh Kiều",
+    address: "KDC 91B, Đ. Nguyễn Hiền, P. An Khánh, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0380,
+    lng: 105.7520,
+    tag: "Khu dân cư"
+  },
+  {
+    name: "KDC Hồng Phát, P. An Bình, Ninh Kiều",
+    address: "KDC Hồng Phát, Đ. Hoàng Quốc Việt, P. An Bình, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0150,
+    lng: 105.7400,
+    tag: "Khu dân cư"
+  },
+  {
+    name: "Khu trọ Hưng Lợi (Đ. Tầm Vu / 30 Tháng 4)",
+    address: "Đ. Tầm Vu, P. Hưng Lợi, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0180,
+    lng: 105.7650,
+    tag: "Khu trọ"
+  },
+  {
+    name: "Bến Ninh Kiều (Trung tâm TP)",
+    address: "Bến Ninh Kiều, P. Tân An, Q. Ninh Kiều, Cần Thơ",
+    lat: 10.0335,
+    lng: 105.7875,
+    tag: "Trung tâm"
+  },
+  {
+    name: "Quận Cái Răng (Cầu Cái Răng / Chợ Nổi)",
+    address: "Đ. Lê Bình, P. Lê Bình, Q. Cái Răng, Cần Thơ",
+    lat: 9.9980,
+    lng: 105.7850,
+    tag: "Cái Răng"
+  }
+];
+
+const ADDON_SERVICES = [
+  {
+    id: "loading",
+    name: "Hỗ trợ bốc xếp / khiêng lầu",
+    price: 80000,
+    desc: "Tài xế và phụ xe hỗ trợ khiêng đồ lên/xuống phòng trọ tận nơi"
+  },
+  {
+    id: "wrapping",
+    name: "Màng bọc PE bảo vệ đồ đạc",
+    price: 30000,
+    desc: "Quấn bọc chống xước tủ lạnh, nệm, đồ điện tử an toàn"
+  },
+  {
+    id: "assembly",
+    name: "Tháo lắp giường / bàn học cơ bản",
+    price: 50000,
+    desc: "Có sẵn máy bắt vít và dụng cụ kỹ thuật hỗ trợ"
+  }
+];
 
 export default function Transfers() {
-    const [items, setItems] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState(empty);
+  const { user } = useAuth();
+  const [selectedVehicle, setSelectedVehicle] = useState(LOGISTICS_VEHICLES[0].id);
+  const [distance, setDistance] = useState(7.1); // Khoảng cách tự động đo theo đường đi thực tế
+  const [duration, setDuration] = useState(16); // Thời gian lái xe ước tính (phút)
+  const [selectedAddons, setSelectedAddons] = useState(["loading"]);
+  const [items, setItems] = useState([]);
+  const [loadingList, setLoadingList] = useState(true);
 
-    const load = async () => {
-        setLoading(true);
-        try {
-            const res = await base44.entities.Transfer.filter(
-                {},
-                { sort: "-created_date", limit: 50 }
-            );
-            setItems(res.items || []);
-        } catch {
-            setItems([]);
-        }
-        setLoading(false);
-    };
+  // Vị trí đón và đến (Object đầy đủ gồm name, address, lat, lng)
+  const [pickupLocation, setPickupLocation] = useState(CAN_THO_LOCATIONS[0]); // Supper Trọ 686
+  const [dropoffLocation, setDropoffLocation] = useState(CAN_THO_LOCATIONS[1]); // LOTTE Mart Cần Thơ
 
-    useEffect(() => {
-        load();
-    }, []);
+  // Form states
+  const [customerName, setCustomerName] = useState(user?.fullName || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [moveDate, setMoveDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [locatingGPS, setLocatingGPS] = useState(false);
 
-    const submit = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        try {
-            await base44.entities.Transfer.create({
-                ...form,
-                price: Number(form.price) || null,
-                deposit: form.deposit ? Number(form.deposit) : null,
-            });
-            setForm(empty);
-            setShowForm(false);
-            load();
-        } finally {
-            setSaving(false);
-        }
-    };
+  const activeVehicle =
+    LOGISTICS_VEHICLES.find((v) => v.id === selectedVehicle) || LOGISTICS_VEHICLES[0];
 
-    return (
-        <>
-            <PageHero
-                icon={Truck}
-                title="Chuyển trọ"
-                subtitle="Sang nhượng phòng niêm yết — cọc bảo lãnh an toàn, giá rõ ràng cho sinh viên."
-                actionLabel="Đăng chuyển trọ"
-                onAction={() => setShowForm((s) => !s)}
-            />
+  // Tính cước tự động dựa trên khoảng cách đường bộ thực tế (không cho chỉnh tay)
+  const baseCost = activeVehicle.basePrice;
+  const distanceCost = activeVehicle.perKm * distance;
+  const addonsCost = selectedAddons.reduce((sum, id) => {
+    const item = ADDON_SERVICES.find((a) => a.id === id);
+    return sum + (item ? item.price : 0);
+  }, 0);
 
-            <section className="max-w-7xl mx-auto px-6 py-8">
-                {showForm && (
-                    <form
-                        onSubmit={submit}
-                        className="bg-card rounded-3xl border border-border/60 shadow-sm p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-4"
-                    >
-                        <div className="md:col-span-2 flex items-center justify-between">
-                            <h2 className="font-heading font-semibold text-foreground">Đăng sang nhượng phòng</h2>
-                            <button
-                                type="button"
-                                onClick={() => setShowForm(false)}
-                                className="text-xs text-muted-foreground hover:text-foreground"
-                            >
-                                Đóng ✕
-                            </button>
-                        </div>
-                        <Field label="Tiêu đề phòng">
-                            <Input
-                                value={form.title}
-                                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                                required
-                                placeholder="Phòng trọ gần ĐH Cần Thơ"
-                            />
-                        </Field>
-                        <Field label="Khu vực">
-                            <Input
-                                value={form.location}
-                                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                                required
-                                placeholder="Ninh Kiều"
-                            />
-                        </Field>
-                        <Field label="Giá thuê (tr/tháng)">
-                            <Input
-                                type="number"
-                                step="0.1"
-                                value={form.price}
-                                onChange={(e) => setForm({ ...form, price: e.target.value })}
-                                required
-                                placeholder="3.5"
-                            />
-                        </Field>
-                        <Field label="Tiền cọc (tr)">
-                            <Input
-                                type="number"
-                                step="0.1"
-                                value={form.deposit}
-                                onChange={(e) => setForm({ ...form, deposit: e.target.value })}
-                                placeholder="3"
-                            />
-                        </Field>
-                        <Field label="Lý do chuyển">
-                            <Input
-                                value={form.reason}
-                                onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                                placeholder="Ra trường về quê"
-                            />
-                        </Field>
-                        <Field label="Liên hệ">
-                            <Input
-                                value={form.contact}
-                                onChange={(e) => setForm({ ...form, contact: e.target.value })}
-                                placeholder="Zalo / SĐT"
-                            />
-                        </Field>
-                        <div className="md:col-span-2">
-                            <Field label="Ảnh phòng (URL)">
-                                <Input
-                                    value={form.image}
-                                    onChange={(e) => setForm({ ...form, image: e.target.value })}
-                                    placeholder="https://..."
-                                />
-                            </Field>
-                        </div>
-                        <div className="md:col-span-2">
-                            <Button
-                                type="submit"
-                                disabled={saving}
-                                className="rounded-full bg-accent text-accent-foreground hover:bg-accent/90"
-                            >
-                                {saving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang đăng...
-                                    </>
-                                ) : (
-                                    "Đăng chuyển trọ"
-                                )}
-                            </Button>
-                        </div>
-                    </form>
-                )}
+  const rawTotal = baseCost + distanceCost + addonsCost;
+  const studentDiscount = Math.round(rawTotal * 0.15); // Trợ giá sinh viên 15%
+  const finalTotal = rawTotal - studentDiscount;
 
-                <h2 className="font-heading font-bold text-foreground text-xl mb-4">
-                    {items.length} phòng sang nhượng
-                </h2>
+  // Tải danh sách đơn đặt xe
+  const loadRequests = async () => {
+    setLoadingList(true);
+    try {
+      const data = await base44.entities.Logistics.list();
+      setItems(Array.isArray(data) ? data : []);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoadingList(false);
+    }
+  };
 
-                {loading ? (
-                    <div className="flex justify-center py-16">
-                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                    </div>
-                ) : items.length === 0 ? (
-                    <EmptyState text="Chưa có phòng nào sang nhượng." />
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {items.map((it) => (
-                            <TransferCard key={it.id} item={it} />
-                        ))}
-                    </div>
-                )}
-            </section>
-        </>
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      if (!customerName && user.fullName) setCustomerName(user.fullName);
+      if (!phone && user.phone) setPhone(user.phone);
+    }
+  }, [user]);
+
+  // Cập nhật vị trí đón
+  const handlePickupChange = (newLoc) => {
+    setPickupLocation(newLoc);
+  };
+
+  // Cập nhật vị trí đến
+  const handleDropoffChange = (newLoc) => {
+    setDropoffLocation(newLoc);
+  };
+
+  // Xử lý khi người dùng gõ trực tiếp vào ô Điểm đón (hỗ trợ cả tọa độ e.g. 10.02102, 105.7013)
+  const handlePickupInputChange = (val) => {
+    const coord = parseCoordinates(val);
+    if (coord) {
+      handlePickupChange({
+        name: `Tọa độ (${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)})`,
+        address: val,
+        lat: coord.lat,
+        lng: coord.lng
+      });
+      return;
+    }
+    const cleanLower = val.toLowerCase().trim();
+    const matched = CAN_THO_LOCATIONS.find(
+      (l) =>
+        l.name.toLowerCase() === cleanLower ||
+        l.address.toLowerCase() === cleanLower ||
+        (cleanLower.length >= 4 && (cleanLower.includes(l.name.toLowerCase()) || l.name.toLowerCase().includes(cleanLower)))
     );
+    if (matched) {
+      handlePickupChange({
+        ...matched,
+        address: val.length > matched.name.length ? val : matched.address
+      });
+      return;
+    }
+    handlePickupChange({
+      ...pickupLocation,
+      name: val,
+      address: val
+    });
+  };
+
+  // Xử lý khi người dùng gõ trực tiếp vào ô Điểm đến (hỗ trợ cả tọa độ e.g. 10.02102, 105.7013)
+  const handleDropoffInputChange = (val) => {
+    const coord = parseCoordinates(val);
+    if (coord) {
+      handleDropoffChange({
+        name: `Tọa độ (${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)})`,
+        address: val,
+        lat: coord.lat,
+        lng: coord.lng
+      });
+      return;
+    }
+    const cleanLower = val.toLowerCase().trim();
+    const matched = CAN_THO_LOCATIONS.find(
+      (l) =>
+        l.name.toLowerCase() === cleanLower ||
+        l.address.toLowerCase() === cleanLower ||
+        (cleanLower.length >= 4 && (cleanLower.includes(l.name.toLowerCase()) || l.name.toLowerCase().includes(cleanLower)))
+    );
+    if (matched) {
+      handleDropoffChange({
+        ...matched,
+        address: val.length > matched.name.length ? val : matched.address
+      });
+      return;
+    }
+    handleDropoffChange({
+      ...dropoffLocation,
+      name: val,
+      address: val
+    });
+  };
+
+  // Hoán đổi 2 điểm đón và đến
+  const handleSwapRoute = () => {
+    const temp = pickupLocation;
+    setPickupLocation(dropoffLocation);
+    setDropoffLocation(temp);
+  };
+
+  // Lấy định vị vị trí hiện tại bằng GPS trình duyệt
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Trình duyệt của bạn không hỗ trợ định vị GPS.");
+      return;
+    }
+    setLocatingGPS(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocatingGPS(false);
+        const { latitude, longitude } = pos.coords;
+        const coordStr = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        const gpsLoc = {
+          name: "Vị trí GPS của bạn",
+          address: `Vị trí hiện tại (${coordStr} - Cần Thơ)`,
+          lat: latitude,
+          lng: longitude
+        };
+        handlePickupChange(gpsLoc);
+      },
+      (err) => {
+        setLocatingGPS(false);
+        alert("Không thể lấy vị trí hiện tại: " + err.message);
+      },
+      { timeout: 10000 }
+    );
+  };
+
+  const toggleAddon = (id) => {
+    if (selectedAddons.includes(id)) {
+      setSelectedAddons(selectedAddons.filter((x) => x !== id));
+    } else {
+      setSelectedAddons([...selectedAddons, id]);
+    }
+  };
+
+  const handleBookingSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    const pickAddr = pickupLocation.address || pickupLocation.name;
+    const dropAddr = dropoffLocation.address || dropoffLocation.name;
+
+    if (!phone || !pickAddr || !dropAddr) {
+      setErrorMsg("Vui lòng điền đầy đủ số điện thoại, điểm đón và điểm đến.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const addonNames = selectedAddons
+        .map((id) => ADDON_SERVICES.find((a) => a.id === id)?.name)
+        .filter(Boolean)
+        .join(", ");
+
+      const payload = {
+        customerName: customerName || (user?.fullName || "Sinh viên Cần Thơ"),
+        phone,
+        vehicleType: activeVehicle.name,
+        distanceKm: distance,
+        servicePackage: addonNames || "Cơ bản",
+        pickupAddress: pickAddr,
+        dropoffAddress: dropAddr,
+        moveDate: moveDate || "Hôm nay (sớm nhất)",
+        notes: notes || "Không có ghi chú thêm",
+        estimatedPrice: finalTotal,
+      };
+
+      const res = await base44.entities.Logistics.create(payload);
+      if (res && res.data) {
+        setBookingSuccess(res.data);
+      } else {
+        setBookingSuccess({
+          id: `logistics_${Date.now()}`,
+          ...payload,
+        });
+      }
+
+      setNotes("");
+      loadRequests();
+    } catch (err) {
+      setErrorMsg(err.message || "Không thể gửi yêu cầu đặt xe. Vui lòng thử lại!");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <PageHero
+        icon={Truck}
+        title="Dịch vụ Chuyển trọ Sinh viên"
+        subtitle="Hệ thống xe ba gác & xe tải sinh viên Cần Thơ — Bản đồ đường bộ tự động vẽ tuyến đường & đo cước minh bạch 100%."
+        actionLabel="Đặt xe ngay"
+        onAction={() => {
+          const el = document.getElementById("booking-section");
+          el?.scrollIntoView({ behavior: "smooth" });
+        }}
+      />
+
+      <section className="max-w-7xl mx-auto px-6 py-10 space-y-12">
+        {/* Banner 3 cam kết vàng */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
+            <div className="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center flex-shrink-0">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm mb-1">Đúng giờ 100%</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Tài xế có mặt trước 10-15 phút theo lịch hẹn. Linh hoạt các khung giờ rảnh của sinh viên.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm mb-1">Bảo hiểm đồ đạc</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Đồ dùng, nệm, tủ, thiết bị điện tử được che chắn và chằng buộc cẩn thận, đền bù nếu trầy xước.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-sky-50 border border-sky-200/80 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
+            <div className="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-600 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm mb-1">Trợ giá sinh viên 15%</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Giá minh bạch theo số km đường bộ đo tự động trên bản đồ, không kỳ kèo phát sinh chi phí ẩn.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Section Tính Cước & Lộ Trình Bản Đồ Tự Động */}
+        <div id="booking-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* CỘT TRÁI (7 cột): Chọn xe, Bản đồ tương tác & Tùy chọn */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-sm space-y-8">
+              {/* 1. Chọn loại xe */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">1. Chọn loại xe chuyển trọ</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Lựa chọn phương tiện phù hợp với khối lượng đồ dùng phòng của bạn
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold px-3 py-1 rounded-full bg-orange-100 text-orange-700">
+                    Cần Thơ Logistics
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {LOGISTICS_VEHICLES.map((v) => {
+                    const isSelected = selectedVehicle === v.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedVehicle(v.id)}
+                        className={cn(
+                          "p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between",
+                          isSelected
+                            ? "border-orange-500 bg-orange-50/50 shadow-sm ring-2 ring-orange-400/20"
+                            : "border-border hover:border-slate-300 bg-background"
+                        )}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs">
+                            ✓
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-3xl mb-2">{v.icon}</div>
+                          <div className="font-bold text-foreground text-sm leading-tight mb-1">{v.name}</div>
+                          <div className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                            {v.capacity}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/80 flex items-baseline justify-between">
+                          <span className="text-xs text-muted-foreground">Mở cửa:</span>
+                          <span className="font-extrabold text-foreground text-xs">
+                            {Number(v.basePrice).toLocaleString()}đ
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. LỘ TRÌNH VÀ BẢN ĐỒ ĐƯỜNG BỘ TỰ ĐỘNG */}
+              <div className="border-t border-border pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                      <Route className="w-5 h-5 text-orange-500" />
+                      2. Lộ trình & Bản đồ đường bộ Cần Thơ
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Bản đồ tự động vẽ tuyến đường đi thực tế qua phố và đo số km chuẩn xác (không tự ý chỉnh tay)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Khung nhập 2 điểm đón & đến */}
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-3.5 mb-4 shadow-sm">
+                  {/* Điểm đón */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shadow-sm" />
+                        Điểm đón (A - Phòng trọ cũ):
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGetLocation}
+                        disabled={locatingGPS}
+                        className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 transition"
+                      >
+                        <Crosshair className="w-3.5 h-3.5" />
+                        {locatingGPS ? "Đang lấy GPS..." : "GPS Vị trí của tôi"}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        value={pickupLocation.address || pickupLocation.name}
+                        onChange={(e) => handlePickupInputChange(e.target.value)}
+                        placeholder="Gõ địa chỉ hoặc dán tọa độ (VD: 10.02102, 105.7013)..."
+                        className="bg-white rounded-xl text-xs h-11 pr-28 shadow-sm border-slate-300"
+                      />
+                      <select
+                        aria-label="Chọn điểm đón gợi ý"
+                        value={pickupLocation.name}
+                        onChange={(e) => {
+                          const found = CAN_THO_LOCATIONS.find((l) => l.name === e.target.value);
+                          if (found) handlePickupChange(found);
+                        }}
+                        className="absolute right-1 top-1 bottom-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg px-2 border-0 outline-none cursor-pointer max-w-[105px] truncate"
+                      >
+                        <option value="">Gợi ý trọ...</option>
+                        {CAN_THO_LOCATIONS.map((loc) => (
+                          <option key={loc.name} value={loc.name}>
+                            {loc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Nút đảo chiều */}
+                  <div className="flex justify-center -my-1">
+                    <button
+                      type="button"
+                      onClick={handleSwapRoute}
+                      title="Đảo chiều đón và đến"
+                      className="w-8 h-8 rounded-full bg-white border border-slate-300 shadow-md hover:bg-orange-50 text-slate-600 hover:text-orange-600 flex items-center justify-center transition"
+                    >
+                      <ArrowLeftRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Điểm đến */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block shadow-sm" />
+                        Điểm đến (B - Phòng trọ mới):
+                      </label>
+                      <span className="text-[11px] text-slate-500">Gõ tên trọ, trường ĐH hoặc tọa độ</span>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        value={dropoffLocation.address || dropoffLocation.name}
+                        onChange={(e) => handleDropoffInputChange(e.target.value)}
+                        placeholder="Gõ địa chỉ hoặc dán tọa độ (VD: 10.02102, 105.7013)..."
+                        className="bg-white rounded-xl text-xs h-11 pr-28 shadow-sm border-slate-300"
+                      />
+                      <select
+                        aria-label="Chọn điểm đến gợi ý"
+                        value={dropoffLocation.name}
+                        onChange={(e) => {
+                          const found = CAN_THO_LOCATIONS.find((l) => l.name === e.target.value);
+                          if (found) handleDropoffChange(found);
+                        }}
+                        className="absolute right-1 top-1 bottom-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg px-2 border-0 outline-none cursor-pointer max-w-[105px] truncate"
+                      >
+                        <option value="">Gợi ý đến...</option>
+                        {CAN_THO_LOCATIONS.map((loc) => (
+                          <option key={loc.name} value={loc.name}>
+                            {loc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BẢN ĐỒ TỰ ĐỘNG VẼ TUYẾN ĐƯỜNG ĐI THỰC TẾ & ĐỒNG BỘ GOOGLE MAPS */}
+                <InteractiveLogisticsMap
+                  pickup={pickupLocation}
+                  dropoff={dropoffLocation}
+                  onPickupChange={handlePickupChange}
+                  onDropoffChange={handleDropoffChange}
+                  distance={distance}
+                  onDistanceChange={setDistance}
+                  estimatedDuration={duration}
+                  onDurationChange={setDuration}
+                />
+              </div>
+
+              {/* 3. Dịch vụ hỗ trợ kèm theo */}
+              <div className="border-t border-border pt-6">
+                <label className="text-sm font-bold text-foreground block mb-3">
+                  3. Dịch vụ hỗ trợ kèm theo (Tùy chọn)
+                </label>
+                <div className="space-y-2.5">
+                  {ADDON_SERVICES.map((addon) => {
+                    const isChecked = selectedAddons.includes(addon.id);
+                    return (
+                      <div
+                        key={addon.id}
+                        onClick={() => toggleAddon(addon.id)}
+                        className={cn(
+                          "p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-colors",
+                          isChecked
+                            ? "border-orange-400 bg-orange-50/40"
+                            : "border-border hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            className="w-4 h-4 rounded text-orange-500 focus:ring-orange-400 cursor-pointer"
+                          />
+                          <div>
+                            <p className="font-semibold text-xs text-foreground">{addon.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{addon.desc}</p>
+                          </div>
+                        </div>
+                        <span className="font-bold text-xs text-foreground flex-shrink-0">
+                          +{Number(addon.price).toLocaleString()}đ
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CỘT PHẢI (5 cột): Bảng Tính Cước & Form Đặt Chuyến */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Box Tổng Tiền & Chi Tiết Cước (Minh bạch 100% theo đường bộ - Tone màu cam ấm SmartStay) */}
+            <div className="bg-white border-2 border-orange-200/90 rounded-3xl p-6 sm:p-7 shadow-md relative overflow-hidden">
+              <div
+                className="absolute -top-14 -right-14 w-44 h-44 rounded-full opacity-40 blur-2xl pointer-events-none"
+                style={{ background: "radial-gradient(circle, #fed7aa, transparent 70%)" }}
+              />
+              <div
+                className="absolute -bottom-10 -left-10 w-36 h-36 rounded-full opacity-30 blur-2xl pointer-events-none"
+                style={{ background: "radial-gradient(circle, #ffedd5, transparent 70%)" }}
+              />
+
+              <div className="relative z-10">
+                <div className="flex items-center justify-between border-b border-orange-100 pb-4 mb-4">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-[11px] font-extrabold tracking-wider uppercase mb-1">
+                      <Sparkles className="w-3 h-3 text-orange-600" />
+                      Bảng giá niêm yết tự động
+                    </span>
+                    <h4 className="font-extrabold text-xl text-slate-900 mt-1">{activeVehicle.name}</h4>
+                  </div>
+                  <div className="w-14 h-14 rounded-2xl bg-orange-50 border border-orange-200/80 flex items-center justify-center text-3xl shadow-xs">
+                    {activeVehicle.icon}
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>Cước cơ bản (mở cửa):</span>
+                    <span className="font-bold text-slate-900">{Number(baseCost).toLocaleString()}đ</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>
+                      Cước km ({Number(activeVehicle.perKm).toLocaleString()}đ × {distance}km đường bộ):
+                    </span>
+                    <span className="font-bold text-slate-900">{Number(distanceCost).toLocaleString()}đ</span>
+                  </div>
+                  {addonsCost > 0 && (
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Dịch vụ hỗ trợ cộng thêm:</span>
+                      <span className="font-bold text-orange-600">+{Number(addonsCost).toLocaleString()}đ</span>
+                    </div>
+                  )}
+                  <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs text-emerald-800 font-bold shadow-xs">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      Trợ giá sinh viên (-15%):
+                    </span>
+                    <span className="text-emerald-700 font-extrabold">-{Number(studentDiscount).toLocaleString()}đ</span>
+                  </div>
+                </div>
+
+                {/* Khung tổng tiền thanh toán nổi bật màu cam SmartStay */}
+                <div className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white rounded-2xl p-4 sm:p-4.5 shadow-lg shadow-orange-500/20 flex items-center justify-between mt-5">
+                  <div>
+                    <span className="text-xs text-orange-100 font-semibold block">
+                      Tổng cước thanh toán:
+                    </span>
+                    <span className="text-[10px] text-orange-200 font-medium block mt-0.5">
+                      (Tự động tính theo tuyến đường {distance} km)
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      {Number(finalTotal).toLocaleString()}đ
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Thông báo đặt xe thành công */}
+            {bookingSuccess && (
+              <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 shadow-sm animate-in fade-in">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-sm">Đặt xe thành công!</h4>
+                    <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                      Mã chuyến: <span className="font-mono font-bold">{bookingSuccess.id}</span>
+                      <br />
+                      Lộ trình: {bookingSuccess.distanceKm} km. Tài xế sẽ gọi điện thoại tới số{" "}
+                      <strong>{bookingSuccess.phone}</strong> trong vòng 5-10 phút để xác nhận chuyển trọ.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Form Điền Thông Tin Đặt Xe (Đồng bộ 100% với bản đồ) */}
+            <div className="bg-card border border-border rounded-3xl p-6 sm:p-7 shadow-sm">
+              <h3 className="text-lg font-bold text-foreground mb-1">Thông tin đặt chuyến</h3>
+              <p className="text-xs text-muted-foreground mb-5">
+                Điểm đón và điểm đến được đồng bộ tự động từ bản đồ bên trái
+              </p>
+
+              {errorMsg && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-600 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {errorMsg}
+                </div>
+              )}
+
+              <form onSubmit={handleBookingSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground">Họ tên bạn</label>
+                    <Input
+                      type="text"
+                      required
+                      placeholder="Nguyễn Văn A"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="rounded-xl h-11 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground">Số điện thoại / Zalo *</label>
+                    <Input
+                      type="tel"
+                      required
+                      placeholder="09xx xxx xxx"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="rounded-xl h-11 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                    Địa chỉ đón (Phòng trọ cũ tại Cần Thơ) *
+                  </label>
+                  <Input
+                    type="text"
+                    required
+                    placeholder="VD: Supper Trọ 686, Ấp Mỹ Phước, An Bình"
+                    value={pickupLocation.address || pickupLocation.name}
+                    onChange={(e) => handlePickupInputChange(e.target.value)}
+                    className="rounded-xl h-11 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-orange-500" />
+                    Địa chỉ đến (Phòng trọ mới) *
+                  </label>
+                  <Input
+                    type="text"
+                    required
+                    placeholder="VD: LOTTE Mart Cần Thơ, 84 Đ. Mậu Thân"
+                    value={dropoffLocation.address || dropoffLocation.name}
+                    onChange={(e) => handleDropoffInputChange(e.target.value)}
+                    className="rounded-xl h-11 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                    Thời gian cần chuyển
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="VD: 08:30 sáng Thứ Bảy tuần này hoặc Hôm nay"
+                    value={moveDate}
+                    onChange={(e) => setMoveDate(e.target.value)}
+                    className="rounded-xl h-11 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-amber-500" />
+                    Ghi chú đồ đạc
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="VD: 1 nệm, 1 bàn xếp, 3 thùng carton sách, lầu 2..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="rounded-xl h-11 text-xs"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full h-12 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm shadow-md transition-all mt-2"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Đang kết nối tài xế...
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="w-4 h-4 mr-2" />
+                      Xác nhận Đặt xe ({distance} km đường bộ)
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-[11px] text-center text-muted-foreground mt-2">
+                  🔒 Cước thanh toán trực tiếp cho tài xế theo đúng số km đo trên bản đồ.
+                </p>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {/* Danh sách các chuyến xe chuyển trọ gần đây */}
+        <div className="pt-6 border-t border-border">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">Chuyến xe chuyển trọ đang phục vụ</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Các chuyến xe được kết nối hỗ trợ sinh viên tại khu vực Cần Thơ
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadRequests}
+              className="rounded-full text-xs font-semibold"
+            >
+              Làm mới
+            </Button>
+          </div>
+
+          {loadingList ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="p-8 text-center bg-card rounded-2xl border border-border text-muted-foreground text-sm">
+              Chưa có chuyến xe nào được ghi nhận. Hãy là người đầu tiên đặt xe!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-bold text-xs px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200">
+                        {item.vehicleType || "Xe ba gác chuyển trọ"}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                          item.status === "completed"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : item.status === "in_progress"
+                            ? "bg-sky-100 text-sky-700"
+                            : "bg-amber-100 text-amber-700"
+                        )}
+                      >
+                        {item.status === "completed"
+                          ? "✓ Đã hoàn thành"
+                          : item.status === "in_progress"
+                          ? "🚚 Đang vận chuyển"
+                          : "⏳ Chờ tài xế"}
+                      </span>
+                    </div>
+
+                    <h4 className="font-bold text-foreground text-sm mb-2">
+                      {item.customerName || "Sinh viên Cần Thơ"} · {item.distanceKm || 5}km
+                    </h4>
+
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <div className="flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <span className="line-clamp-1">
+                          <strong>Từ:</strong> {item.pickupAddress}
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-orange-500 flex-shrink-0 mt-0.5" />
+                        <span className="line-clamp-1">
+                          <strong>Đến:</strong> {item.dropoffAddress}
+                        </span>
+                      </div>
+                      {item.notes && (
+                        <div className="text-[11px] text-slate-500 line-clamp-1 italic pt-1">
+                          "{item.notes}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Cước trọn gói:</span>
+                    <span className="font-extrabold text-orange-600 text-sm">
+                      {item.estimatedPrice ? Number(item.estimatedPrice).toLocaleString() : "190.000"}đ
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  );
 }

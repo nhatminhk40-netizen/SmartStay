@@ -46,7 +46,16 @@ const roomSchema = new mongoose.Schema({
     remaining_duration: { type: Number, default: 0 }, // Số tháng còn lại
     remaining_deposit: { type: Number, default: 0 },  // Tiền cọc còn lại (VNĐ)
     pass_reason: { type: String, default: '' },        // Lý do chuyển đi
-    is_boosted: { type: Boolean, default: false }      // Đã trả phí đẩy tin lên đầu
+    is_boosted: { type: Boolean, default: false },     // Đã trả phí đẩy tin lên đầu
+    pass_status: { 
+        type: String, 
+        enum: ['pending_landlord', 'landlord_confirmed', 'landlord_rejected', 'landlord_conditional'],
+        default: 'pending_landlord'
+    },
+    landlordNote: { type: String, default: '' },
+    landlordPhone: { type: String, default: '' },
+    moveOutDate: { type: String, default: '' },
+    posterName: { type: String, default: 'Sinh viên SmartStay' }
 }, { timestamps: true });
 
 // Tự đồng bộ ảnh và badge trước khi lưu

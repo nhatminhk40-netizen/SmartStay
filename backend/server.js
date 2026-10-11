@@ -1,20 +1,36 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
 const Room = require('./models/Room');
 const Review = require('./models/Review');
 const RoommateSurvey = require('./models/RoommateSurvey');
+const authRoutes = require('./routes/authRoutes');
+const { protect, authorize } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// Security Middlewares
+app.use(helmet({
+    contentSecurityPolicy: false, // Cho phép load ảnh từ các nguồn như Unsplash
+    crossOriginEmbedderPolicy: false
+}));
+app.use(cors({
+    origin: true,
+    credentials: true
+}));
 app.use(express.json());
 
-// Trạng thái kết nối DB
+// Trạng thái kết nối DB & Biến dùng chung
 let isDbConnected = false;
+app.locals.isDbConnected = false;
+app.locals.fallbackUsers = [];
+
+// Helper chống ReDoS & NoSQL Injection cho Regex
+const escapeRegex = (str) => (str ? str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') : '');
 
 // Kết nối MongoDB Atlas
 if (process.env.MONGO_URI) {
@@ -23,14 +39,20 @@ if (process.env.MONGO_URI) {
     })
         .then(() => {
             isDbConnected = true;
+            app.locals.isDbConnected = true;
             console.log('✅ Connected to MongoDB Atlas successfully!');
         })
         .catch((err) => {
             isDbConnected = false;
+            app.locals.isDbConnected = false;
             console.warn('⚠️ MongoDB connection warning (chưa whitelist IP hoặc đang offline):', err.message);
             console.log('ℹ️ Server sẽ hoạt động ở chế độ Fallback Mock Data để đảm bảo trải nghiệm không bị gián đoạn.');
         });
 }
+
+// Mount Authentication routes
+app.use('/api/auth', authRoutes);
+
 
 // Bộ dữ liệu dự phòng (Fallback Data) chuẩn theo dự án SmartStay
 let fallbackRooms = [
@@ -210,7 +232,50 @@ let fallbackSurveys = [
     }
 ];
 
-let fallbackLogisticsRequests = [];
+let fallbackLogisticsRequests = [
+    {
+        id: 'logistics_1',
+        customerName: 'Nguyễn Minh Tuấn',
+        phone: '0939 123 456',
+        vehicleType: 'Xe ba gác chuyển trọ',
+        distanceKm: 6,
+        pickupAddress: 'Hẻm 51, Đ. 3 Tháng 2, P. Xuân Khánh (Gần ĐH Cần Thơ)',
+        dropoffAddress: 'KDC Hồng Phát, Đ. Nguyễn Văn Cừ (Gần ĐH FPT)',
+        servicePackage: 'Bốc xếp cơ bản',
+        notes: 'Chở 1 nệm cao su, 1 bàn xếp, 2 thùng carton sách vở',
+        estimatedPrice: 192000,
+        status: 'completed',
+        createdAt: new Date(Date.now() - 3600 * 1000 * 5)
+    },
+    {
+        id: 'logistics_2',
+        customerName: 'Trần Thị Thu Thảo',
+        phone: '0907 889 900',
+        vehicleType: 'Xe tải nhỏ 500kg',
+        distanceKm: 9,
+        pickupAddress: 'Trọ Hưng Lợi, Q. Ninh Kiều',
+        dropoffAddress: 'Ký túc xá ĐH Y Dược Cần Thơ',
+        servicePackage: 'Bốc xếp trọn gói 2 đầu',
+        notes: 'Có tủ lạnh mini 90L và giá sách gỗ cần bọc màng bảo vệ',
+        estimatedPrice: 315000,
+        status: 'in_progress',
+        createdAt: new Date(Date.now() - 3600 * 1000 * 1.5)
+    },
+    {
+        id: 'logistics_3',
+        customerName: 'Lê Hoàng Nam',
+        phone: '0918 555 777',
+        vehicleType: 'Xe ba gác chuyển trọ',
+        distanceKm: 4,
+        pickupAddress: 'Đường Tầm Vu, P. Hưng Lợi',
+        dropoffAddress: 'Hẻm 132 Đ. 3 Tháng 2, Ninh Kiều',
+        servicePackage: 'Tự bốc xếp',
+        notes: 'Đồ gọn, 3 vali quần áo và đồ dùng cá nhân',
+        estimatedPrice: 168000,
+        status: 'completed',
+        createdAt: new Date(Date.now() - 3600 * 1000 * 12)
+    }
+];
 let otpStore = {}; // Lưu tạm OTP theo số điện thoại: { [phone]: { code, expiresAt } }
 
 // Route kiểm tra server
@@ -238,14 +303,14 @@ app.get('/health', (req, res) => {
 });
 
 // ==================== APIS QUẢN LÝ PHÒNG TRỌ ====================
-// 1. Lấy danh sách phòng trọ
+// 1. Lấy danh sách phòng trọ (kèm bộ lọc an toàn chống ReDoS)
 app.get('/api/rooms', async (req, res) => {
     try {
         const { campus, maxPrice, electricityCostType, isSafeBadge, seekingRoommate, amenities, type } = req.query;
 
         if (isDbConnected) {
             let query = {};
-            if (campus && campus !== 'Tất cả khu vực') query.campus = new RegExp(campus, 'i');
+            if (campus && campus !== 'Tất cả khu vực') query.campus = new RegExp(escapeRegex(campus), 'i');
             if (maxPrice) query.price = { $lte: Number(maxPrice) };
             if (electricityCostType) query.electricityCostType = electricityCostType;
             if (isSafeBadge !== undefined) query.isSafeBadge = isSafeBadge === 'true';
@@ -289,7 +354,63 @@ app.get('/api/rooms', async (req, res) => {
     }
 });
 
-// 2. Lấy chi tiết phòng trọ
+// 2. Lấy danh sách tin Pass phòng (SmartStay Pass)
+app.get('/api/rooms/pass', async (req, res) => {
+    try {
+        if (isDbConnected) {
+            const list = await Room.find({ listingType: 'pass' }).sort({ is_boosted: -1, createdAt: -1 });
+            return res.status(200).json({ success: true, count: list.length, data: list });
+        }
+        const list = fallbackRooms.filter((r) => r.listingType === 'pass' || r.has_pass);
+        res.status(200).json({ success: true, count: list.length, data: list });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 3. Lấy chi tiết một tin Pass phòng để chủ trọ kiểm duyệt
+app.get('/api/rooms/pass/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (isDbConnected) {
+            const item = await Room.findById(id);
+            if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu pass phòng' });
+            return res.status(200).json({ success: true, data: item });
+        }
+        const item = fallbackRooms.find((r) => String(r._id) === id || String(r.id) === id);
+        if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu pass phòng' });
+        res.status(200).json({ success: true, data: item });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 4. Chủ trọ xác nhận / từ chối Pass phòng
+app.post('/api/rooms/pass/:id/confirm', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, note } = req.body; // status: 'landlord_confirmed' | 'landlord_rejected' | 'landlord_conditional'
+
+        if (isDbConnected) {
+            const updated = await Room.findByIdAndUpdate(id, {
+                pass_status: status,
+                landlordNote: note || ''
+            }, { new: true });
+            if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng để xác nhận' });
+            return res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt thành công', data: updated });
+        }
+
+        const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
+        fallbackRooms[idx].pass_status = status;
+        fallbackRooms[idx].landlordNote = note || '';
+        res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt thành công', data: fallbackRooms[idx] });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 5. Lấy chi tiết phòng trọ
 app.get('/api/rooms/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -308,7 +429,7 @@ app.get('/api/rooms/:id', async (req, res) => {
     }
 });
 
-// 3. Đăng tin phòng trọ mới
+// 6. Đăng tin phòng trọ mới
 app.post('/api/rooms', async (req, res) => {
     try {
         const data = { ...req.body };
@@ -337,13 +458,14 @@ app.post('/api/rooms', async (req, res) => {
     }
 });
 
-// 4. SmartStay Pass - Đăng tin sang nhượng phòng (Tuần G)
+// 7. SmartStay Pass - Đăng tin sang nhượng phòng (Tuần G)
 app.post('/api/rooms/pass', async (req, res) => {
     try {
         const passData = {
             ...req.body,
             listingType: 'pass',
             has_pass: true,
+            pass_status: 'pending_landlord',
             pass_months_left: req.body.remaining_duration || req.body.pass_months_left || 3
         };
 
@@ -365,7 +487,7 @@ app.post('/api/rooms/pass', async (req, res) => {
     }
 });
 
-// 5. Cập nhật phòng trọ (Admin CRUD)
+// 8. Cập nhật phòng trọ (Admin / Landlord CRUD)
 app.put('/api/rooms/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -390,7 +512,7 @@ app.put('/api/rooms/:id', async (req, res) => {
     }
 });
 
-// 6. Xóa phòng trọ (Admin CRUD)
+// 9. Xóa phòng trọ (Admin CRUD)
 app.delete('/api/rooms/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -580,23 +702,58 @@ app.get('/api/surveys', async (req, res) => {
 });
 
 // ==================== APIS SMARTSTAY LOGISTICS / MOVE ====================
-// Đặt xe chuyển trọ (Tuần E)
+// 1. Lấy danh sách yêu cầu chuyển trọ
+app.get('/api/logistics-request', (req, res) => {
+    try {
+        res.status(200).json({
+            success: true,
+            count: fallbackLogisticsRequests.length,
+            data: fallbackLogisticsRequests
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 2. Đặt xe chuyển trọ (Tuần E)
 app.post('/api/logistics-request', (req, res) => {
     try {
-        const { vehicleType, distanceKm, servicePackage, pickupAddress, dropoffAddress, phone, estimatedPrice } = req.body;
-        const request = {
-            id: `logistics_${Date.now()}`,
+        const {
+            customerName,
+            phone,
             vehicleType,
             distanceKm,
             servicePackage,
             pickupAddress,
             dropoffAddress,
+            moveDate,
+            notes,
+            estimatedPrice
+        } = req.body;
+
+        if (!phone || !pickupAddress || !dropoffAddress) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp số điện thoại, điểm đón và điểm đến.'
+            });
+        }
+
+        const request = {
+            id: `logistics_${Date.now()}`,
+            customerName: customerName || 'Sinh viên Cần Thơ',
             phone,
-            estimatedPrice,
+            vehicleType: vehicleType || 'Xe ba gác chuyển trọ',
+            distanceKm: Number(distanceKm) || 5,
+            servicePackage: servicePackage || 'Cơ bản',
+            pickupAddress,
+            dropoffAddress,
+            moveDate: moveDate || 'Hôm nay',
+            notes: notes || '',
+            estimatedPrice: Number(estimatedPrice) || 150000,
             status: 'pending',
             createdAt: new Date()
         };
-        fallbackLogisticsRequests.push(request);
+        fallbackLogisticsRequests.unshift(request);
         res.status(201).json({
             success: true,
             message: 'Yêu cầu đặt xe chuyển trọ đã được ghi nhận thành công!',
@@ -625,7 +782,7 @@ app.post('/api/safe-listing/send-otp', (req, res) => {
     res.status(200).json({
         success: true,
         message: 'Mã OTP đã được gửi đến số điện thoại của bạn!',
-        otpPreview: code // Hiển thị để tiện test sandbox
+        otpPreview: process.env.NODE_ENV === 'production' ? undefined : code // Chỉ hiển thị preview ở dev sandbox
     });
 });
 
@@ -634,8 +791,9 @@ app.post('/api/safe-listing/verify-otp', (req, res) => {
     const { phone, otp } = req.body;
     const record = otpStore[phone];
 
-    // Cho phép mã demo '123456' hoặc mã đã gửi
-    if (otp === '123456' || (record && record.code === otp && Date.now() <= record.expiresAt)) {
+    // Cho phép mã demo '123456' khi ở môi trường Sandbox/Dev
+    const isSandboxDemo = process.env.NODE_ENV !== 'production' && otp === '123456';
+    if (isSandboxDemo || (record && record.code === otp && Date.now() <= record.expiresAt)) {
         return res.status(200).json({
             success: true,
             message: 'Xác thực số điện thoại thành công!',
@@ -688,6 +846,33 @@ app.post('/api/safe-listing/payment-webhook', async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+// ==================== APIS CẤU HÌNH HỆ THỐNG (SYSTEM CONFIG) ====================
+let systemConfig = {
+    hero: null,
+    campuses: null,
+    amenities: null,
+    specialToggles: null,
+    quickActions: null
+};
+
+app.get('/api/config', (req, res) => {
+    res.status(200).json({ success: true, data: systemConfig });
+});
+
+app.post('/api/config', (req, res) => {
+    systemConfig = { ...systemConfig, ...req.body };
+    res.status(200).json({ success: true, message: 'Lưu cấu hình hệ thống thành công!', data: systemConfig });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('Unhandled Server Error:', err);
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Đã có lỗi xảy ra trên máy chủ.'
+    });
 });
 
 // Lắng nghe cổng

@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users } from "lucide-react";
 import GoogleIcon from "@/components/GoogleIcon";
+import GoogleClientIdDialog from "@/components/GoogleClientIdDialog";
+import { triggerGoogleSignIn } from "@/lib/googleAuth";
 import { safeReturnTo } from "@/lib/authReturnTo";
 
 const FEATURES = [
@@ -37,17 +39,25 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    if (email === "employee" && password === "123456") {
-      window.location.href = "/employee";
-      return;
-    }
-
     try {
       const result = await base44.auth.loginViaEmailPassword(email, password);
       if (result?.access_token) {
         base44.auth.setToken(result.access_token);
       }
-      window.location.href = safeReturnTo();
+      
+      const role = result?.user?.role;
+      const returnUrl = safeReturnTo();
+      
+      // Nếu có returnTo cụ thể thì chuyển hướng về đó, ngược lại phân luồng theo Role
+      if (returnUrl && returnUrl !== "/" && !returnUrl.includes("/login")) {
+        window.location.href = returnUrl;
+      } else if (role === "admin") {
+        window.location.href = "/admin";
+      } else if (role === "employee") {
+        window.location.href = "/employee";
+      } else {
+        window.location.href = "/";
+      }
     } catch (err) {
       setError(err.message || "Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
     } finally {
@@ -55,8 +65,45 @@ export default function Login() {
     }
   };
 
+  const handleQuickLogin = (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+  };
+
+  const [showClientIdDialog, setShowClientIdDialog] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const startGoogleOAuth = () => {
+    setError("");
+    setGoogleLoading(true);
+    triggerGoogleSignIn({
+      onPromptClientId: () => {
+        setGoogleLoading(false);
+        setShowClientIdDialog(true);
+      },
+      onSuccess: (result) => {
+        setGoogleLoading(false);
+        const role = result?.user?.role;
+        const returnUrl = safeReturnTo();
+        if (returnUrl && returnUrl !== "/" && !returnUrl.includes("/login")) {
+          window.location.href = returnUrl;
+        } else if (role === "admin") {
+          window.location.href = "/admin";
+        } else if (role === "employee") {
+          window.location.href = "/employee";
+        } else {
+          window.location.href = "/";
+        }
+      },
+      onError: (err) => {
+        setGoogleLoading(false);
+        setError(err.message || "Đăng nhập Google thất bại.");
+      }
+    });
+  };
+
   const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", safeReturnTo());
+    startGoogleOAuth();
   };
 
   return (
@@ -159,11 +206,22 @@ export default function Login() {
           {/* Google Button */}
           <button
             id="btn-google-login"
+            type="button"
+            disabled={googleLoading || loading}
             onClick={handleGoogle}
-            className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-border bg-card text-foreground font-medium text-sm transition-all duration-200 hover:bg-accent/10 hover:border-orange-300 hover:shadow-sm active:scale-[0.98] mb-6"
+            className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-border bg-card text-foreground font-medium text-sm transition-all duration-200 hover:bg-accent/10 hover:border-orange-300 hover:shadow-sm active:scale-[0.98] mb-6 disabled:opacity-60"
           >
-            <GoogleIcon className="w-5 h-5" />
-            Tiếp tục với Google
+            {googleLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                Đang kết nối tài khoản Google...
+              </>
+            ) : (
+              <>
+                <GoogleIcon className="w-5 h-5" />
+                Tiếp tục với Google
+              </>
+            )}
           </button>
 
           {/* Divider */}
@@ -282,6 +340,31 @@ export default function Login() {
                 "Đăng nhập"
               )}
             </button>
+
+            {/* Quick Demo Credentials */}
+            <div className="pt-2">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
+                Tài khoản Demo trải nghiệm nhanh
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("employee@smartstay.vn", "123456")}
+                  className="px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                >
+                  🏢 <strong>Nhân viên</strong>
+                  <span className="block text-[10px] text-slate-500">employee / 123456</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("admin@smartstay.vn", "Admin@123456")}
+                  className="px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                >
+                  ⚡ <strong>Quản trị viên</strong>
+                  <span className="block text-[10px] text-slate-500">admin / Admin@123456</span>
+                </button>
+              </div>
+            </div>
           </form>
 
           {/* Register link */}
@@ -302,6 +385,13 @@ export default function Login() {
           </p>
         </div>
       </div>
+
+      {/* Google Client ID Setup Dialog */}
+      <GoogleClientIdDialog
+        open={showClientIdDialog}
+        onClose={() => setShowClientIdDialog(false)}
+        onSaveAndContinue={() => startGoogleOAuth()}
+      />
     </div>
   );
 }

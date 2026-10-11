@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
+
 // Add page imports here
 import Home from '@/pages/Home';
 import Roommates from '@/pages/Roommates';
@@ -52,10 +54,18 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      {/* Admin route - full screen with own layout */}
-      <Route path="/admin" element={<Admin />} />
-      {/* Employee route - full screen with own layout */}
-      <Route path="/employee" element={<EmployeeDashboard />} />
+      {/* Protected Admin route */}
+      <Route path="/admin" element={
+        <ProtectedRoute requiredRoles={['admin']}>
+          <Admin />
+        </ProtectedRoute>
+      } />
+      {/* Protected Employee route */}
+      <Route path="/employee" element={
+        <ProtectedRoute requiredRoles={['employee', 'admin']}>
+          <EmployeeDashboard />
+        </ProtectedRoute>
+      } />
       {/* Landlord confirm route */}
       <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
       {/* Main app routes */}

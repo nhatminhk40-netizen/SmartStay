@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import GoogleIcon from "@/components/GoogleIcon";
+import GoogleClientIdDialog from "@/components/GoogleClientIdDialog";
+import { triggerGoogleSignIn } from "@/lib/googleAuth";
 import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
 
@@ -82,8 +84,35 @@ export default function Register() {
     }
   };
 
+  const [showClientIdDialog, setShowClientIdDialog] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const startGoogleOAuth = () => {
+    setError("");
+    setGoogleLoading(true);
+    triggerGoogleSignIn({
+      onPromptClientId: () => {
+        setGoogleLoading(false);
+        setShowClientIdDialog(true);
+      },
+      onSuccess: (result) => {
+        setGoogleLoading(false);
+        const returnUrl = safeReturnTo();
+        if (returnUrl && returnUrl !== "/" && !returnUrl.includes("/login") && !returnUrl.includes("/register")) {
+          window.location.href = returnUrl;
+        } else {
+          window.location.href = "/";
+        }
+      },
+      onError: (err) => {
+        setGoogleLoading(false);
+        setError(err.message || "Đăng ký bằng Google thất bại.");
+      }
+    });
+  };
+
   const handleGoogle = () => {
-    base44.auth.loginWithProvider("google", safeReturnTo());
+    startGoogleOAuth();
   };
 
   // ── Shared left panel ──
@@ -281,11 +310,22 @@ export default function Register() {
           {/* Google Button */}
           <button
             id="btn-google-register"
+            type="button"
+            disabled={googleLoading || loading}
             onClick={handleGoogle}
-            className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-border bg-card text-foreground font-medium text-sm transition-all duration-200 hover:bg-accent/10 hover:border-orange-300 hover:shadow-sm active:scale-[0.98] mb-6"
+            className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-border bg-card text-foreground font-medium text-sm transition-all duration-200 hover:bg-accent/10 hover:border-orange-300 hover:shadow-sm active:scale-[0.98] mb-6 disabled:opacity-60"
           >
-            <GoogleIcon className="w-5 h-5" />
-            Tiếp tục với Google
+            {googleLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                Đang kết nối tài khoản Google...
+              </>
+            ) : (
+              <>
+                <GoogleIcon className="w-5 h-5" />
+                Tiếp tục với Google
+              </>
+            )}
           </button>
 
           {/* Divider */}
@@ -427,6 +467,13 @@ export default function Register() {
           </p>
         </div>
       </div>
+
+      {/* Google Client ID Setup Dialog */}
+      <GoogleClientIdDialog
+        open={showClientIdDialog}
+        onClose={() => setShowClientIdDialog(false)}
+        onSaveAndContinue={() => startGoogleOAuth()}
+      />
     </div>
   );
 }
