@@ -77,12 +77,21 @@ export default function RoomCard({ room }) {
                         </span>
                         <span className="text-xs text-muted-foreground"> /tháng</span>
                     </div>
-                    <Link
-                        to={`/phong/${roomId}`}
-                        className="px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-accent transition shadow-sm"
-                    >
-                        Xem phòng
-                    </Link>
+                    <div className="flex items-center gap-1.5">
+                        <Link
+                            to={`/so-sanh?ids=${roomId}`}
+                            title="So sánh phòng này"
+                            className="p-1.5 rounded-full border border-slate-200 text-slate-500 hover:text-accent hover:border-accent transition"
+                        >
+                            <Columns className="w-3.5 h-3.5" />
+                        </Link>
+                        <Link
+                            to={`/phong/${roomId}`}
+                            className="px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-accent transition shadow-sm"
+                        >
+                            Xem phòng
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

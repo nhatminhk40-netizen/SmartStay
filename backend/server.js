@@ -7,6 +7,8 @@ require('dotenv').config();
 const Room = require('./models/Room');
 const Review = require('./models/Review');
 const RoommateSurvey = require('./models/RoommateSurvey');
+const Report = require('./models/Report');
+const Appointment = require('./models/Appointment');
 const authRoutes = require('./routes/authRoutes');
 const { protect, authorize, checkRoomOwnership } = require('./middleware/auth');
 
@@ -1161,6 +1163,179 @@ app.get('/api/config', (req, res) => {
 app.post('/api/config', protect, authorize('admin'), (req, res) => {
     systemConfig = { ...systemConfig, ...req.body };
     res.status(200).json({ success: true, message: 'Lưu cấu hình hệ thống thành công!', data: systemConfig });
+});
+
+// ==================== APIS BÁO CÁO VI PHẠM & KHIẾU NẠI (CẤP TICKET ID - P0/P1) ====================
+let fallbackReports = [];
+
+app.post('/api/reports', async (req, res) => {
+    try {
+        const { roomId, roomTitle, reporterName, reporterContact, reason, description, evidenceUrls } = req.body;
+        if (!reporterContact || !reason || !description) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp số liên hệ, lý do và mô tả khiếu nại.' });
+        }
+
+        const ticketCode = `STAY-REP-${Date.now().toString().slice(-6)}`;
+        const reportData = {
+            ticketCode,
+            roomId: roomId || null,
+            roomTitle: roomTitle || '',
+            reporterName: reporterName || 'Người thuê SmartStay',
+            reporterContact,
+            reason,
+            description,
+            evidenceUrls: evidenceUrls || [],
+            status: 'pending',
+            resolutionNote: 'Đã tiếp nhận vào hệ thống. Đội ngũ SmartStay sẽ thẩm định trong vòng 24 giờ làm việc.'
+        };
+
+        if (isDbConnected) {
+            const report = await Report.create(reportData);
+            return res.status(201).json({
+                success: true,
+                message: 'Khiếu nại đã được tiếp nhận thành công! Vui lòng lưu mã Ticket để theo dõi.',
+                ticketCode,
+                data: report
+            });
+        }
+
+        const newReport = { ...reportData, _id: `rep_${Date.now()}`, createdAt: new Date() };
+        fallbackReports.unshift(newReport);
+        res.status(201).json({
+            success: true,
+            message: 'Khiếu nại đã được tiếp nhận thành công! Vui lòng lưu mã Ticket để theo dõi.',
+            ticketCode,
+            data: newReport
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/reports/:ticketCode', async (req, res) => {
+    try {
+        const { ticketCode } = req.params;
+        if (isDbConnected) {
+            const rep = await Report.findOne({ ticketCode });
+            if (!rep) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ khiếu nại với mã này.' });
+            return res.status(200).json({ success: true, data: rep });
+        }
+        const rep = fallbackReports.find(r => r.ticketCode === ticketCode);
+        if (!rep) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ khiếu nại với mã này.' });
+        res.status(200).json({ success: true, data: rep });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== APIS ĐẶT LỊCH XEM PHÒNG 2 CHIỀU (P1) ====================
+let fallbackAppointments = [];
+
+app.post('/api/appointments', async (req, res) => {
+    try {
+        const { roomId, roomTitle, studentName, studentPhone, landlordPhone, visitDate, visitTime, transportType, notes } = req.body;
+        if (!roomId || !studentPhone || !visitDate || !visitTime) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp thông tin phòng, số điện thoại, ngày và giờ xem phòng.' });
+        }
+
+        const appointmentCode = `APPT-${Date.now().toString().slice(-6)}`;
+        const apptData = {
+            appointmentCode,
+            roomId,
+            roomTitle: roomTitle || '',
+            studentName: studentName || 'Sinh viên SmartStay',
+            studentPhone,
+            landlordPhone: landlordPhone || '',
+            visitDate,
+            visitTime,
+            transportType: transportType || 'Xe máy',
+            notes: notes || '',
+            status: 'pending_landlord',
+            landlordResponseNote: 'Chờ chủ trọ xác nhận lịch hẹn'
+        };
+
+        if (isDbConnected) {
+            const appt = await Appointment.create(apptData);
+            return res.status(201).json({
+                success: true,
+                message: 'Đặt lịch xem phòng thành công! Đang chờ chủ trọ xác nhận.',
+                appointmentCode,
+                data: appt
+            });
+        }
+
+        const newAppt = { ...apptData, _id: `appt_${Date.now()}`, createdAt: new Date() };
+        fallbackAppointments.unshift(newAppt);
+        res.status(201).json({
+            success: true,
+            message: 'Đặt lịch xem phòng thành công! Đang chờ chủ trọ xác nhận.',
+            appointmentCode,
+            data: newAppt
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/appointments/:code', async (req, res) => {
+    try {
+        const { code } = req.params;
+        if (isDbConnected) {
+            const appt = await Appointment.findOne({ appointmentCode: code });
+            if (!appt) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn.' });
+            return res.status(200).json({ success: true, data: appt });
+        }
+        const appt = fallbackAppointments.find(a => a.appointmentCode === code);
+        if (!appt) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn.' });
+        res.status(200).json({ success: true, data: appt });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.put('/api/appointments/:code/status', async (req, res) => {
+    try {
+        const { code } = req.params;
+        const { status, landlordResponseNote } = req.body; // 'confirmed' | 'rescheduled' | 'cancelled'
+
+        if (isDbConnected) {
+            const updated = await Appointment.findOneAndUpdate(
+                { appointmentCode: code },
+                { status, landlordResponseNote: landlordResponseNote || '' },
+                { new: true }
+            );
+            if (!updated) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
+            return res.status(200).json({ success: true, message: 'Cập nhật trạng thái lịch hẹn thành công', data: updated });
+        }
+
+        const idx = fallbackAppointments.findIndex(a => a.appointmentCode === code);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy lịch hẹn' });
+        fallbackAppointments[idx].status = status;
+        if (landlordResponseNote) fallbackAppointments[idx].landlordResponseNote = landlordResponseNote;
+        res.status(200).json({ success: true, message: 'Cập nhật trạng thái lịch hẹn thành công', data: fallbackAppointments[idx] });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== API SO SÁNH PHÒNG TRỌ (P1 Mục 2.3) ====================
+app.get('/api/rooms-compare', async (req, res) => {
+    try {
+        const { ids } = req.query; // ví dụ ?ids=id1,id2,id3
+        if (!ids) return res.status(400).json({ success: false, message: 'Vui lòng cung cấp danh sách ID phòng cần so sánh' });
+        const idList = ids.split(',').map(s => s.trim()).filter(Boolean);
+
+        let comparedRooms = [];
+        if (isDbConnected) {
+            comparedRooms = await Room.find({ _id: { $in: idList } });
+        } else {
+            comparedRooms = fallbackRooms.filter(r => idList.includes(String(r._id)) || idList.includes(String(r.id)));
+        }
+
+        res.status(200).json({ success: true, count: comparedRooms.length, data: comparedRooms });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // Global Error Handler
