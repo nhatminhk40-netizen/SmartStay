@@ -104,6 +104,101 @@ export default function Admin() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // ==================== QUẢN LÝ & CẤP TÀI KHOẢN CHỦ TRỌ ====================
+  const [landlords, setLandlords] = useState([]);
+  const [loadingLandlords, setLoadingLandlords] = useState(false);
+  const [submittingLandlord, setSubmittingLandlord] = useState(false);
+  const [landlordForm, setLandlordForm] = useState({
+    fullName: "",
+    phone: "",
+    email: "",
+    password: "",
+    campus: "FPT Can Tho",
+    note: ""
+  });
+
+  const fetchLandlords = async () => {
+    setLoadingLandlords(true);
+    try {
+      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${API_BASE}/admin/landlords`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setLandlords(json.data || []);
+      }
+    } catch (e) {
+      console.error("Lỗi tải danh sách chủ trọ:", e);
+    } finally {
+      setLoadingLandlords(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "landlords") {
+      fetchLandlords();
+    }
+  }, [activeTab]);
+
+  const handleCreateLandlordSubmit = async (e) => {
+    e.preventDefault();
+    setSubmittingLandlord(true);
+    try {
+      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${API_BASE}/admin/create-landlord`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(landlordForm)
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Cấp tài khoản Chủ nhà trọ thành công!");
+        setLandlordForm({
+          fullName: "",
+          phone: "",
+          email: "",
+          password: "",
+          campus: "FPT Can Tho",
+          note: ""
+        });
+        fetchLandlords();
+      } else {
+        showToast(json.message || "Không thể cấp tài khoản", "error");
+      }
+    } catch (err) {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setSubmittingLandlord(false);
+    }
+  };
+
+  const handleDeleteLandlord = async (id, name) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn thu hồi tài khoản của chủ trọ "${name}"?`)) return;
+    try {
+      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${API_BASE}/admin/landlords/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast("Đã thu hồi tài khoản Chủ trọ.");
+        fetchLandlords();
+      } else {
+        showToast(json.message || "Không thể thu hồi tài khoản", "error");
+      }
+    } catch (e) {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
+  };
+
   // ==================== TẢI DỮ LIỆU PHÒNG ====================
   const fetchRooms = async () => {
     setLoading(true);
@@ -524,6 +619,7 @@ export default function Admin() {
   // Danh mục menu bên sidebar
   const menuItems = [
     { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
+    { id: "landlords", label: "Cấp tài khoản Chủ trọ", icon: Users },
     { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2 },
     { id: "hero", label: "Quản lý banner (Hero)", icon: ImageIcon },
     { id: "campuses", label: "Danh mục khu vực / Campus", icon: GraduationCap },
@@ -1150,6 +1246,207 @@ export default function Admin() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: CẤP TÀI KHOẢN CHỦ TRỌ ── */}
+          {activeTab === "landlords" && (
+            <div className="space-y-8 animate-in fade-in duration-150">
+              {/* Header Box */}
+              <div className="p-6 rounded-2xl bg-white border border-[#f4ebd9] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-100 text-orange-700">
+                      Độc quyền Ban Quản trị
+                    </span>
+                    <span className="text-xs text-slate-400">• Ngăn chặn mạo danh</span>
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    Quản lý & Cấp tài khoản Chủ nhà trọ
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                    Chỉ Quản trị viên mới có thẩm quyền thẩm định và cấp tài khoản cho chủ nhà trọ thực tế. Người dùng bên ngoài không thể tự tạo tài khoản Chủ trọ, đảm bảo mọi phòng đăng lên đều có người chịu trách nhiệm xác thực.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchLandlords}
+                  disabled={loadingLandlords}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-[#f4ebd9] hover:bg-[#faf3e3] transition flex items-center gap-2"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingLandlords ? "animate-spin" : ""}`} />
+                  Làm mới danh sách
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* FORM CẤP MỚI TÀI KHOẢN (5 cols) */}
+                <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-[#f4ebd9] shadow-sm space-y-5">
+                  <div className="border-b pb-4" style={{ borderColor: "#f4ebd9" }}>
+                    <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                      <Plus className="w-4 h-4 text-[#f97316]" />
+                      Cấp mới tài khoản Chủ trọ
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Nhập thông tin xác minh của chủ cơ sở cho thuê
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleCreateLandlordSubmit} className="space-y-4 text-xs">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1.5 uppercase tracking-wider text-[11px]">
+                        Họ và tên chủ trọ *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ví dụ: Cô Ba (Chủ trọ Hồng Phát)"
+                        value={landlordForm.fullName}
+                        onChange={(e) => setLandlordForm({ ...landlordForm, fullName: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#f4ebd9] focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white font-medium"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1.5 uppercase tracking-wider text-[11px]">
+                          Số điện thoại / Zalo *
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="0901234567"
+                          value={landlordForm.phone}
+                          onChange={(e) => setLandlordForm({ ...landlordForm, phone: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#f4ebd9] focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1.5 uppercase tracking-wider text-[11px]">
+                          Khu vực Campus *
+                        </label>
+                        <select
+                          value={landlordForm.campus}
+                          onChange={(e) => setLandlordForm({ ...landlordForm, campus: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#f4ebd9] focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white font-bold text-slate-700"
+                        >
+                          <option value="FPT Can Tho">FPT Can Tho</option>
+                          <option value="ĐH Cần Thơ (Khu 2)">ĐH Cần Thơ (Khu 2)</option>
+                          <option value="ĐH Y Dược Cần Thơ">ĐH Y Dược Cần Thơ</option>
+                          <option value="ĐH Nam Cần Thơ">ĐH Nam Cần Thơ</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1.5 uppercase tracking-wider text-[11px]">
+                        Email đăng nhập của Chủ trọ *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="chutro.kdc@smartstay.vn"
+                        value={landlordForm.email}
+                        onChange={(e) => setLandlordForm({ ...landlordForm, email: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#f4ebd9] focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1.5 uppercase tracking-wider text-[11px]">
+                        Mật khẩu khởi tạo *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        minLength={6}
+                        placeholder="Tối thiểu 6 ký tự (VD: Chutro@123)"
+                        value={landlordForm.password}
+                        onChange={(e) => setLandlordForm({ ...landlordForm, password: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#f4ebd9] focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white font-medium"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Admin cung cấp thông tin này cho chủ trọ để đăng nhập
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1.5 uppercase tracking-wider text-[11px]">
+                        Ghi chú dãy trọ / Địa chỉ cơ sở
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Dãy 10 phòng KDC Hồng Phát, đã kiểm tra CCCD và sổ đỏ..."
+                        value={landlordForm.note}
+                        onChange={(e) => setLandlordForm({ ...landlordForm, note: e.target.value })}
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#f4ebd9] focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingLandlord}
+                      className="w-full py-3 rounded-xl bg-[#f97316] text-white font-bold text-xs shadow-md hover:bg-[#ea580c] transition disabled:opacity-50"
+                    >
+                      {submittingLandlord ? "Đang xử lý cấp tài khoản..." : "Xác nhận & Cấp tài khoản Chủ trọ"}
+                    </button>
+                  </form>
+                </div>
+
+                {/* DANH SÁCH CHỦ TRỌ ĐÃ CẤP (7 cols) */}
+                <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-[#f4ebd9] shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: "#f4ebd9" }}>
+                    <div>
+                      <h3 className="font-bold text-base text-slate-900">
+                        Danh sách Chủ nhà trọ đã cấp phép ({landlords.length})
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Tất cả chủ cơ sở có quyền đăng tin và xác nhận cọc trên SmartStay
+                      </p>
+                    </div>
+                  </div>
+
+                  {loadingLandlords ? (
+                    <div className="py-12 text-center text-slate-400 text-xs">
+                      Đang tải danh sách chủ trọ...
+                    </div>
+                  ) : landlords.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-xs">
+                      Chưa có tài khoản chủ trọ nào được cấp. Hãy dùng form bên trái để cấp mới.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 max-h-[550px] overflow-y-auto pr-1">
+                      {landlords.map((ll) => (
+                        <div key={ll._id || ll.id} className="py-3.5 flex items-start justify-between gap-3 text-xs">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 text-sm">{ll.fullName}</span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                Đã xác minh
+                              </span>
+                            </div>
+                            <div className="text-slate-500 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                              <span>📧 {ll.email}</span>
+                              <span>📞 {ll.phone || "Chưa có SĐT"}</span>
+                              <span>📍 {ll.campus || "FPT Can Tho"}</span>
+                            </div>
+                            {ll.bio && (
+                              <p className="text-slate-400 text-[10px] italic">Ghi chú: {ll.bio}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteLandlord(ll._id || ll.id, ll.fullName)}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition flex-shrink-0"
+                            title="Thu hồi tài khoản"
+                          >
+                            Thu hồi
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

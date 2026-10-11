@@ -41,8 +41,9 @@ router.post('/register', async (req, res) => {
         }
 
         const normalizedEmail = email.toLowerCase().trim();
-        // Không cho phép đăng ký trực tiếp vai trò admin từ public API
-        const userRole = (role === 'admin' || role === 'employee') ? 'student' : (role || 'student');
+        // Bảo vệ bảo mật: Người ngoài tự đăng ký luôn mặc định là Sinh viên ('student')
+        // Ngăn chặn tuyệt đối người ngoài tự ý tạo tài khoản Chủ trọ ('landlord') hoặc Admin
+        const userRole = 'student';
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {

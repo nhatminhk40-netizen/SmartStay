@@ -9,6 +9,7 @@ const Review = require('./models/Review');
 const RoommateSurvey = require('./models/RoommateSurvey');
 const Report = require('./models/Report');
 const Appointment = require('./models/Appointment');
+const User = require('./models/User');
 const authRoutes = require('./routes/authRoutes');
 const { protect, authorize, checkRoomOwnership } = require('./middleware/auth');
 
@@ -1163,6 +1164,123 @@ app.get('/api/config', (req, res) => {
 app.post('/api/config', protect, authorize('admin'), (req, res) => {
     systemConfig = { ...systemConfig, ...req.body };
     res.status(200).json({ success: true, message: 'Lưu cấu hình hệ thống thành công!', data: systemConfig });
+});
+
+// ==================== APIS QUẢN LÝ & CẤP TÀI KHOẢN CHỦ TRỌ (ADMIN DÀNH RIÊNG) ====================
+// 1. Lấy danh sách tài khoản Chủ trọ đã cấp phép
+app.get('/api/admin/landlords', protect, authorize('admin'), async (req, res) => {
+    try {
+        if (isDbConnected) {
+            const landlords = await User.find({ role: 'landlord' }).select('-password').sort({ createdAt: -1 });
+            return res.status(200).json({ success: true, count: landlords.length, data: landlords });
+        }
+        const fallbackUsers = req.app.locals.fallbackUsers || [];
+        const landlords = fallbackUsers.filter(u => u.role === 'landlord');
+        res.status(200).json({ success: true, count: landlords.length, data: landlords });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 2. Admin chủ động cấp tài khoản Chủ trọ mới (Ngăn chặn bên ngoài tự ý tạo)
+app.post('/api/admin/create-landlord', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { fullName, email, password, phone, campus, note } = req.body;
+
+        if (!fullName || !email || !password || !phone) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp đầy đủ: Họ tên, Email, Mật khẩu và Số điện thoại chủ trọ.'
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mật khẩu khởi tạo phải từ 6 ký tự trở lên.'
+            });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        if (isDbConnected) {
+            const exists = await User.findOne({ email: normalizedEmail });
+            if (exists) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Email [${normalizedEmail}] đã tồn tại trong hệ thống.`
+                });
+            }
+
+            const landlord = await User.create({
+                fullName: fullName.trim(),
+                email: normalizedEmail,
+                password,
+                phone: phone.trim(),
+                role: 'landlord',
+                campus: campus || 'FPT Can Tho',
+                bio: note || 'Chủ trọ được cấp phép bởi Admin SmartStay'
+            });
+
+            return res.status(201).json({
+                success: true,
+                message: 'Cấp tài khoản Chủ nhà trọ thành công!',
+                data: {
+                    id: landlord._id,
+                    fullName: landlord.fullName,
+                    email: landlord.email,
+                    phone: landlord.phone,
+                    role: landlord.role,
+                    campus: landlord.campus,
+                    createdAt: landlord.createdAt
+                }
+            });
+        }
+
+        const fallbackUsers = req.app.locals.fallbackUsers || [];
+        if (fallbackUsers.some(u => u.email === normalizedEmail)) {
+            return res.status(400).json({ success: false, message: 'Email đã tồn tại' });
+        }
+
+        const newLandlord = {
+            _id: `usr_landlord_${Date.now()}`,
+            id: `usr_landlord_${Date.now()}`,
+            fullName: fullName.trim(),
+            email: normalizedEmail,
+            phone: phone.trim(),
+            role: 'landlord',
+            campus: campus || 'FPT Can Tho',
+            createdAt: new Date()
+        };
+        fallbackUsers.unshift(newLandlord);
+
+        res.status(201).json({
+            success: true,
+            message: 'Cấp tài khoản Chủ nhà trọ thành công (Fallback Mode)!',
+            data: newLandlord
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 3. Admin xóa / thu hồi tài khoản Chủ trọ
+app.delete('/api/admin/landlords/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (isDbConnected) {
+            const deleted = await User.findOneAndDelete({ _id: id, role: 'landlord' });
+            if (!deleted) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ này.' });
+            return res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ thành công.' });
+        }
+        const fallbackUsers = req.app.locals.fallbackUsers || [];
+        const idx = fallbackUsers.findIndex(u => String(u._id) === id && u.role === 'landlord');
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ.' });
+        fallbackUsers.splice(idx, 1);
+        res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ.' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // ==================== APIS BÁO CÁO VI PHẠM & KHIẾU NẠI (CẤP TICKET ID - P0/P1) ====================
