@@ -27,6 +27,20 @@ const defaultDemoUsers = isProd ? [] : [
     }
 ];
 
+// Helper đảm bảo danh sách fallbackUsers luôn chứa tài khoản Admin/Employee mặc định
+const getFallbackUsers = (app) => {
+    if (!app.locals.fallbackUsers || !Array.isArray(app.locals.fallbackUsers) || app.locals.fallbackUsers.length === 0) {
+        app.locals.fallbackUsers = [...defaultDemoUsers];
+    } else {
+        defaultDemoUsers.forEach(demoUser => {
+            if (!app.locals.fallbackUsers.some(u => u.email === demoUser.email)) {
+                app.locals.fallbackUsers.push(demoUser);
+            }
+        });
+    }
+    return app.locals.fallbackUsers;
+};
+
 // 1. Đăng ký tài khoản
 router.post('/register', async (req, res) => {
     try {
@@ -89,11 +103,7 @@ router.post('/register', async (req, res) => {
             return res.status(503).json({ success: false, message: 'Cơ sở dữ liệu chưa sẵn sàng trong môi trường Production.' });
         }
 
-        let fallbackUsers = req.app.locals.fallbackUsers;
-        if (!fallbackUsers) {
-            fallbackUsers = [...defaultDemoUsers];
-            req.app.locals.fallbackUsers = fallbackUsers;
-        }
+        let fallbackUsers = getFallbackUsers(req.app);
 
         if (fallbackUsers.some(u => u.email === normalizedEmail)) {
             return res.status(400).json({ success: false, message: 'Email này đã tồn tại trong bộ nhớ.' });
@@ -151,14 +161,39 @@ router.post('/login', async (req, res) => {
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
-            const user = await User.findOne({ email: cleanEmail });
+            let user = await User.findOne({ email: cleanEmail });
+
+            // Nếu là tài khoản Admin hoặc Employee mặc định nhưng chưa có trong MongoDB, tự động tạo vào DB
+            if (!user) {
+                const demoAccount = defaultDemoUsers.find(d => d.email === cleanEmail);
+                if (demoAccount && (await bcrypt.compare(password, demoAccount.passwordHash))) {
+                    try {
+                        user = await User.create({
+                            fullName: demoAccount.fullName,
+                            email: demoAccount.email,
+                            password: password,
+                            role: demoAccount.role,
+                            phone: demoAccount.phone,
+                            campus: demoAccount.campus
+                        });
+                    } catch (seedErr) {
+                        user = {
+                            ...demoAccount,
+                            matchPassword: async (pwd) => await bcrypt.compare(pwd, demoAccount.passwordHash)
+                        };
+                    }
+                }
+            }
 
             if (!user) {
                 return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
             }
 
-            // Nghiêm ngặt: Luôn so khớp mật khẩu bằng bcrypt, không dùng shortcut
-            const isMatch = await user.matchPassword(password);
+            // So khớp mật khẩu
+            const isMatch = typeof user.matchPassword === 'function' 
+                ? await user.matchPassword(password)
+                : await bcrypt.compare(password, user.passwordHash || user.password);
+
             if (!isMatch) {
                 return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
             }
@@ -190,18 +225,14 @@ router.post('/login', async (req, res) => {
             return res.status(503).json({ success: false, message: 'Dịch vụ xác thực cơ sở dữ liệu tạm thời gián đoạn.' });
         }
 
-        let fallbackUsers = req.app.locals.fallbackUsers;
-        if (!fallbackUsers) {
-            fallbackUsers = [...defaultDemoUsers];
-            req.app.locals.fallbackUsers = fallbackUsers;
-        }
+        const fallbackUsers = getFallbackUsers(req.app);
 
         const user = fallbackUsers.find(u => u.email === cleanEmail);
         if (!user) {
             return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
         }
 
-        const isMatch = await bcrypt.compare(password, user.passwordHash);
+        const isMatch = await bcrypt.compare(password, user.passwordHash || user.password);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
         }
@@ -296,11 +327,7 @@ router.post('/google', async (req, res) => {
         }
 
         // B. Chế độ Fallback In-Memory
-        let fallbackUsers = req.app.locals.fallbackUsers;
-        if (!fallbackUsers) {
-            fallbackUsers = [...defaultDemoUsers];
-            req.app.locals.fallbackUsers = fallbackUsers;
-        }
+        let fallbackUsers = getFallbackUsers(req.app);
 
         let user = fallbackUsers.find(u => u.email === normalizedEmail);
         if (!user) {
