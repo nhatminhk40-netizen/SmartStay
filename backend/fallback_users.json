@@ -1,0 +1,89 @@
+[
+  {
+    "_id": "usr_admin_001",
+    "fullName": "Quản trị viên Hệ thống (Dev Mode)",
+    "email": "admin@smartstay.vn",
+    "phone": "0901234567",
+    "role": "admin",
+    "campus": "FPT Can Tho",
+    "phoneVerified": true,
+    "isEmailVerified": true,
+    "verificationStatus": "APPROVED",
+    "passwordHash": "$2b$10$25uOZJ7Yr6RdHLn257eOC.y3mvKZcluAYaenl/zog/12lXOmVCDbG"
+  },
+  {
+    "_id": "usr_emp_001",
+    "fullName": "Nhân viên Vận hành SmartStay (Dev Mode)",
+    "email": "employee@smartstay.vn",
+    "phone": "0912345678",
+    "role": "employee",
+    "campus": "FPT Can Tho",
+    "phoneVerified": true,
+    "isEmailVerified": true,
+    "verificationStatus": "APPROVED",
+    "passwordHash": "$2b$10$oNxx0pGkIexL9fBnNA2ATOEVuxxjz8LQLjsYEDH2Lv0iaLnJN3NKm"
+  },
+  {
+    "_id": "usr_landlord_001",
+    "fullName": "Bác Ba Cần Thơ (Chủ trọ đã duyệt)",
+    "email": "chutro@smartstay.vn",
+    "phone": "0939112233",
+    "role": "landlord",
+    "campus": "FPT Can Tho",
+    "phoneVerified": true,
+    "isEmailVerified": true,
+    "verificationStatus": "APPROVED",
+    "landlordDocuments": {
+      "idCardNumber": "092095001234",
+      "propertyName": "Nhà trọ Hưng Thịnh Cần Thơ",
+      "propertyAddress": "Khu dân cư Hồng Phát, An Bình, Ninh Kiều, Cần Thơ",
+      "idCardFrontUrl": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80",
+      "idCardBackUrl": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80",
+      "ownershipDocUrl": "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80",
+      "note": "Dãy trọ 12 phòng khép kín, camera an ninh 24/7"
+    },
+    "passwordHash": "$2b$10$LypFqaVJuSjik0VJ.N5ibeLlo6ho.uwmm2WfxpCEEtbpQH5eObAIi"
+  },
+  {
+    "_id": "usr_landlord_002",
+    "fullName": "Cô Mai Hưng Lợi (Chờ duyệt)",
+    "email": "chutro.pending@smartstay.vn",
+    "phone": "0949887766",
+    "role": "landlord",
+    "campus": "ĐH Cần Thơ",
+    "phoneVerified": true,
+    "isEmailVerified": true,
+    "verificationStatus": "PENDING",
+    "landlordDocuments": {
+      "idCardNumber": "092198005678",
+      "propertyName": "Căn hộ Mini An Khánh",
+      "propertyAddress": "Hẻm 51 đường 3 Tháng 2, Xuân Khánh, Ninh Kiều",
+      "idCardFrontUrl": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80",
+      "idCardBackUrl": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80",
+      "ownershipDocUrl": "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80",
+      "note": "Vừa hoàn thiện 8 phòng có ban công, mong Admin duyệt sớm"
+    },
+    "passwordHash": "$2b$10$54EmMVdBgcM7ZtjeOVnEMu3lPao0zAYR55OjMxJFbCiOtI21KxRda"
+  },
+  {
+    "_id": "usr_landlord_nhatminh",
+    "fullName": "Đinh Trịnh Nhật Minh",
+    "email": "nhatminhk40@gmail.com",
+    "phone": "0939112233",
+    "role": "landlord",
+    "campus": "FPT Can Tho",
+    "phoneVerified": true,
+    "isEmailVerified": true,
+    "verificationStatus": "APPROVED",
+    "landlordDocuments": {
+      "idCardNumber": "092095001234",
+      "propertyName": "Nhà trọ SmartStay Cần Thơ",
+      "propertyAddress": "Khu dân cư Hồng Phát, An Bình, Ninh Kiều, Cần Thơ",
+      "idCardFrontUrl": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80",
+      "idCardBackUrl": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80",
+      "ownershipDocUrl": "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80",
+      "note": "Cơ sở trọ chính chủ Đinh Trịnh Nhật Minh (Đã duyệt)"
+    },
+    "passwordHash": "$2b$10$tZiDhypIsDaU77aFPp8r5ufy8kIDzpsPAPsTq/EpcYMIwRmYGaFku"
+  }
+]

@@ -1,0 +1,899 @@
+const express = require('express');
+const router = express.Router();
+const fs = require('fs');
+const path = require('path');
+const mongoose = require('mongoose');
+
+const Contract = require('../models/Contract');
+const Room = require('../models/Room');
+const User = require('../models/User');
+const { protect, authorize } = require('../middleware/auth');
+
+// File lưu trữ dự phòng khi MongoDB chưa kết nối (offline development)
+const FALLBACK_CONTRACTS_FILE = path.join(__dirname, '../fallback_contracts.json');
+
+const loadFallbackContracts = () => {
+    try {
+        if (fs.existsSync(FALLBACK_CONTRACTS_FILE)) {
+            const data = fs.readFileSync(FALLBACK_CONTRACTS_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (e) {
+        // silent fail
+    }
+    return [];
+};
+
+const saveFallbackContracts = (contracts) => {
+    try {
+        fs.writeFileSync(FALLBACK_CONTRACTS_FILE, JSON.stringify(contracts, null, 2), 'utf8');
+    } catch (e) {
+        // silent fail
+    }
+};
+
+// Helper chuẩn hóa so sánh ID giữa ObjectId và String
+const isSameId = (a, b) => {
+    if (!a || !b) return false;
+    return String(a) === String(b);
+};
+
+// Helper tính số ngày còn lại đến ngày kết thúc hợp đồng
+const getDaysRemaining = (endDate) => {
+    if (!endDate) return null;
+    const end = new Date(endDate).getTime();
+    const now = Date.now();
+    return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+};
+
+// ==========================================
+// 1. LẤY DANH SÁCH PHÒNG ĐỂ CHỌN KHI TẠO HỢP ĐỒNG
+// ==========================================
+router.get('/lookup/rooms', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const isDbConnected = req.app.locals.isDbConnected;
+        const currentUserId = req.user._id || req.user.id;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+
+        if (isDbConnected) {
+            const query = isAdmin ? {} : {
+                $or: [
+                    { owner: currentUserId },
+                    { ownerEmail: req.user.email }
+                ]
+            };
+            const rooms = await Room.find(query).select('title address price status area_sqm campus contactPhone');
+            return res.status(200).json({ success: true, data: rooms });
+        }
+
+        // Fallback local mode
+        const fallbackRooms = req.app.locals.fallbackRooms || [];
+        const rooms = isAdmin ? fallbackRooms : fallbackRooms.filter(r => 
+            isSameId(r.owner, currentUserId) || r.ownerEmail === req.user.email || !r.owner
+        );
+        return res.status(200).json({ success: true, data: rooms });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Không thể lấy danh sách phòng trọ: ' + error.message });
+    }
+});
+
+// ==========================================
+// 2. LẤY DANH SÁCH KHÁCH THUÊ / SINH VIÊN ĐỂ CHỌN
+// ==========================================
+router.get('/lookup/tenants', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const isDbConnected = req.app.locals.isDbConnected;
+        if (isDbConnected) {
+            const tenants = await User.find({ role: { $in: ['student', 'tenant'] } })
+                .select('fullName email phone campus studentId avatar');
+            return res.status(200).json({ success: true, data: tenants });
+        }
+
+        // Fallback local mode
+        const fallbackUsers = req.app.locals.fallbackUsers || [];
+        const tenants = fallbackUsers
+            .filter(u => u.role === 'student' || u.role === 'tenant')
+            .map(u => ({
+                _id: u._id || u.id,
+                fullName: u.fullName,
+                email: u.email,
+                phone: u.phone || '',
+                campus: u.campus || 'FPT Can Tho',
+                studentId: u.studentId || ''
+            }));
+        return res.status(200).json({ success: true, data: tenants });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Không thể lấy danh sách khách thuê: ' + error.message });
+    }
+});
+
+// ==========================================
+// 3. GET /api/contracts - LẤY DANH SÁCH HỢP ĐỒNG (LỌC, TÌM KIẾM, PHÂN TRANG)
+// ==========================================
+router.get('/', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { status, q, page = 1, limit = 10 } = req.query;
+        const pageNum = Math.max(1, parseInt(page, 10));
+        const limitNum = Math.max(1, parseInt(limit, 10));
+        const isDbConnected = req.app.locals.isDbConnected;
+        const currentUserId = req.user._id || req.user.id;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+
+        if (isDbConnected) {
+            let filter = isAdmin ? {} : { landlord: currentUserId };
+
+            // Lọc theo trạng thái
+            if (status && status !== 'all') {
+                if (status === 'expiring_soon') {
+                    // Sắp hết hạn trong vòng 30 ngày
+                    const now = new Date();
+                    const next30Days = new Date();
+                    next30Days.setDate(now.getDate() + 30);
+                    filter.status = 'active';
+                    filter.endDate = { $gte: now, $lte: next30Days };
+                } else if (status === 'unpaid_deposit') {
+                    filter.status = 'active';
+                    filter['deposit.status'] = 'unpaid';
+                } else {
+                    filter.status = status;
+                }
+            }
+
+            // Tìm kiếm theo từ khóa (tên khách, phòng, số điện thoại)
+            let contracts = await Contract.find(filter)
+                .populate('room', 'title address price campus status')
+                .populate('tenant', 'fullName email phone studentId campus avatar')
+                .populate('landlord', 'fullName email phone')
+                .sort({ createdAt: -1 });
+
+            if (q && q.trim()) {
+                const keyword = q.trim().toLowerCase();
+                contracts = contracts.filter(c => {
+                    const roomTitle = c.room?.title?.toLowerCase() || '';
+                    const roomAddress = c.room?.address?.toLowerCase() || '';
+                    const tenantName = c.tenant?.fullName?.toLowerCase() || '';
+                    const tenantPhone = c.tenant?.phone || '';
+                    const tenantEmail = c.tenant?.email?.toLowerCase() || '';
+                    return roomTitle.includes(keyword) || 
+                           roomAddress.includes(keyword) || 
+                           tenantName.includes(keyword) || 
+                           tenantPhone.includes(keyword) ||
+                           tenantEmail.includes(keyword);
+                });
+            }
+
+            // Tính thống kê nhanh cho chủ trọ
+            const allMyContracts = await Contract.find(isAdmin ? {} : { landlord: currentUserId });
+            const now = Date.now();
+            const in30Days = now + 30 * 24 * 60 * 60 * 1000;
+
+            const stats = {
+                totalContracts: allMyContracts.length,
+                activeCount: allMyContracts.filter(c => c.status === 'active').length,
+                expiringSoonCount: allMyContracts.filter(c => {
+                    if (c.status !== 'active' || !c.endDate) return false;
+                    const endTime = new Date(c.endDate).getTime();
+                    return endTime >= now && endTime <= in30Days;
+                }).length,
+                totalHoldingDeposit: allMyContracts
+                    .filter(c => c.status === 'active' && c.deposit?.status === 'paid')
+                    .reduce((sum, c) => sum + (c.deposit?.amount || 0), 0),
+                unpaidDepositCount: allMyContracts
+                    .filter(c => c.status === 'active' && c.deposit?.status === 'unpaid').length
+            };
+
+            const total = contracts.length;
+            const paginated = contracts.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+            return res.status(200).json({
+                success: true,
+                count: paginated.length,
+                total,
+                page: pageNum,
+                totalPages: Math.ceil(total / limitNum) || 1,
+                stats,
+                data: paginated
+            });
+        }
+
+        // ==================== B. CHẾ ĐỘ FALLBACK LOCAL / OFFLINE ====================
+        let contracts = loadFallbackContracts();
+        if (!isAdmin) {
+            contracts = contracts.filter(c => isSameId(c.landlord?._id || c.landlord, currentUserId));
+        }
+
+        // Thống kê nhanh
+        const nowTime = Date.now();
+        const in30DaysTime = nowTime + 30 * 24 * 60 * 60 * 1000;
+        const stats = {
+            totalContracts: contracts.length,
+            activeCount: contracts.filter(c => c.status === 'active').length,
+            expiringSoonCount: contracts.filter(c => {
+                if (c.status !== 'active' || !c.endDate) return false;
+                const endTime = new Date(c.endDate).getTime();
+                return endTime >= nowTime && endTime <= in30DaysTime;
+            }).length,
+            totalHoldingDeposit: contracts
+                .filter(c => c.status === 'active' && c.deposit?.status === 'paid')
+                .reduce((sum, c) => sum + (c.deposit?.amount || 0), 0),
+            unpaidDepositCount: contracts
+                .filter(c => c.status === 'active' && c.deposit?.status === 'unpaid').length
+        };
+
+        // Lọc trạng thái
+        if (status && status !== 'all') {
+            if (status === 'expiring_soon') {
+                contracts = contracts.filter(c => {
+                    if (c.status !== 'active' || !c.endDate) return false;
+                    const endTime = new Date(c.endDate).getTime();
+                    return endTime >= nowTime && endTime <= in30DaysTime;
+                });
+            } else if (status === 'unpaid_deposit') {
+                contracts = contracts.filter(c => c.status === 'active' && c.deposit?.status === 'unpaid');
+            } else {
+                contracts = contracts.filter(c => c.status === status);
+            }
+        }
+
+        // Tìm kiếm
+        if (q && q.trim()) {
+            const keyword = q.trim().toLowerCase();
+            contracts = contracts.filter(c => {
+                const roomTitle = (c.room?.title || '').toLowerCase();
+                const tenantName = (c.tenant?.fullName || '').toLowerCase();
+                const tenantPhone = (c.tenant?.phone || '');
+                return roomTitle.includes(keyword) || tenantName.includes(keyword) || tenantPhone.includes(keyword);
+            });
+        }
+
+        const total = contracts.length;
+        const paginated = contracts.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+        res.status(200).json({
+            success: true,
+            count: paginated.length,
+            total,
+            page: pageNum,
+            totalPages: Math.ceil(total / limitNum) || 1,
+            stats,
+            data: paginated
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi tải danh sách hợp đồng: ' + error.message });
+    }
+});
+
+// ==========================================
+// 4. GET /api/contracts/:id - XEM CHI TIẾT HỢP ĐỒNG
+// ==========================================
+router.get('/:id', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user._id || req.user.id;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+        const isDbConnected = req.app.locals.isDbConnected;
+
+        if (isDbConnected) {
+            if (!mongoose.Types.ObjectId.isValid(id)) {
+                return res.status(400).json({ success: false, message: 'Mã hợp đồng không hợp lệ.' });
+            }
+
+            const contract = await Contract.findById(id)
+                .populate('room')
+                .populate('tenant', 'fullName email phone studentId campus avatar')
+                .populate('landlord', 'fullName email phone');
+
+            if (!contract) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+            }
+
+            if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hợp đồng của chủ trọ khác.' });
+            }
+
+            return res.status(200).json({ success: true, data: contract });
+        }
+
+        // Fallback local mode
+        const contracts = loadFallbackContracts();
+        const contract = contracts.find(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (!contract) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+        }
+
+        if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hợp đồng này.' });
+        }
+
+        res.status(200).json({ success: true, data: contract });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi xem chi tiết hợp đồng: ' + error.message });
+    }
+});
+
+// ==========================================
+// 5. POST /api/contracts - TẠO MỚI HỢP ĐỒNG
+// ==========================================
+router.post('/', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const currentUserId = req.user._id || req.user.id;
+        const {
+            roomId,
+            tenantId,
+            startDate,
+            durationMonths,
+            monthlyRent,
+            depositAmount,
+            paymentDay = 5,
+            electricPrice = 3500,
+            waterPrice = 20000,
+            terms,
+            depositStatus = 'unpaid',
+            paymentMethod = 'transfer'
+        } = req.body;
+
+        // 1. Kiểm tra các trường bắt buộc
+        if (!roomId) {
+            return res.status(400).json({ success: false, message: 'Vui lòng chọn phòng trọ.' });
+        }
+        if (!tenantId) {
+            return res.status(400).json({ success: false, message: 'Vui lòng chọn khách thuê / sinh viên.' });
+        }
+        if (!startDate) {
+            return res.status(400).json({ success: false, message: 'Vui lòng chọn ngày bắt đầu hợp đồng.' });
+        }
+        if (!durationMonths || Number(durationMonths) < 1) {
+            return res.status(400).json({ success: false, message: 'Thời hạn hợp đồng tối thiểu là 1 tháng.' });
+        }
+        if (monthlyRent === undefined || Number(monthlyRent) < 0) {
+            return res.status(400).json({ success: false, message: 'Giá thuê hàng tháng không hợp lệ (phải >= 0).' });
+        }
+        if (depositAmount !== undefined && Number(depositAmount) < 0) {
+            return res.status(400).json({ success: false, message: 'Tiền cọc không được âm.' });
+        }
+
+        const start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+            return res.status(400).json({ success: false, message: 'Ngày bắt đầu hợp đồng không đúng định dạng.' });
+        }
+
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + Number(durationMonths));
+
+        const isDbConnected = req.app.locals.isDbConnected;
+
+        if (isDbConnected) {
+            // Kiểm tra phòng
+            const room = await Room.findById(roomId);
+            if (!room) {
+                return res.status(404).json({ success: false, message: 'Phòng trọ được chọn không tồn tại.' });
+            }
+
+            // Kiểm tra khách thuê
+            const tenant = await User.findById(tenantId);
+            if (!tenant) {
+                return res.status(404).json({ success: false, message: 'Tài khoản khách thuê không tồn tại.' });
+            }
+
+            // Kiểm tra trùng hợp đồng đang hiệu lực
+            const existingActiveContract = await Contract.findOne({
+                room: roomId,
+                status: { $in: ['active', 'pending'] }
+            });
+
+            if (existingActiveContract) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Phòng trọ này hiện đang có hợp đồng hiệu lực. Vui lòng kết thúc hợp đồng cũ trước khi tạo hợp đồng mới.'
+                });
+            }
+
+            // Tạo hợp đồng mới
+            const newContract = await Contract.create({
+                room: roomId,
+                tenant: tenantId,
+                landlord: currentUserId,
+                startDate: start,
+                endDate: end,
+                durationMonths: Number(durationMonths),
+                monthlyRent: Number(monthlyRent),
+                paymentDay: Number(paymentDay) || 5,
+                electricPrice: Number(electricPrice) || 3500,
+                waterPrice: Number(waterPrice) || 20000,
+                terms: terms || 'Hai bên cam kết thực hiện đúng nội quy phòng trọ, thanh toán đúng hạn và giữ gìn cơ sở vật chất.',
+                deposit: {
+                    amount: Number(depositAmount) || 0,
+                    status: depositStatus,
+                    paidAt: depositStatus === 'paid' ? new Date() : undefined,
+                    paymentMethod,
+                    deductions: []
+                },
+                status: 'active'
+            });
+
+            // Tự động cập nhật trạng thái phòng sang 'rented'
+            room.status = 'rented';
+            await room.save();
+
+            const populated = await Contract.findById(newContract._id)
+                .populate('room')
+                .populate('tenant', 'fullName email phone studentId campus avatar')
+                .populate('landlord', 'fullName email phone');
+
+            return res.status(201).json({
+                success: true,
+                message: 'Tạo hợp đồng thuê phòng thành công!',
+                data: populated
+            });
+        }
+
+        // ==================== B. CHẾ ĐỘ FALLBACK LOCAL / OFFLINE ====================
+        let contracts = loadFallbackContracts();
+        const fallbackRooms = req.app.locals.fallbackRooms || [];
+        const fallbackUsers = req.app.locals.fallbackUsers || [];
+
+        const roomObj = fallbackRooms.find(r => isSameId(r._id, roomId) || isSameId(r.id, roomId)) || {
+            _id: roomId,
+            id: roomId,
+            title: `Phòng ${roomId}`,
+            address: 'TP. Cần Thơ',
+            price: Number(monthlyRent)
+        };
+
+        const tenantObj = fallbackUsers.find(u => isSameId(u._id, tenantId) || isSameId(u.id, tenantId)) || {
+            _id: tenantId,
+            id: tenantId,
+            fullName: 'Khách thuê',
+            phone: '0901234567',
+            email: 'tenant@smartstay.vn'
+        };
+
+        const landlordObj = fallbackUsers.find(u => isSameId(u._id, currentUserId) || isSameId(u.id, currentUserId)) || {
+            _id: currentUserId,
+            fullName: req.user.fullName || 'Chủ nhà trọ',
+            email: req.user.email || 'landlord@smartstay.vn'
+        };
+
+        const existingActive = contracts.find(c => 
+            isSameId(c.room?._id || c.room, roomId) && (c.status === 'active' || c.status === 'pending')
+        );
+
+        if (existingActive) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phòng trọ này hiện đang có hợp đồng hiệu lực. Vui lòng kết thúc hợp đồng cũ trước.'
+            });
+        }
+
+        const newId = `ctr_${Date.now()}`;
+        const newContract = {
+            _id: newId,
+            id: newId,
+            room: roomObj,
+            tenant: tenantObj,
+            landlord: landlordObj,
+            startDate: start.toISOString(),
+            endDate: end.toISOString(),
+            durationMonths: Number(durationMonths),
+            monthlyRent: Number(monthlyRent),
+            paymentDay: Number(paymentDay) || 5,
+            electricPrice: Number(electricPrice) || 3500,
+            waterPrice: Number(waterPrice) || 20000,
+            terms: terms || 'Hai bên cam kết thực hiện đúng nội quy phòng trọ, thanh toán đúng hạn.',
+            deposit: {
+                amount: Number(depositAmount) || 0,
+                status: depositStatus,
+                paidAt: depositStatus === 'paid' ? new Date().toISOString() : null,
+                paymentMethod,
+                refundedAmount: 0,
+                deductions: [],
+                note: ''
+            },
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        contracts.unshift(newContract);
+        saveFallbackContracts(contracts);
+
+        // Đổi trạng thái phòng trong fallback
+        if (roomObj) roomObj.status = 'rented';
+
+        res.status(201).json({
+            success: true,
+            message: 'Tạo hợp đồng thuê phòng thành công (Local Dev)!',
+            data: newContract
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi tạo hợp đồng: ' + error.message });
+    }
+});
+
+// ==========================================
+// 6. PUT /api/contracts/:id - CẬP NHẬT THÔNG TIN HỢP ĐỒNG
+// ==========================================
+router.put('/:id', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user._id || req.user.id;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+        const isDbConnected = req.app.locals.isDbConnected;
+        const {
+            monthlyRent,
+            paymentDay,
+            electricPrice,
+            waterPrice,
+            terms,
+            depositAmount
+        } = req.body;
+
+        if (isDbConnected) {
+            const contract = await Contract.findById(id);
+            if (!contract) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+            }
+
+            if (!isAdmin && !isSameId(contract.landlord, currentUserId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền chỉnh sửa hợp đồng này.' });
+            }
+
+            if (monthlyRent !== undefined) contract.monthlyRent = Number(monthlyRent);
+            if (paymentDay !== undefined) contract.paymentDay = Number(paymentDay);
+            if (electricPrice !== undefined) contract.electricPrice = Number(electricPrice);
+            if (waterPrice !== undefined) contract.waterPrice = Number(waterPrice);
+            if (terms !== undefined) contract.terms = terms;
+            if (depositAmount !== undefined && contract.deposit) {
+                contract.deposit.amount = Number(depositAmount);
+            }
+
+            await contract.save();
+            const populated = await Contract.findById(id)
+                .populate('room')
+                .populate('tenant', 'fullName email phone studentId campus avatar')
+                .populate('landlord', 'fullName email phone');
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cập nhật hợp đồng thành công!',
+                data: populated
+            });
+        }
+
+        // Fallback local mode
+        const contracts = loadFallbackContracts();
+        const idx = contracts.findIndex(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (idx === -1) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+        }
+
+        const contract = contracts[idx];
+        if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền chỉnh sửa hợp đồng này.' });
+        }
+
+        if (monthlyRent !== undefined) contract.monthlyRent = Number(monthlyRent);
+        if (paymentDay !== undefined) contract.paymentDay = Number(paymentDay);
+        if (electricPrice !== undefined) contract.electricPrice = Number(electricPrice);
+        if (waterPrice !== undefined) contract.waterPrice = Number(waterPrice);
+        if (terms !== undefined) contract.terms = terms;
+        if (depositAmount !== undefined && contract.deposit) {
+            contract.deposit.amount = Number(depositAmount);
+        }
+        contract.updatedAt = new Date().toISOString();
+
+        saveFallbackContracts(contracts);
+
+        res.status(200).json({
+            success: true,
+            message: 'Cập nhật hợp đồng thành công (Local Dev)!',
+            data: contract
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi cập nhật hợp đồng: ' + error.message });
+    }
+});
+
+// ==========================================
+// 7. PATCH /api/contracts/:id/deposit - CẬP NHẬT TRẠNG THÁI THU CỌC
+// ==========================================
+router.patch('/:id/deposit', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user._id || req.user.id;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+        const isDbConnected = req.app.locals.isDbConnected;
+        const { status, amount, paymentMethod, paidAt, note } = req.body;
+
+        const validStatuses = ['unpaid', 'paid', 'refunded', 'partial_refund', 'withheld'];
+        if (status && !validStatuses.includes(status)) {
+            return res.status(400).json({ success: false, message: 'Trạng thái tiền cọc không hợp lệ.' });
+        }
+
+        if (isDbConnected) {
+            const contract = await Contract.findById(id);
+            if (!contract) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+            }
+
+            if (!isAdmin && !isSameId(contract.landlord, currentUserId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền cập nhật tiền cọc hợp đồng này.' });
+            }
+
+            if (!contract.deposit) contract.deposit = {};
+            if (status) contract.deposit.status = status;
+            if (amount !== undefined) contract.deposit.amount = Number(amount);
+            if (paymentMethod) contract.deposit.paymentMethod = paymentMethod;
+            if (note !== undefined) contract.deposit.note = note;
+
+            if (status === 'paid' && !contract.deposit.paidAt) {
+                contract.deposit.paidAt = paidAt ? new Date(paidAt) : new Date();
+            }
+
+            await contract.save();
+            const populated = await Contract.findById(id)
+                .populate('room')
+                .populate('tenant', 'fullName email phone studentId campus avatar')
+                .populate('landlord', 'fullName email phone');
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cập nhật trạng thái tiền cọc thành công!',
+                data: populated
+            });
+        }
+
+        // Fallback local mode
+        const contracts = loadFallbackContracts();
+        const idx = contracts.findIndex(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (idx === -1) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+        }
+
+        const contract = contracts[idx];
+        if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền cập nhật hợp đồng này.' });
+        }
+
+        if (!contract.deposit) contract.deposit = {};
+        if (status) contract.deposit.status = status;
+        if (amount !== undefined) contract.deposit.amount = Number(amount);
+        if (paymentMethod) contract.deposit.paymentMethod = paymentMethod;
+        if (note !== undefined) contract.deposit.note = note;
+        if (status === 'paid') contract.deposit.paidAt = paidAt || new Date().toISOString();
+        contract.updatedAt = new Date().toISOString();
+
+        saveFallbackContracts(contracts);
+
+        res.status(200).json({
+            success: true,
+            message: 'Cập nhật trạng thái tiền cọc thành công (Local Dev)!',
+            data: contract
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi cập nhật tiền cọc: ' + error.message });
+    }
+});
+
+// ==========================================
+// 8. POST /api/contracts/:id/end - KẾT THÚC HỢP ĐỒNG & HOÀN CỌC
+// ==========================================
+router.post('/:id/end', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user._id || req.user.id;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+        const isDbConnected = req.app.locals.isDbConnected;
+        const { deductions = [], note = '' } = req.body;
+
+        // Tính tổng tiền khấu trừ
+        let totalDeductions = 0;
+        const formattedDeductions = [];
+
+        if (Array.isArray(deductions)) {
+            for (const d of deductions) {
+                const amt = Number(d.amount) || 0;
+                if (amt < 0) {
+                    return res.status(400).json({ success: false, message: 'Số tiền khấu trừ không được âm.' });
+                }
+                if (amt > 0) {
+                    totalDeductions += amt;
+                    formattedDeductions.push({
+                        reason: d.reason ? d.reason.trim() : 'Khấu trừ hư hại / tiền phòng còn thiếu',
+                        amount: amt
+                    });
+                }
+            }
+        }
+
+        if (isDbConnected) {
+            const contract = await Contract.findById(id);
+            if (!contract) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+            }
+
+            if (!isAdmin && !isSameId(contract.landlord, currentUserId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền kết thúc hợp đồng này.' });
+            }
+
+            const initialDeposit = contract.deposit?.amount || 0;
+            const refundedAmount = Math.max(0, initialDeposit - totalDeductions);
+
+            // Xác định trạng thái cọc sau khi hoàn
+            let newDepositStatus = 'refunded';
+            if (totalDeductions > 0) {
+                newDepositStatus = refundedAmount > 0 ? 'partial_refund' : 'withheld';
+            }
+
+            contract.status = 'ended';
+            contract.deposit.refundedAmount = refundedAmount;
+            contract.deposit.deductions = formattedDeductions;
+            contract.deposit.status = newDepositStatus;
+            if (note) contract.deposit.note = note;
+
+            await contract.save();
+
+            // Đưa phòng về trạng thái trống (available)
+            if (contract.room) {
+                await Room.findByIdAndUpdate(contract.room, { status: 'available' });
+            }
+
+            const populated = await Contract.findById(id)
+                .populate('room')
+                .populate('tenant', 'fullName email phone studentId campus avatar')
+                .populate('landlord', 'fullName email phone');
+
+            return res.status(200).json({
+                success: true,
+                message: `Kết thúc hợp đồng thành công! Tiền cọc hoàn lại cho khách: ${refundedAmount.toLocaleString('vi-VN')} VNĐ.`,
+                calculation: {
+                    initialDeposit,
+                    totalDeductions,
+                    refundedAmount,
+                    depositStatus: newDepositStatus
+                },
+                data: populated
+            });
+        }
+
+        // Fallback local mode
+        const contracts = loadFallbackContracts();
+        const idx = contracts.findIndex(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (idx === -1) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+        }
+
+        const contract = contracts[idx];
+        if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền thao tác hợp đồng này.' });
+        }
+
+        const initialDeposit = contract.deposit?.amount || 0;
+        const refundedAmount = Math.max(0, initialDeposit - totalDeductions);
+        let newDepositStatus = 'refunded';
+        if (totalDeductions > 0) {
+            newDepositStatus = refundedAmount > 0 ? 'partial_refund' : 'withheld';
+        }
+
+        contract.status = 'ended';
+        contract.deposit = {
+            ...contract.deposit,
+            refundedAmount,
+            deductions: formattedDeductions,
+            status: newDepositStatus,
+            note: note || contract.deposit?.note || ''
+        };
+        contract.updatedAt = new Date().toISOString();
+
+        // Đưa phòng về trạng thái trống
+        const fallbackRooms = req.app.locals.fallbackRooms || [];
+        const roomId = contract.room?._id || contract.room?.id || contract.room;
+        const roomObj = fallbackRooms.find(r => isSameId(r._id, roomId) || isSameId(r.id, roomId));
+        if (roomObj) roomObj.status = 'available';
+
+        saveFallbackContracts(contracts);
+
+        res.status(200).json({
+            success: true,
+            message: `Kết thúc hợp đồng thành công (Local Dev)! Hoàn cọc: ${refundedAmount.toLocaleString('vi-VN')} VNĐ.`,
+            calculation: {
+                initialDeposit,
+                totalDeductions,
+                refundedAmount,
+                depositStatus: newDepositStatus
+            },
+            data: contract
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi kết thúc hợp đồng: ' + error.message });
+    }
+});
+
+// ==========================================
+// 9. POST /api/contracts/:id/renew - GIA HẠN HỢP ĐỒNG
+// ==========================================
+router.post('/:id/renew', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user._id || req.user.id;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+        const isDbConnected = req.app.locals.isDbConnected;
+        const { additionalMonths } = req.body;
+
+        const monthsToAdd = Number(additionalMonths);
+        if (!monthsToAdd || monthsToAdd < 1) {
+            return res.status(400).json({ success: false, message: 'Số tháng gia hạn phải lớn hơn hoặc bằng 1.' });
+        }
+
+        if (isDbConnected) {
+            const contract = await Contract.findById(id);
+            if (!contract) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+            }
+
+            if (!isAdmin && !isSameId(contract.landlord, currentUserId)) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền gia hạn hợp đồng này.' });
+            }
+
+            const currentEnd = contract.endDate ? new Date(contract.endDate) : new Date();
+            // Nếu hợp đồng đã hết hạn trước đó, tính gia hạn từ hôm nay
+            const baseDate = currentEnd.getTime() < Date.now() ? new Date() : currentEnd;
+            baseDate.setMonth(baseDate.getMonth() + monthsToAdd);
+
+            contract.endDate = baseDate;
+            contract.durationMonths = (contract.durationMonths || 0) + monthsToAdd;
+            contract.status = 'active';
+
+            await contract.save();
+
+            // Đảm bảo phòng vẫn ở trạng thái rented
+            if (contract.room) {
+                await Room.findByIdAndUpdate(contract.room, { status: 'rented' });
+            }
+
+            const populated = await Contract.findById(id)
+                .populate('room')
+                .populate('tenant', 'fullName email phone studentId campus avatar')
+                .populate('landlord', 'fullName email phone');
+
+            return res.status(200).json({
+                success: true,
+                message: `Gia hạn hợp đồng thêm ${monthsToAdd} tháng thành công! Ngày kết thúc mới: ${baseDate.toLocaleDateString('vi-VN')}.`,
+                data: populated
+            });
+        }
+
+        // Fallback local mode
+        const contracts = loadFallbackContracts();
+        const idx = contracts.findIndex(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (idx === -1) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+        }
+
+        const contract = contracts[idx];
+        if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền thao tác hợp đồng này.' });
+        }
+
+        const currentEnd = contract.endDate ? new Date(contract.endDate) : new Date();
+        const baseDate = currentEnd.getTime() < Date.now() ? new Date() : currentEnd;
+        baseDate.setMonth(baseDate.getMonth() + monthsToAdd);
+
+        contract.endDate = baseDate.toISOString();
+        contract.durationMonths = (contract.durationMonths || 0) + monthsToAdd;
+        contract.status = 'active';
+        contract.updatedAt = new Date().toISOString();
+
+        saveFallbackContracts(contracts);
+
+        res.status(200).json({
+            success: true,
+            message: `Gia hạn hợp đồng thêm ${monthsToAdd} tháng thành công (Local Dev)! Ngày kết thúc mới: ${baseDate.toLocaleDateString('vi-VN')}.`,
+            data: contract
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi gia hạn hợp đồng: ' + error.message });
+    }
+});
+
+module.exports = router;

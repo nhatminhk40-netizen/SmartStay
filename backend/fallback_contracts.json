@@ -1,0 +1,215 @@
+[
+  {
+    "_id": "ctr_sample_001",
+    "id": "ctr_sample_001",
+    "room": {
+      "_id": "6aad186f1f34d48876cf6301",
+      "id": "6aad186f1f34d48876cf6301",
+      "title": "Phòng 101 - Gác lửng đúc cao cấp KDC Hồng Phát",
+      "address": "Số 12 đường Số 3, KDC Hồng Phát, An Bình, Ninh Kiều, Cần Thơ",
+      "price": 2500000,
+      "campus": "FPT Can Tho",
+      "status": "rented"
+    },
+    "tenant": {
+      "_id": "usr_tenant_001",
+      "id": "usr_tenant_001",
+      "fullName": "Trần Văn An",
+      "email": "tranvanan@gmail.com",
+      "phone": "0981234567",
+      "studentId": "MSSV18001",
+      "campus": "FPT Can Tho",
+      "role": "student"
+    },
+    "landlord": {
+      "_id": "usr_landlord_nhatminh",
+      "id": "usr_landlord_nhatminh",
+      "fullName": "Đinh Trịnh Nhật Minh",
+      "email": "nhatminhk40@gmail.com",
+      "phone": "0939112233",
+      "role": "landlord"
+    },
+    "startDate": "2026-08-20T07:38:31.082Z",
+    "endDate": "2027-08-20T07:38:31.082Z",
+    "durationMonths": 12,
+    "monthlyRent": 2500000,
+    "paymentDay": 5,
+    "electricPrice": 3500,
+    "waterPrice": 20000,
+    "terms": "Hợp đồng thuê 1 năm, giữ trật tự sau 23h, không hút thuốc trong phòng, thanh toán trước ngày 5 hàng tháng.",
+    "deposit": {
+      "amount": 2500000,
+      "status": "partial_refund",
+      "paidAt": "2026-08-20T07:38:31.082Z",
+      "paymentMethod": "transfer",
+      "refundedAmount": 2300000,
+      "deductions": [
+        {
+          "reason": "Trừ tiền vệ sinh phòng",
+          "amount": 200000
+        }
+      ],
+      "note": "Khách dọn đi đúng hạn"
+    },
+    "status": "ended",
+    "createdAt": "2026-08-20T07:38:31.082Z",
+    "updatedAt": "2026-10-20T07:39:57.346Z"
+  },
+  {
+    "_id": "ctr_sample_002",
+    "id": "ctr_sample_002",
+    "room": {
+      "_id": "6aad186f1f34d48876cf6302",
+      "id": "6aad186f1f34d48876cf6302",
+      "title": "Phòng 102 - Studio ban công thoáng mát gần ĐH Cần Thơ",
+      "address": "Hẻm 51 đường 3 Tháng 2, Xuân Khánh, Ninh Kiều, Cần Thơ",
+      "price": 2200000,
+      "campus": "ĐH Cần Thơ",
+      "status": "rented"
+    },
+    "tenant": {
+      "_id": "usr_tenant_002",
+      "id": "usr_tenant_002",
+      "fullName": "Lê Thị Thu Thảo",
+      "email": "thuthaole@gmail.com",
+      "phone": "0979888999",
+      "studentId": "MSSV18002",
+      "campus": "ĐH Cần Thơ",
+      "role": "student"
+    },
+    "landlord": {
+      "_id": "usr_landlord_nhatminh",
+      "id": "usr_landlord_nhatminh",
+      "fullName": "Đinh Trịnh Nhật Minh",
+      "email": "nhatminhk40@gmail.com",
+      "phone": "0939112233",
+      "role": "landlord"
+    },
+    "startDate": "2025-11-05T07:38:31.082Z",
+    "endDate": "2027-05-04T07:38:31.082Z",
+    "durationMonths": 18,
+    "monthlyRent": 2200000,
+    "paymentDay": 10,
+    "electricPrice": 3800,
+    "waterPrice": 15000,
+    "terms": "Hợp đồng chuẩn bị đáo hạn. Khách đang có nguyện vọng gia hạn thêm 6 tháng.",
+    "deposit": {
+      "amount": 2200000,
+      "status": "paid",
+      "paidAt": "2025-11-05T07:38:31.082Z",
+      "paymentMethod": "cash",
+      "refundedAmount": 0,
+      "deductions": [],
+      "note": "Thu cọc tiền mặt tại phòng"
+    },
+    "status": "active",
+    "createdAt": "2025-11-05T07:38:31.082Z",
+    "updatedAt": "2026-10-20T07:39:57.308Z"
+  },
+  {
+    "_id": "ctr_sample_003",
+    "id": "ctr_sample_003",
+    "room": {
+      "_id": "6aad186f1f34d48876cf6303",
+      "id": "6aad186f1f34d48876cf6303",
+      "title": "Phòng 201 - Phòng trọ khép kín đầy đủ nội thất",
+      "address": "Khu vực 2, An Bình, Ninh Kiều, Cần Thơ",
+      "price": 1800000,
+      "campus": "FPT Can Tho",
+      "status": "rented"
+    },
+    "tenant": {
+      "_id": "usr_tenant_003",
+      "id": "usr_tenant_003",
+      "fullName": "Nguyễn Thành Long",
+      "email": "thanhlong.it@gmail.com",
+      "phone": "0933445566",
+      "studentId": "MSSV18003",
+      "campus": "FPT Can Tho",
+      "role": "student"
+    },
+    "landlord": {
+      "_id": "usr_landlord_nhatminh",
+      "id": "usr_landlord_nhatminh",
+      "fullName": "Đinh Trịnh Nhật Minh",
+      "email": "nhatminhk40@gmail.com",
+      "phone": "0939112233",
+      "role": "landlord"
+    },
+    "startDate": "2026-10-17T07:38:31.082Z",
+    "endDate": "2027-04-17T07:38:31.082Z",
+    "durationMonths": 6,
+    "monthlyRent": 1800000,
+    "paymentDay": 1,
+    "electricPrice": 3500,
+    "waterPrice": 20000,
+    "terms": "Khách dọn vào ở trước, hẹn chuyển khoản tiền cọc trong vòng 3 ngày làm việc.",
+    "deposit": {
+      "amount": 1800000,
+      "status": "paid",
+      "paidAt": "2026-10-20T07:39:57.302Z",
+      "paymentMethod": "transfer",
+      "refundedAmount": 0,
+      "deductions": [],
+      "note": "Đã nhận chuyển khoản Vietcombank"
+    },
+    "status": "active",
+    "createdAt": "2026-10-17T07:38:31.082Z",
+    "updatedAt": "2026-10-20T07:39:57.302Z"
+  },
+  {
+    "_id": "ctr_sample_004",
+    "id": "ctr_sample_004",
+    "room": {
+      "_id": "6aad186f1f34d48876cf6304",
+      "id": "6aad186f1f34d48876cf6304",
+      "title": "Phòng 202 - Phòng đôi có máy lạnh, máy giặt riêng",
+      "address": "Đường Nguyễn Văn Cừ nối dài, An Bình, Cần Thơ",
+      "price": 3000000,
+      "campus": "ĐH Y Dược",
+      "status": "available"
+    },
+    "tenant": {
+      "_id": "usr_tenant_004",
+      "id": "usr_tenant_004",
+      "fullName": "Phạm Minh Hưng",
+      "email": "hungminh@gmail.com",
+      "phone": "0912233445",
+      "studentId": "MSSV18004",
+      "campus": "ĐH Y Dược",
+      "role": "student"
+    },
+    "landlord": {
+      "_id": "usr_landlord_nhatminh",
+      "id": "usr_landlord_nhatminh",
+      "fullName": "Đinh Trịnh Nhật Minh",
+      "email": "nhatminhk40@gmail.com",
+      "phone": "0939112233",
+      "role": "landlord"
+    },
+    "startDate": "2025-09-20T07:38:31.082Z",
+    "endDate": "2026-09-20T07:38:31.082Z",
+    "durationMonths": 12,
+    "monthlyRent": 3000000,
+    "paymentDay": 5,
+    "electricPrice": 3500,
+    "waterPrice": 20000,
+    "terms": "Hợp đồng đã kết thúc đúng hạn. Đã bàn giao chìa khóa và kiểm tra phòng.",
+    "deposit": {
+      "amount": 3000000,
+      "status": "partial_refund",
+      "paidAt": "2025-09-20T07:38:31.082Z",
+      "paymentMethod": "transfer",
+      "refundedAmount": 2700000,
+      "deductions": [
+        {
+          "reason": "Làm hỏng vòi sen nhà tắm và chốt cửa ban công",
+          "amount": 300000
+        }
+      ],
+      "note": "Đã hoàn trả 2.700.000 VNĐ qua ngân hàng sau khi trừ phí sửa chữa vật tư."
+    },
+    "status": "ended",
+    "createdAt": "2025-09-20T07:38:31.082Z"
+  }
+]

@@ -91,7 +91,14 @@ const roomSchema = new mongoose.Schema({
     landlordNote: { type: String, default: '' },
     landlordPhone: { type: String, default: '' },
     moveOutDate: { type: String, default: '' },
-    posterName: { type: String, default: 'Sinh viên SmartStay' }
+    posterName: { type: String, default: 'Sinh viên SmartStay' },
+
+    // Trạng thái cho thuê thực tế của phòng
+    status: {
+        type: String,
+        enum: ['available', 'rented', 'repairing'],
+        default: 'available'
+    }
 }, { timestamps: true });
 
 // Tự đồng bộ ảnh và badge trước khi lưu

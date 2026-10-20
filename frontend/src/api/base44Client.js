@@ -541,6 +541,139 @@ export const base44 = {
     }
   },
 
+  contracts: {
+    list: async (params = {}) => {
+      const token = localStorage.getItem('smartstay_token');
+      const cleanParams = Object.fromEntries(
+        Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+      );
+      const query = new URLSearchParams(cleanParams).toString();
+      const res = await fetch(`${API_BASE}/contracts${query ? `?${query}` : ''}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể tải danh sách hợp đồng.');
+      }
+      return data;
+    },
+    get: async (id) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể tải chi tiết hợp đồng.');
+      }
+      return data.data;
+    },
+    create: async (payload) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể tạo hợp đồng mới.');
+      }
+      return data;
+    },
+    update: async (id, payload) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể cập nhật hợp đồng.');
+      }
+      return data;
+    },
+    updateDeposit: async (id, payload) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${id}/deposit`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể cập nhật tiền cọc.');
+      }
+      return data;
+    },
+    end: async (id, payload) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${id}/end`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể kết thúc hợp đồng.');
+      }
+      return data;
+    },
+    renew: async (id, payload) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${id}/renew`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Không thể gia hạn hợp đồng.');
+      }
+      return data;
+    },
+    lookupRooms: async () => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/lookup/rooms`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      return data.data || [];
+    },
+    lookupTenants: async () => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/lookup/tenants`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      return data.data || [];
+    }
+  },
+
   app: {
     getPublicSettings: async () => {
       return { id: 'smartstay', public_settings: { app_name: 'SmartStay Cần Thơ' } };
@@ -588,11 +721,55 @@ export const base44 = {
     loginWithProvider: (provider, returnTo) => {
       console.log(`Login via ${provider}, return to: ${returnTo}`);
     },
-    resetPasswordRequest: async (email) => {
-      return { success: true, message: 'Đã gửi liên kết khôi phục mật khẩu.' };
+    sendOtp: async ({ email, phone, purpose = 'VERIFY_EMAIL' }) => {
+      const res = await fetch(`${API_BASE}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, phone, purpose })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gửi mã OTP thất bại.');
+      }
+      return data;
     },
-    resetPassword: async ({ resetToken, newPassword }) => {
-      return { success: true };
+    verifyOtp: async ({ email, code, otpCode, phone, purpose = 'VERIFY_EMAIL' }) => {
+      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          code: code || otpCode,
+          phone,
+          purpose
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Mã xác thực không đúng hoặc đã hết hạn.');
+      }
+      return data;
+    },
+    resetPasswordRequest: async (email) => {
+      return await base44.auth.sendOtp({ email, purpose: 'RESET_PASSWORD' });
+    },
+    resetPassword: async ({ email, resetToken, newPassword }) => {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, resetToken, newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Đặt lại mật khẩu thất bại.');
+      }
+      return data;
+    },
+    sendPhoneOtp: async (phone) => {
+      return await base44.auth.sendOtp({ phone });
+    },
+    verifyPhoneOtp: async ({ phone, otpCode }) => {
+      return await base44.auth.verifyOtp({ phone, code: otpCode });
     },
     register: async (payload) => {
       const res = await fetch(`${API_BASE}/auth/register`, {
@@ -602,8 +779,12 @@ export const base44 = {
           fullName: payload.fullName || payload.name || payload.email.split('@')[0],
           email: payload.email,
           password: payload.password,
-          phone: payload.phone || '0901234567',
-          role: payload.role || 'student'
+          phone: payload.phone || '',
+          phoneVerified: payload.phoneVerified !== false,
+          role: payload.role || 'student',
+          campus: payload.campus || 'FPT Can Tho',
+          studentId: payload.studentId || '',
+          landlordDocuments: payload.landlordDocuments || {}
         })
       });
       const data = await res.json();

@@ -22,7 +22,28 @@ const userSchema = new mongoose.Schema({
         type: String, 
         enum: ['student', 'landlord', 'employee', 'admin'], 
         default: 'student' 
-    }
+    },
+    phoneVerified: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
+    verificationStatus: { 
+        type: String, 
+        enum: ['PENDING', 'APPROVED', 'REJECTED', 'NONE'], 
+        default: 'NONE' 
+    },
+    landlordDocuments: {
+        idCardNumber: { type: String, default: '' },
+        propertyName: { type: String, default: '' },
+        propertyAddress: { type: String, default: '' },
+        idCardFrontUrl: { type: String, default: '' },
+        idCardBackUrl: { type: String, default: '' },
+        ownershipDocUrl: { type: String, default: '' },
+        ownershipDocType: { type: String, default: 'UTILITY_BILL' },
+        ownershipDocTypeName: { type: String, default: 'Hóa đơn tiền điện / nước' },
+        note: { type: String, default: '' }
+    },
+    rejectionReason: { type: String, default: '' },
+    approvedAt: { type: Date },
+    approvedBy: { type: String, default: '' }
 }, { timestamps: true });
 
 // Hash mật khẩu trước khi lưu vào database

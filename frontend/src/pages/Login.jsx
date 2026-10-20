@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users, Info, Building2 } from "lucide-react";
 import GoogleIcon from "@/components/GoogleIcon";
 import GoogleClientIdDialog from "@/components/GoogleClientIdDialog";
 import { triggerGoogleSignIn } from "@/lib/googleAuth";
@@ -46,20 +46,34 @@ export default function Login() {
       }
       
       const role = result?.user?.role;
+      const status = result?.user?.verificationStatus;
       const returnUrl = safeReturnTo();
       
+      if (role === "landlord") {
+        if (status === "APPROVED") {
+          // Chủ trọ đã được Admin duyệt
+          sessionStorage.setItem("smartstay_login_role_notice", "landlord_approved");
+        } else if (status === "PENDING") {
+          // Chủ trọ đang chờ duyệt
+          sessionStorage.setItem("smartstay_login_role_notice", "landlord_pending");
+        } else if (status === "REJECTED") {
+          // Chủ trọ bị từ chối
+          sessionStorage.setItem("smartstay_login_role_notice", "landlord_rejected");
+        }
+      }
+
       // Nếu có returnTo cụ thể thì chuyển hướng về đó, ngược lại phân luồng theo Role
       if (returnUrl && returnUrl !== "/" && !returnUrl.includes("/login")) {
         window.location.href = returnUrl;
       } else if (role === "admin") {
         window.location.href = "/admin";
-      } else if (role === "employee") {
+      } else if (role === "employee" || role === "landlord") {
         window.location.href = "/employee";
       } else {
         window.location.href = "/";
       }
     } catch (err) {
-      setError(err.message || "Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      setError(err.message || "Email/Số điện thoại hoặc mật khẩu không đúng. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -84,7 +98,7 @@ export default function Login() {
           window.location.href = returnUrl;
         } else if (role === "admin") {
           window.location.href = "/admin";
-        } else if (role === "employee") {
+        } else if (role === "employee" || role === "landlord") {
           window.location.href = "/employee";
         } else {
           window.location.href = "/";
@@ -135,7 +149,8 @@ export default function Login() {
               border: "1px solid rgba(249,115,22,0.3)",
             }}
           >
-            🏠 Nền tảng tìm phòng trọ #1 Cần Thơ
+            <Building2 className="w-3.5 h-3.5 text-orange-400" />
+            <span>Nền tảng tìm phòng trọ #1 Cần Thơ</span>
           </div>
           <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4">
             Tìm phòng trọ
@@ -191,11 +206,18 @@ export default function Login() {
 
         <div className="w-full max-w-[400px]">
           {/* Heading */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-foreground">Chào mừng trở lại! 👋</h2>
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-foreground">Chào mừng trở lại</h2>
             <p className="text-muted-foreground text-sm mt-1.5">
-              Đăng nhập để khám phá hàng trăm phòng trọ chất lượng
+              Đăng nhập để khám phá và quản lý phòng trọ chất lượng
             </p>
+            {/* Ghi chú tự động nhận diện vai trò */}
+            <div className="mt-3 p-2.5 rounded-xl bg-orange-50/80 border border-orange-200/80 text-[11px] text-orange-800 flex items-start gap-2">
+              <Info className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
+              <span className="leading-tight">
+                <strong>Tự động nhận diện vai trò:</strong> Bạn chỉ cần nhập Email hoặc Số điện thoại. Tài khoản Chủ trọ đã được duyệt sẽ tự động kích hoạt quyền Chủ trọ mà không cần chọn lại vai trò.
+              </span>
+            </div>
           </div>
 
           {/* Google Button */}
@@ -256,7 +278,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="login-email" className="text-sm font-medium text-foreground">
-                Email
+                Email hoặc Số điện thoại
               </Label>
               <div className="relative">
                 <Mail
@@ -268,7 +290,7 @@ export default function Login() {
                   type="text"
                   autoComplete="email"
                   autoFocus
-                  placeholder="ban@example.com hoặc employee"
+                  placeholder="ban@example.com hoặc 0901234567"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-12 rounded-xl"

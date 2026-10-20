@@ -17,7 +17,8 @@ import {
   Sparkles,
   School,
   Mail,
-  X
+  X,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
@@ -474,18 +475,22 @@ export default function Header() {
                         </button>
                       )}
 
-                      {/* Employee panel link */}
-                      {(user?.role === "employee" || user?.role === "admin") && (
+                      {/* Employee / Landlord panel link */}
+                      {(user?.role === "employee" || user?.role === "admin" || user?.role === "landlord") && (
                         <button
                           type="button"
                           onClick={() => {
                             setOpenUserMenu(false);
                             navigate("/employee");
                           }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold transition text-left"
                         >
-                          <LayoutDashboard className="w-4 h-4 text-slate-500" />
-                          <span>Bàn làm việc Nhân viên</span>
+                          <Building2 className="w-4 h-4 text-orange-600" />
+                          <span>
+                            {user?.role === "landlord"
+                              ? "Kênh Quản lý Trọ của tôi"
+                              : "Bàn làm việc Quản lý Trọ"}
+                          </span>
                         </button>
                       )}
 

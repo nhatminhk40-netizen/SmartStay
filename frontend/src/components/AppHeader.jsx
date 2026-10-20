@@ -266,7 +266,17 @@ export default function AppHeader({
 
           {/* Post Safe Listing button */}
           <button
-            onClick={onOpenSafe}
+            onClick={() => {
+              if (user?.role === "landlord" && user?.verificationStatus === "PENDING") {
+                alert("Tài khoản Chủ trọ của bạn đang ở trạng thái CHỜ DUYỆT (PENDING). Vui lòng đợi Ban Quản Trị thẩm định hồ sơ giấy tờ trước khi đăng tin phòng trọ.");
+                return;
+              }
+              if (user?.role === "landlord" && user?.verificationStatus === "REJECTED") {
+                alert(`Hồ sơ Chủ trọ của bạn đã bị từ chối duyệt: ${user?.rejectionReason || "Chưa đạt yêu cầu"}. Vui lòng liên hệ Admin để cập nhật lại hồ sơ.`);
+                return;
+              }
+              onOpenSafe();
+            }}
             className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 active:scale-95 shadow-md shadow-emerald-500/20 transition-all focus:outline-none"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -421,31 +431,65 @@ export default function AppHeader({
             {showProfile && (
               <div className="absolute right-0 top-12 w-80 sm:w-88 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* Profile Header */}
-                <div className="p-4 bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+                <div className={cn(
+                  "p-4 text-white",
+                  user?.role === "landlord"
+                    ? "bg-gradient-to-br from-orange-600 to-amber-700"
+                    : "bg-gradient-to-br from-emerald-600 to-teal-700"
+                )}>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white font-black text-lg border border-white/30">
-                        {profile.name ? profile.name.slice(0, 1).toUpperCase() : "S"}
+                        {(user?.fullName || profile.name || "U").slice(0, 1).toUpperCase()}
                       </div>
                       <div>
                         <div className="font-display font-extrabold text-white text-base flex items-center gap-1.5">
-                          {profile.name}
-                          {profile.verified && (
-                            <BadgeCheck className="w-4 h-4 text-emerald-300" />
+                          {user?.fullName || profile.name}
+                          {user?.role === "landlord" && user?.verificationStatus === "APPROVED" && (
+                            <BadgeCheck className="w-4 h-4 text-amber-300" />
                           )}
                         </div>
-                        <div className="text-xs text-emerald-100 flex items-center gap-1">
-                          <GraduationCap className="w-3.5 h-3.5" />
-                          {profile.campus}
+                        <div className="text-xs text-white/80 flex items-center gap-1">
+                          {user?.role === "landlord" ? (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="w-3.5 h-3.5" />
+                              Chủ nhà trọ · {user?.campus || profile.campus}
+                            </span>
+                          ) : (
+                            <>
+                              <GraduationCap className="w-3.5 h-3.5" />
+                              {profile.campus}
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-3 border-t border-white/15 flex items-center justify-between text-xs text-emerald-100">
-                    <div>MSSV: <span className="font-semibold text-white">{profile.studentId}</span></div>
-                    <div className="px-2 py-0.5 rounded-full bg-emerald-500/40 text-[11px] font-semibold text-white">
-                      {profile.status}
+                  <div className="mt-3 pt-3 border-t border-white/15 flex items-center justify-between text-xs text-white/90">
+                    <div>
+                      {user?.role === "landlord" ? (
+                        <span>Vai trò: <strong className="text-white">Chủ nhà trọ</strong></span>
+                      ) : (
+                        <span>MSSV: <strong className="text-white">{profile.studentId}</strong></span>
+                      )}
+                    </div>
+                    <div>
+                      {user?.role === "landlord" ? (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-full text-[11px] font-bold",
+                          user.verificationStatus === "APPROVED" ? "bg-emerald-500/80 text-white" :
+                          user.verificationStatus === "PENDING" ? "bg-amber-400 text-amber-950" :
+                          "bg-rose-500 text-white"
+                        )}>
+                          {user.verificationStatus === "APPROVED" ? "Đã xác minh" :
+                           user.verificationStatus === "PENDING" ? "Chờ duyệt" : "Từ chối"}
+                        </span>
+                      ) : (
+                        <div className="px-2 py-0.5 rounded-full bg-emerald-500/40 text-[11px] font-semibold text-white">
+                          {profile.status}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -475,6 +519,16 @@ export default function AppHeader({
                     >
                       <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Trang Quản trị (Admin Portal)</span>
+                    </Link>
+                  )}
+                  {(user?.role === "landlord" || user?.role === "employee") && (
+                    <Link
+                      to="/employee"
+                      onClick={() => setShowProfile(false)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] rounded-xl transition-colors text-center shadow-sm"
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Kênh Quản lý Trọ (/employee)</span>
                     </Link>
                   )}
                   <button

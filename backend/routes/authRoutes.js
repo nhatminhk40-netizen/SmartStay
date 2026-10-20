@@ -1,8 +1,52 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
+const Otp = require('../models/Otp');
+const { sendOtpEmail } = require('../utils/sendEmail');
 const { protect, generateToken } = require('../middleware/auth');
+
+// Đường dẫn lưu trữ tài khoản fallback offline
+const FALLBACK_USERS_FILE = path.join(__dirname, '../fallback_users.json');
+
+const saveFallbackUsers = (users) => {
+    try {
+        fs.writeFileSync(FALLBACK_USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+    } catch (e) {
+        // silent fail
+    }
+};
+
+// Rate limiters bảo mật chống Brute Force và Spam
+const sendOtpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 10, // Tối đa 10 yêu cầu gửi mã từ 1 IP trong 15 phút
+    message: {
+        success: false,
+        message: 'Bạn đã yêu cầu gửi mã quá nhiều lần. Vui lòng thử lại sau 15 phút.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const verifyOtpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20, // Tối đa 20 lần thử xác thực từ 1 IP trong 15 phút
+    message: {
+        success: false,
+        message: 'Bạn đã thử xác thực quá nhiều lần. Vui lòng thử lại sau 15 phút.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Kho lưu trữ tạm mã OTP xác thực số điện thoại
+const phoneOtpStore = new Map();
 
 // Danh sách tài khoản demo (CHỈ dành cho môi trường local development khi MongoDB chưa sẵn sàng)
 const isProd = process.env.NODE_ENV === 'production';
@@ -14,6 +58,9 @@ const defaultDemoUsers = isProd ? [] : [
         phone: '0901234567',
         role: 'admin',
         campus: 'FPT Can Tho',
+        phoneVerified: true,
+        isEmailVerified: true,
+        verificationStatus: 'APPROVED',
         passwordHash: bcrypt.hashSync('Admin@123456', 10)
     },
     {
@@ -23,28 +70,408 @@ const defaultDemoUsers = isProd ? [] : [
         phone: '0912345678',
         role: 'employee',
         campus: 'FPT Can Tho',
+        phoneVerified: true,
+        isEmailVerified: true,
+        verificationStatus: 'APPROVED',
         passwordHash: bcrypt.hashSync('Employee@123456', 10)
+    },
+    {
+        _id: 'usr_landlord_001',
+        fullName: 'Bác Ba Cần Thơ (Chủ trọ đã duyệt)',
+        email: 'chutro@smartstay.vn',
+        phone: '0939112233',
+        role: 'landlord',
+        campus: 'FPT Can Tho',
+        phoneVerified: true,
+        isEmailVerified: true,
+        verificationStatus: 'APPROVED',
+        landlordDocuments: {
+            idCardNumber: '092095001234',
+            propertyName: 'Nhà trọ Hưng Thịnh Cần Thơ',
+            propertyAddress: 'Khu dân cư Hồng Phát, An Bình, Ninh Kiều, Cần Thơ',
+            idCardFrontUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
+            idCardBackUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
+            ownershipDocUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80',
+            note: 'Dãy trọ 12 phòng khép kín, camera an ninh 24/7'
+        },
+        passwordHash: bcrypt.hashSync('Chutro@123456', 10)
+    },
+    {
+        _id: 'usr_landlord_002',
+        fullName: 'Cô Mai Hưng Lợi (Chờ duyệt)',
+        email: 'chutro.pending@smartstay.vn',
+        phone: '0949887766',
+        role: 'landlord',
+        campus: 'ĐH Cần Thơ',
+        phoneVerified: true,
+        isEmailVerified: true,
+        verificationStatus: 'PENDING',
+        landlordDocuments: {
+            idCardNumber: '092198005678',
+            propertyName: 'Căn hộ Mini An Khánh',
+            propertyAddress: 'Hẻm 51 đường 3 Tháng 2, Xuân Khánh, Ninh Kiều',
+            idCardFrontUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
+            idCardBackUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
+            ownershipDocUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80',
+            note: 'Vừa hoàn thiện 8 phòng có ban công, mong Admin duyệt sớm'
+        },
+        passwordHash: bcrypt.hashSync('Chutro@123456', 10)
+    },
+    {
+        _id: 'usr_landlord_nhatminh',
+        fullName: 'Đinh Trịnh Nhật Minh',
+        email: 'nhatminhk40@gmail.com',
+        phone: '0939112233',
+        role: 'landlord',
+        campus: 'FPT Can Tho',
+        phoneVerified: true,
+        isEmailVerified: true,
+        verificationStatus: 'APPROVED',
+        landlordDocuments: {
+            idCardNumber: '092095001234',
+            propertyName: 'Nhà trọ SmartStay Cần Thơ',
+            propertyAddress: 'Khu dân cư Hồng Phát, An Bình, Ninh Kiều, Cần Thơ',
+            idCardFrontUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
+            idCardBackUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
+            ownershipDocUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80',
+            note: 'Cơ sở trọ chính chủ Đinh Trịnh Nhật Minh (Đã duyệt)'
+        },
+        passwordHash: bcrypt.hashSync('123456', 10)
     }
 ];
 
-// Helper đảm bảo danh sách fallbackUsers luôn chứa tài khoản Admin/Employee mặc định
+// Helper đảm bảo danh sách fallbackUsers luôn chứa tài khoản Admin/Employee mặc định và đồng bộ file
 const getFallbackUsers = (app) => {
     if (!app.locals.fallbackUsers || !Array.isArray(app.locals.fallbackUsers) || app.locals.fallbackUsers.length === 0) {
-        app.locals.fallbackUsers = [...defaultDemoUsers];
-    } else {
-        defaultDemoUsers.forEach(demoUser => {
-            if (!app.locals.fallbackUsers.some(u => u.email === demoUser.email)) {
-                app.locals.fallbackUsers.push(demoUser);
+        let loaded = [];
+        try {
+            if (fs.existsSync(FALLBACK_USERS_FILE)) {
+                loaded = JSON.parse(fs.readFileSync(FALLBACK_USERS_FILE, 'utf8'));
             }
-        });
+        } catch (e) {
+            loaded = [];
+        }
+        app.locals.fallbackUsers = Array.isArray(loaded) && loaded.length > 0 ? loaded : [...defaultDemoUsers];
     }
+
+    defaultDemoUsers.forEach(demoUser => {
+        const idx = app.locals.fallbackUsers.findIndex(u => u.email === demoUser.email);
+        if (idx === -1) {
+            app.locals.fallbackUsers.push(demoUser);
+        } else if (demoUser.email === 'nhatminhk40@gmail.com') {
+            // Đảm bảo mật khẩu 123456 luôn khả dụng cho tài khoản nhatminhk40
+            app.locals.fallbackUsers[idx].passwordHash = demoUser.passwordHash;
+            app.locals.fallbackUsers[idx].verificationStatus = 'APPROVED';
+            app.locals.fallbackUsers[idx].role = 'landlord';
+        }
+    });
+
+    saveFallbackUsers(app.locals.fallbackUsers);
     return app.locals.fallbackUsers;
 };
 
-// 1. Đăng ký tài khoản
+// 1. Gửi mã OTP xác thực (Email qua Gmail SMTP & SĐT dự phòng)
+router.post('/send-otp', sendOtpLimiter, async (req, res) => {
+    try {
+        const { email, phone, purpose = 'VERIFY_EMAIL' } = req.body;
+
+        // A. XỬ LÝ XÁC THỰC QUA EMAIL (GỬI BẰNG GMAIL SMTP)
+        if (email) {
+            const cleanEmail = String(email).toLowerCase().trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(cleanEmail)) {
+                return res.status(400).json({ success: false, message: 'Địa chỉ email không hợp lệ.' });
+            }
+
+            // Nếu là mục đích ĐĂNG KÝ: kiểm tra email đã được dùng chưa
+            if (purpose === 'REGISTER' && req.app.locals.isDbConnected) {
+                const userExists = await User.findOne({ email: cleanEmail });
+                if (userExists) {
+                    return res.status(400).json({ success: false, message: 'Email này đã được sử dụng trên hệ thống.' });
+                }
+            }
+
+            // Quy tắc: Chỉ cho gửi lại sau 60 giây (Resend Cooldown)
+            if (req.app.locals.isDbConnected) {
+                const existingOtp = await Otp.findOne({ email: cleanEmail, purpose });
+                if (existingOtp && existingOtp.sentAt) {
+                    const elapsedMs = Date.now() - new Date(existingOtp.sentAt).getTime();
+                    if (elapsedMs < 60 * 1000) {
+                        const waitSec = Math.ceil((60 * 1000 - elapsedMs) / 1000);
+                        return res.status(429).json({
+                            success: false,
+                            message: `Vui lòng đợi ${waitSec} giây trước khi gửi lại mã.`
+                        });
+                    }
+                }
+            } else {
+                const fallbackOtps = req.app.locals.fallbackOtps || (req.app.locals.fallbackOtps = new Map());
+                const key = `${cleanEmail}_${purpose}`;
+                const existing = fallbackOtps.get(key);
+                if (existing && existing.sentAt) {
+                    const elapsedMs = Date.now() - existing.sentAt;
+                    if (elapsedMs < 60 * 1000) {
+                        const waitSec = Math.ceil((60 * 1000 - elapsedMs) / 1000);
+                        return res.status(429).json({
+                            success: false,
+                            message: `Vui lòng đợi ${waitSec} giây trước khi gửi lại mã.`
+                        });
+                    }
+                }
+            }
+
+            // Quy tắc 5: 6 chữ số sinh bằng crypto.randomInt
+            const otpCode = String(crypto.randomInt(100000, 1000000));
+            // Quy tắc 5: Lưu dạng băm SHA-256, không lưu OTP gốc
+            const codeHash = crypto.createHash('sha256').update(otpCode).digest('hex');
+            // Quy tắc 5: Hết hạn sau 5 phút
+            const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+            // Lưu bản ghi OTP vào MongoDB hoặc Fallback Map
+            if (req.app.locals.isDbConnected) {
+                await Otp.deleteMany({ email: cleanEmail, purpose });
+                await Otp.create({
+                    email: cleanEmail,
+                    codeHash,
+                    expiresAt,
+                    attempts: 0,
+                    purpose,
+                    sentAt: new Date()
+                });
+            } else {
+                const fallbackOtps = req.app.locals.fallbackOtps || (req.app.locals.fallbackOtps = new Map());
+                fallbackOtps.set(`${cleanEmail}_${purpose}`, {
+                    codeHash,
+                    expiresAt: expiresAt.getTime(),
+                    attempts: 0,
+                    purpose,
+                    sentAt: Date.now()
+                });
+            }
+
+            // Gửi qua Gmail SMTP (backend/utils/sendEmail.js)
+            // Nếu là email test nội bộ (@smartstay.vn, @example.com, @test.com), bỏ qua gửi SMTP để tránh Google Mailer-Daemon báo lỗi hòm thư không tồn tại
+            const isMockDomain = cleanEmail.endsWith('@smartstay.vn') || cleanEmail.endsWith('@example.com') || cleanEmail.endsWith('@test.com');
+            if (!isMockDomain) {
+                try {
+                    await sendOtpEmail({
+                        to: cleanEmail,
+                        otpCode,
+                        purpose
+                    });
+                } catch (mailErr) {
+                    console.error('❌ [sendOtpEmail Error]:', mailErr.message);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Không thể gửi email OTP qua máy chủ Gmail. Vui lòng kiểm tra lại cấu hình GMAIL_USER và GMAIL_APP_PASS.'
+                    });
+                }
+            } else {
+                console.log(`ℹ️ [Dev Mock Email OTP]: Bỏ qua gửi SMTP thực tế cho ${cleanEmail} (tránh Mailer-Daemon bounce). Mã OTP kiểm thử: ${otpCode}`);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: isMockDomain
+                    ? `[Chế độ thử nghiệm] Mã OTP cho ${cleanEmail} là ${otpCode}`
+                    : 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).',
+                otpPreview: isProd ? undefined : otpCode
+            });
+        }
+
+        // B. XỬ LÝ XÁC THỰC SỐ ĐIỆN THOẠI (Duy trì tính tương thích)
+        if (phone) {
+            const cleanPhone = phone.trim();
+            if (cleanPhone.length < 8) {
+                return res.status(400).json({ success: false, message: 'Vui lòng nhập số điện thoại hợp lệ.' });
+            }
+            const otpCode = isProd ? String(crypto.randomInt(100000, 1000000)) : '123456';
+            phoneOtpStore.set(cleanPhone, {
+                code: otpCode,
+                expiresAt: Date.now() + 5 * 60 * 1000
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: `Mã OTP đã được gửi đến số ${cleanPhone}`,
+                otpPreview: isProd ? undefined : otpCode
+            });
+        }
+
+        return res.status(400).json({ success: false, message: 'Vui lòng cung cấp email hoặc số điện thoại.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 2. Xác nhận mã OTP (Email hoặc SĐT)
+router.post('/verify-otp', verifyOtpLimiter, async (req, res) => {
+    try {
+        const { email, code, otpCode, phone, purpose = 'VERIFY_EMAIL' } = req.body;
+        const enteredCode = String(code || otpCode || '').trim();
+
+        // A. XÁC THỰC MÃ EMAIL OTP
+        if (email) {
+            const cleanEmail = String(email).toLowerCase().trim();
+            if (!enteredCode) {
+                return res.status(400).json({ success: false, message: 'Vui lòng nhập mã OTP gồm 6 chữ số.' });
+            }
+
+            let otpRecord = null;
+            let isFallback = false;
+
+            if (req.app.locals.isDbConnected) {
+                otpRecord = await Otp.findOne({ email: cleanEmail, purpose });
+            } else {
+                isFallback = true;
+                const fallbackOtps = req.app.locals.fallbackOtps || (req.app.locals.fallbackOtps = new Map());
+                const key = `${cleanEmail}_${purpose}`;
+                otpRecord = fallbackOtps.get(key);
+            }
+
+            const isDevMasterCode = (!isProd && enteredCode === '123456');
+
+            if (!otpRecord && !isDevMasterCode) {
+                return res.status(400).json({ success: false, message: 'Mã xác thực không hợp lệ hoặc đã hết hạn.' });
+            }
+
+            if (otpRecord) {
+                const expiresTime = isFallback ? otpRecord.expiresAt : new Date(otpRecord.expiresAt).getTime();
+                if (Date.now() > expiresTime && !isDevMasterCode) {
+                    if (isFallback) {
+                        req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
+                    } else {
+                        await Otp.deleteOne({ _id: otpRecord._id });
+                    }
+                    return res.status(400).json({ success: false, message: 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.' });
+                }
+
+                // Quy tắc 5: Tối đa 5 lần nhập sai, sau đó hủy mã
+                if (otpRecord.attempts >= 5 && !isDevMasterCode) {
+                    if (isFallback) {
+                        req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
+                    } else {
+                        await Otp.deleteOne({ _id: otpRecord._id });
+                    }
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Mã xác thực đã bị hủy do nhập sai quá 5 lần. Vui lòng yêu cầu gửi mã mới.'
+                    });
+                }
+            }
+
+            // Quy tắc 5: So sánh bằng crypto.timingSafeEqual hoặc mã master dev
+            let isMatch = isDevMasterCode;
+            if (!isMatch && otpRecord) {
+                const enteredHash = crypto.createHash('sha256').update(enteredCode).digest('hex');
+                const inputBuf = Buffer.from(enteredHash, 'hex');
+                const storedBuf = Buffer.from(otpRecord.codeHash, 'hex');
+                isMatch = (inputBuf.length === storedBuf.length) && crypto.timingSafeEqual(inputBuf, storedBuf);
+            }
+
+            if (!isMatch) {
+                if (otpRecord) {
+                    otpRecord.attempts = (otpRecord.attempts || 0) + 1;
+                    const remaining = 5 - otpRecord.attempts;
+
+                    if (otpRecord.attempts >= 5) {
+                        if (isFallback) {
+                            req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
+                        } else {
+                            await Otp.deleteOne({ _id: otpRecord._id });
+                        }
+                        return res.status(400).json({
+                            success: false,
+                            message: 'Mã xác thực đã bị hủy do nhập sai quá 5 lần. Vui lòng yêu cầu gửi mã mới.'
+                        });
+                    }
+
+                    if (isFallback) {
+                        req.app.locals.fallbackOtps.set(`${cleanEmail}_${purpose}`, otpRecord);
+                    } else {
+                        await otpRecord.save();
+                    }
+
+                    return res.status(400).json({
+                        success: false,
+                        message: `Mã OTP không chính xác. Bạn còn ${remaining} lần thử.`
+                    });
+                }
+                return res.status(400).json({ success: false, message: 'Mã OTP không chính xác.' });
+            }
+
+            // Quy tắc 5: Dùng một lần (xác thực xong thì xóa)
+            if (isFallback) {
+                req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
+            } else {
+                await Otp.deleteOne({ _id: otpRecord._id });
+            }
+
+            // Đánh dấu isEmailVerified nếu tài khoản đã tồn tại
+            if (req.app.locals.isDbConnected) {
+                await User.updateOne({ email: cleanEmail }, { $set: { isEmailVerified: true } });
+            } else {
+                const fbUsers = getFallbackUsers(req.app);
+                const u = fbUsers.find(x => x.email === cleanEmail);
+                if (u) u.isEmailVerified = true;
+            }
+
+            // Nếu mục đích là RESET_PASSWORD, tạo token đặt lại mật khẩu tạm thời (15 phút)
+            let resetToken = undefined;
+            if (purpose === 'RESET_PASSWORD') {
+                const secret = process.env.JWT_SECRET || 'smartstay_jwt_secret_dev_2026';
+                resetToken = jwt.sign(
+                    { email: cleanEmail, action: 'RESET_PASSWORD' },
+                    secret,
+                    { expiresIn: '15m' }
+                );
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Xác thực email thành công!',
+                email: cleanEmail,
+                resetToken
+            });
+        }
+
+        // B. XÁC THỰC MÃ SỐ ĐIỆN THOẠI
+        if (phone) {
+            const cleanPhone = phone.trim();
+            const stored = phoneOtpStore.get(cleanPhone);
+            const isValid = (stored && stored.code === enteredCode && stored.expiresAt > Date.now()) || (!isProd && enteredCode === '123456');
+
+            if (!isValid) {
+                return res.status(400).json({ success: false, message: 'Mã xác thực OTP không đúng hoặc đã hết hạn.' });
+            }
+
+            phoneOtpStore.delete(cleanPhone);
+            return res.status(200).json({
+                success: true,
+                message: 'Xác thực số điện thoại thành công!'
+            });
+        }
+
+        return res.status(400).json({ success: false, message: 'Vui lòng cung cấp email hoặc số điện thoại kèm mã OTP.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 3. Đăng ký tài khoản (hỗ trợ vai trò Chủ trọ hoặc Người thuê)
 router.post('/register', async (req, res) => {
     try {
-        const { fullName, email, password, phone, role, studentId, campus } = req.body;
+        const { 
+            fullName, 
+            email, 
+            password, 
+            phone, 
+            role, 
+            studentId, 
+            campus, 
+            phoneVerified, 
+            landlordDocuments 
+        } = req.body;
 
         if (!fullName || !email || !password) {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ họ tên, email và mật khẩu.' });
@@ -55,9 +482,25 @@ router.post('/register', async (req, res) => {
         }
 
         const normalizedEmail = email.toLowerCase().trim();
-        // Bảo vệ bảo mật: Người ngoài tự đăng ký luôn mặc định là Sinh viên ('student')
-        // Ngăn chặn tuyệt đối người ngoài tự ý tạo tài khoản Chủ trọ ('landlord') hoặc Admin
-        const userRole = 'student';
+        const isLandlord = role === 'landlord';
+        const userRole = isLandlord ? 'landlord' : 'student';
+        // Nếu là Chủ trọ -> PENDING chờ Admin duyệt giấy tờ. Nếu là Sinh viên -> APPROVED
+        const verificationStatus = isLandlord ? 'PENDING' : 'APPROVED';
+        const isPhoneVerified = phoneVerified !== false;
+
+        const docs = isLandlord ? {
+            idCardNumber: landlordDocuments?.idCardNumber || '',
+            propertyName: landlordDocuments?.propertyName || '',
+            propertyAddress: landlordDocuments?.propertyAddress || '',
+            idCardFrontUrl: landlordDocuments?.idCardFrontUrl || '',
+            idCardBackUrl: landlordDocuments?.idCardBackUrl || '',
+            ownershipDocUrl: landlordDocuments?.ownershipDocUrl || '',
+            ownershipDocType: landlordDocuments?.ownershipDocType || 'UTILITY_BILL',
+            ownershipDocTypeName: landlordDocuments?.ownershipDocTypeName || 'Hóa đơn tiền điện / nước',
+            note: landlordDocuments?.note || ''
+        } : {};
+
+        const isEmailVerified = Boolean(req.body.isEmailVerified || req.body.emailVerified);
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
@@ -67,11 +510,15 @@ router.post('/register', async (req, res) => {
             }
 
             const newUser = await User.create({
-                fullName,
+                fullName: fullName.trim(),
                 email: normalizedEmail,
                 password,
-                phone: phone || '',
+                phone: phone ? phone.trim() : '',
+                phoneVerified: isPhoneVerified,
+                isEmailVerified,
                 role: userRole,
+                verificationStatus,
+                landlordDocuments: docs,
                 studentId: studentId || '',
                 campus: campus || 'FPT Can Tho'
             });
@@ -85,7 +532,9 @@ router.post('/register', async (req, res) => {
 
             return res.status(201).json({
                 success: true,
-                message: 'Đăng ký tài khoản thành công!',
+                message: isLandlord 
+                    ? 'Hồ sơ đăng ký Chủ trọ đã được gửi! Vui lòng chờ Admin thẩm định duyệt thông tin.' 
+                    : 'Đăng ký tài khoản thành công!',
                 access_token: token,
                 user: {
                     id: newUser._id,
@@ -93,6 +542,10 @@ router.post('/register', async (req, res) => {
                     email: newUser.email,
                     role: newUser.role,
                     phone: newUser.phone,
+                    phoneVerified: newUser.phoneVerified,
+                    isEmailVerified: newUser.isEmailVerified,
+                    verificationStatus: newUser.verificationStatus,
+                    landlordDocuments: newUser.landlordDocuments,
                     campus: newUser.campus
                 }
             });
@@ -111,17 +564,23 @@ router.post('/register', async (req, res) => {
 
         const newUser = {
             _id: `usr_${Date.now()}`,
-            fullName,
+            id: `usr_${Date.now()}`,
+            fullName: fullName.trim(),
             email: normalizedEmail,
-            phone: phone || '',
+            phone: phone ? phone.trim() : '',
+            phoneVerified: isPhoneVerified,
+            isEmailVerified,
             role: userRole,
+            verificationStatus,
+            landlordDocuments: docs,
             studentId: studentId || '',
             campus: campus || 'FPT Can Tho',
             passwordHash: await bcrypt.hash(password, 10),
             createdAt: new Date()
         };
 
-        fallbackUsers.push(newUser);
+        fallbackUsers.unshift(newUser);
+        saveFallbackUsers(fallbackUsers);
 
         const token = generateToken({
             id: newUser._id,
@@ -132,7 +591,9 @@ router.post('/register', async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Đăng ký tài khoản thành công (Chế độ Local Dev)!',
+            message: isLandlord 
+                ? 'Hồ sơ đăng ký Chủ trọ đã gửi (Local Dev)! Đang ở trạng thái Chờ duyệt.' 
+                : 'Đăng ký tài khoản thành công (Chế độ Local Dev)!',
             access_token: token,
             user: {
                 id: newUser._id,
@@ -140,6 +601,10 @@ router.post('/register', async (req, res) => {
                 email: newUser.email,
                 role: newUser.role,
                 phone: newUser.phone,
+                phoneVerified: newUser.phoneVerified,
+                isEmailVerified: newUser.isEmailVerified,
+                verificationStatus: newUser.verificationStatus,
+                landlordDocuments: newUser.landlordDocuments,
                 campus: newUser.campus
             }
         });
@@ -148,24 +613,29 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// 2. Đăng nhập tài khoản
+// 4. Đăng nhập tài khoản (tự động nhận diện vai trò Chủ trọ / Sinh viên / Admin đã được duyệt)
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return res.status(400).json({ success: false, message: 'Vui lòng nhập email và mật khẩu.' });
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập email/số điện thoại và mật khẩu.' });
         }
 
         const cleanEmail = email.toLowerCase().trim();
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
-            let user = await User.findOne({ email: cleanEmail });
+            let user = await User.findOne({
+                $or: [
+                    { email: cleanEmail },
+                    { phone: cleanEmail }
+                ]
+            });
 
-            // Nếu là tài khoản Admin hoặc Employee mặc định nhưng chưa có trong MongoDB, tự động tạo vào DB
+            // Nếu là tài khoản demo nhưng chưa có trong MongoDB, tự động tạo vào DB
             if (!user) {
-                const demoAccount = defaultDemoUsers.find(d => d.email === cleanEmail);
+                const demoAccount = defaultDemoUsers.find(d => d.email === cleanEmail || d.phone === cleanEmail);
                 if (demoAccount && (await bcrypt.compare(password, demoAccount.passwordHash))) {
                     try {
                         user = await User.create({
@@ -174,6 +644,9 @@ router.post('/login', async (req, res) => {
                             password: password,
                             role: demoAccount.role,
                             phone: demoAccount.phone,
+                            phoneVerified: demoAccount.phoneVerified !== false,
+                            verificationStatus: demoAccount.verificationStatus || 'APPROVED',
+                            landlordDocuments: demoAccount.landlordDocuments || {},
                             campus: demoAccount.campus
                         });
                     } catch (seedErr) {
@@ -186,7 +659,7 @@ router.post('/login', async (req, res) => {
             }
 
             if (!user) {
-                return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
+                return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
             }
 
             // So khớp mật khẩu
@@ -195,7 +668,7 @@ router.post('/login', async (req, res) => {
                 : await bcrypt.compare(password, user.passwordHash || user.password);
 
             if (!isMatch) {
-                return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
+                return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
             }
 
             const token = generateToken({
@@ -215,7 +688,12 @@ router.post('/login', async (req, res) => {
                     email: user.email,
                     role: user.role,
                     phone: user.phone,
-                    campus: user.campus
+                    campus: user.campus,
+                    avatar: user.avatar || '',
+                    phoneVerified: Boolean(user.phoneVerified),
+                    verificationStatus: user.verificationStatus || (user.role === 'landlord' ? 'APPROVED' : 'NONE'),
+                    landlordDocuments: user.landlordDocuments || {},
+                    rejectionReason: user.rejectionReason || ''
                 }
             });
         }
@@ -227,14 +705,14 @@ router.post('/login', async (req, res) => {
 
         const fallbackUsers = getFallbackUsers(req.app);
 
-        const user = fallbackUsers.find(u => u.email === cleanEmail);
+        const user = fallbackUsers.find(u => u.email === cleanEmail || u.phone === cleanEmail);
         if (!user) {
-            return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
+            return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.passwordHash || user.password);
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác.' });
+            return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
         }
 
         const token = generateToken({
@@ -254,7 +732,12 @@ router.post('/login', async (req, res) => {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-                campus: user.campus
+                campus: user.campus,
+                avatar: user.avatar || '',
+                phoneVerified: Boolean(user.phoneVerified),
+                verificationStatus: user.verificationStatus || (user.role === 'landlord' ? 'APPROVED' : 'NONE'),
+                landlordDocuments: user.landlordDocuments || {},
+                rejectionReason: user.rejectionReason || ''
             }
         });
     } catch (error) {
@@ -262,7 +745,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// 3. Đăng nhập / Đăng ký nhanh qua Google OAuth
+// 5. Đăng nhập / Đăng ký nhanh qua Google OAuth
 router.post('/google', async (req, res) => {
     try {
         const { email, fullName, googleId, avatar, campus } = req.body;
@@ -300,6 +783,8 @@ router.post('/google', async (req, res) => {
                     googleId: googleId || `gg_${Date.now()}`,
                     avatar: avatar || '',
                     role: 'student',
+                    verificationStatus: 'APPROVED',
+                    phoneVerified: false,
                     campus: detectedCampus
                 });
             }
@@ -321,7 +806,10 @@ router.post('/google', async (req, res) => {
                     email: user.email,
                     role: user.role,
                     avatar: user.avatar,
-                    campus: user.campus
+                    campus: user.campus,
+                    phone: user.phone || '',
+                    verificationStatus: user.verificationStatus || 'APPROVED',
+                    phoneVerified: Boolean(user.phoneVerified)
                 }
             });
         }
@@ -339,10 +827,13 @@ router.post('/google', async (req, res) => {
                 googleId: googleId || `gg_${Date.now()}`,
                 avatar: avatar || '',
                 role: 'student',
+                verificationStatus: 'APPROVED',
+                phoneVerified: false,
                 campus: detectedCampus,
                 createdAt: new Date()
             };
             fallbackUsers.push(user);
+            saveFallbackUsers(fallbackUsers);
         }
 
         const token = generateToken({
@@ -362,7 +853,10 @@ router.post('/google', async (req, res) => {
                 email: user.email,
                 role: user.role,
                 avatar: user.avatar,
-                campus: user.campus
+                campus: user.campus,
+                phone: user.phone || '',
+                verificationStatus: user.verificationStatus || 'APPROVED',
+                phoneVerified: Boolean(user.phoneVerified)
             }
         });
     } catch (error) {
@@ -370,7 +864,7 @@ router.post('/google', async (req, res) => {
     }
 });
 
-// 4. Lấy thông tin tài khoản hiện tại (Me)
+// 6. Lấy thông tin tài khoản hiện tại (Me)
 router.get('/me', protect, (req, res) => {
     res.status(200).json({
         success: true,
@@ -379,11 +873,85 @@ router.get('/me', protect, (req, res) => {
             fullName: req.user.fullName,
             email: req.user.email,
             role: req.user.role,
-            avatar: req.user.avatar,
-            phone: req.user.phone,
-            campus: req.user.campus
+            avatar: req.user.avatar || '',
+            phone: req.user.phone || '',
+            campus: req.user.campus || 'FPT Can Tho',
+            phoneVerified: Boolean(req.user.phoneVerified),
+            isEmailVerified: Boolean(req.user.isEmailVerified),
+            verificationStatus: req.user.verificationStatus || (req.user.role === 'landlord' ? 'APPROVED' : 'NONE'),
+            landlordDocuments: req.user.landlordDocuments || {},
+            rejectionReason: req.user.rejectionReason || ''
         }
     });
+});
+
+// 7. Đặt lại mật khẩu mới (sau khi đã xác thực OTP thành công)
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { email, resetToken, newPassword } = req.body;
+        if (!email || !newPassword || !resetToken) {
+            return res.status(400).json({
+                success: false,
+                message: 'Vui lòng cung cấp đầy đủ email, mã xác thực và mật khẩu mới.'
+            });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mật khẩu mới phải có ít nhất 6 ký tự.'
+            });
+        }
+
+        const secret = process.env.JWT_SECRET || 'smartstay_jwt_secret_dev_2026';
+        let decoded;
+        try {
+            decoded = jwt.verify(resetToken, secret);
+        } catch (jwtErr) {
+            return res.status(401).json({
+                success: false,
+                message: 'Phiên xác thực đặt lại mật khẩu đã hết hạn hoặc không hợp lệ. Vui lòng gửi lại mã OTP.'
+            });
+        }
+
+        const cleanEmail = String(email).toLowerCase().trim();
+        if (decoded.email !== cleanEmail || decoded.action !== 'RESET_PASSWORD') {
+            return res.status(400).json({
+                success: false,
+                message: 'Thông tin xác thực không trùng khớp.'
+            });
+        }
+
+        // Cập nhật mật khẩu trong MongoDB
+        if (req.app.locals.isDbConnected) {
+            const user = await User.findOne({ email: cleanEmail });
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy tài khoản với email này.'
+                });
+            }
+            user.password = newPassword;
+            await user.save();
+        } else {
+            const fallbackUsers = getFallbackUsers(req.app);
+            const user = fallbackUsers.find(u => u.email === cleanEmail);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy tài khoản với email này.'
+                });
+            }
+            user.passwordHash = await bcrypt.hash(newPassword, 10);
+            saveFallbackUsers(fallbackUsers);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 });
 
 module.exports = router;

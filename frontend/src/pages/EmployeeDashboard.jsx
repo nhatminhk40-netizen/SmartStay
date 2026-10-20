@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import {
   LayoutDashboard, Home as HomeIcon, Users, FileText, Receipt,
   MessageSquare, Star, Settings, Plus, Search, MapPin, CheckCircle,
-  Clock, Edit2, Trash2, X, Eye, EyeOff, FileCheck, Info, Building2
+  Clock, Edit2, Trash2, X, Eye, EyeOff, FileCheck, Info, Building2, ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/AuthContext";
+import ContractsManager from "@/components/contracts/ContractsManager";
 
 // ── MOCK DATA ──
 const mockRooms = [
@@ -159,6 +161,7 @@ const AddRoomModal = ({ open, onClose }) => {
 
 // ── MAIN PAGE COMPONENT ──
 export default function EmployeeDashboard() {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [isAddRoomOpen, setAddRoomOpen] = useState(false);
   const [passRequests, setPassRequests] = useState([]);
@@ -183,14 +186,30 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-[#fdfbf7] flex flex-col md:flex-row pt-4 md:pt-8 pb-12 px-4 md:px-8 gap-6 max-w-[1400px] mx-auto">
       
       {/* ── SIDEBAR ── */}
-      <aside className="w-full md:w-64 shrink-0 flex flex-col gap-2">
+      <aside className="w-full md:w-64 shrink-0 flex flex-col gap-3">
         <div className="bg-white rounded-[24px] p-4 shadow-sm border border-[#f4ebd9]">
           <div className="px-4 py-3 mb-2 flex justify-between items-start">
             <div>
               <h2 className="font-heading font-black text-lg text-slate-900">Quản lý <span className="text-[#f97316]">Trọ</span></h2>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mt-0.5">Dành cho Employee</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mt-0.5">
+                {user?.role === "landlord" ? "Chủ nhà trọ" : "Dành cho Nhân viên"}
+              </p>
+              {user?.fullName && (
+                <p className="text-xs font-bold text-orange-600 truncate max-w-[130px] mt-0.5">
+                  {user.fullName}
+                </p>
+              )}
             </div>
-            <Link to="/login" className="text-xs font-bold text-slate-400 hover:text-rose-500 underline">Đăng xuất</Link>
+            <button
+              type="button"
+              onClick={() => {
+                logout?.();
+                window.location.href = "/login";
+              }}
+              className="text-xs font-bold text-slate-400 hover:text-rose-500 underline"
+            >
+              Đăng xuất
+            </button>
           </div>
           <nav className="flex flex-col gap-1">
             {sidebarTabs.map(tab => {
@@ -214,6 +233,16 @@ export default function EmployeeDashboard() {
               );
             })}
           </nav>
+
+          <div className="mt-4 pt-3 border-t border-slate-100">
+            <Link
+              to="/"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Xem trang Sinh viên</span>
+            </Link>
+          </div>
         </div>
       </aside>
 
@@ -416,8 +445,11 @@ export default function EmployeeDashboard() {
             </div>
           )}
 
+          {/* Tab Quản lý Hợp đồng & Cọc phòng */}
+          {activeTab === "contracts" && <ContractsManager />}
+
           {/* Placeholders for other tabs to keep the UI complete */}
-          {["contracts", "invoices", "reviews", "settings"].includes(activeTab) && (
+          {["invoices", "reviews", "settings"].includes(activeTab) && (
             <div className="bg-white rounded-[24px] p-12 shadow-sm border border-[#f4ebd9] text-center flex flex-col items-center justify-center min-h-[400px]">
               <div className="w-16 h-16 bg-[#faf3e3] rounded-full flex items-center justify-center mb-4">
                 <Info className="w-8 h-8 text-[#f97316]" />

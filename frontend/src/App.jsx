@@ -62,9 +62,9 @@ const AuthenticatedApp = () => {
           <Admin />
         </ProtectedRoute>
       } />
-      {/* Protected Employee route */}
+      {/* Protected Employee / Landlord route */}
       <Route path="/employee" element={
-        <ProtectedRoute requiredRoles={['employee', 'admin']}>
+        <ProtectedRoute requiredRoles={['employee', 'admin', 'landlord']}>
           <EmployeeDashboard />
         </ProtectedRoute>
       } />

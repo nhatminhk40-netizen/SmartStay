@@ -25,7 +25,8 @@ app.use(cors({
     origin: true,
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Trạng thái kết nối DB & Biến dùng chung
 let isDbConnected = false;
@@ -65,6 +66,10 @@ if (process.env.MONGO_URI) {
 
 // Mount Authentication routes
 app.use('/api/auth', authRoutes);
+
+// Mount Contracts & Lease Management routes
+const contractRoutes = require('./routes/contracts');
+app.use('/api/contracts', contractRoutes);
 
 
 // Bộ dữ liệu dự phòng (Fallback Data) - Ghi rõ nhãn "Dữ liệu minh họa" để bảo vệ tính trung thực
@@ -198,6 +203,7 @@ let fallbackRooms = [
         createdAt: new Date()
     }
 ];
+app.locals.fallbackRooms = fallbackRooms;
 
 let fallbackReviews = [
     {
@@ -1251,25 +1257,98 @@ app.post('/api/config', protect, authorize('admin'), (req, res) => {
 });
 
 // ==================== APIS QUẢN LÝ & CẤP TÀI KHOẢN CHỦ TRỌ (ADMIN DÀNH RIÊNG) ====================
-// 1. Lấy danh sách tài khoản Chủ trọ đã cấp phép
+// 1. Lấy danh sách tài khoản Chủ trọ (hỗ trợ lọc theo trạng thái duyệt PENDING, APPROVED, REJECTED)
 app.get('/api/admin/landlords', protect, authorize('admin'), async (req, res) => {
     try {
+        const { status } = req.query;
+        const filter = { role: 'landlord' };
+        if (status && status !== 'ALL') {
+            filter.verificationStatus = status;
+        }
+
         if (isDbConnected) {
-            const landlords = await User.find({ role: 'landlord' }).select('-password').sort({ createdAt: -1 });
+            const landlords = await User.find(filter).select('-password').sort({ createdAt: -1 });
             return res.status(200).json({ success: true, count: landlords.length, data: landlords });
         }
         const fallbackUsers = req.app.locals.fallbackUsers || [];
-        const landlords = fallbackUsers.filter(u => u.role === 'landlord');
+        let landlords = fallbackUsers.filter(u => u.role === 'landlord');
+        if (status && status !== 'ALL') {
+            landlords = landlords.filter(u => (u.verificationStatus || 'APPROVED') === status);
+        }
         res.status(200).json({ success: true, count: landlords.length, data: landlords });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 2. Admin chủ động cấp tài khoản Chủ trọ mới (Ngăn chặn bên ngoài tự ý tạo)
+// 2. Admin duyệt hoặc từ chối hồ sơ tài khoản Chủ trọ (APPROVED / REJECTED)
+app.put('/api/admin/landlords/:id/status', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, rejectionReason } = req.body;
+
+        if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Trạng thái kiểm duyệt không hợp lệ.' });
+        }
+
+        if (status === 'REJECTED' && !rejectionReason?.trim()) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do từ chối để thông báo cho chủ trọ.' });
+        }
+
+        if (isDbConnected) {
+            const user = await User.findById(id);
+            if (!user) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ.' });
+            }
+
+            user.verificationStatus = status;
+            if (status === 'APPROVED') {
+                user.role = 'landlord';
+                user.approvedAt = new Date();
+                user.approvedBy = req.user?.fullName || 'Admin';
+                user.rejectionReason = '';
+            } else if (status === 'REJECTED') {
+                user.rejectionReason = rejectionReason.trim();
+            }
+
+            await user.save();
+            return res.status(200).json({
+                success: true,
+                message: status === 'APPROVED' ? 'Đã duyệt tài khoản Chủ trọ thành công!' : 'Đã từ chối hồ sơ Chủ trọ.',
+                data: user
+            });
+        }
+
+        const fallbackUsers = req.app.locals.fallbackUsers || [];
+        const user = fallbackUsers.find(u => String(u._id) === id || String(u.id) === id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản (Fallback Mode).' });
+        }
+
+        user.verificationStatus = status;
+        if (status === 'APPROVED') {
+            user.role = 'landlord';
+            user.approvedAt = new Date();
+            user.approvedBy = req.user?.fullName || 'Admin';
+            user.rejectionReason = '';
+        } else if (status === 'REJECTED') {
+            user.rejectionReason = rejectionReason.trim();
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: status === 'APPROVED' ? 'Đã duyệt tài khoản Chủ trọ thành công!' : 'Đã từ chối hồ sơ Chủ trọ.',
+            data: user
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 3. Admin chủ động cấp tài khoản Chủ trọ mới (Ngăn chặn bên ngoài tự ý tạo, mặc định APPROVED)
 app.post('/api/admin/create-landlord', protect, authorize('admin'), async (req, res) => {
     try {
-        const { fullName, email, password, phone, campus, note } = req.body;
+        const { fullName, email, password, phone, campus, note, propertyName, propertyAddress } = req.body;
 
         if (!fullName || !email || !password || !phone) {
             return res.status(400).json({
@@ -1301,23 +1380,23 @@ app.post('/api/admin/create-landlord', protect, authorize('admin'), async (req, 
                 email: normalizedEmail,
                 password,
                 phone: phone.trim(),
+                phoneVerified: true,
                 role: 'landlord',
+                verificationStatus: 'APPROVED',
+                approvedAt: new Date(),
+                approvedBy: req.user?.fullName || 'Admin',
                 campus: campus || 'FPT Can Tho',
-                bio: note || 'Chủ trọ được cấp phép bởi Admin SmartStay'
+                landlordDocuments: {
+                    propertyName: propertyName || 'Cơ sở trọ chính chủ',
+                    propertyAddress: propertyAddress || note || 'TP. Cần Thơ',
+                    note: note || 'Chủ trọ được Admin cấp phép trực tiếp'
+                }
             });
 
             return res.status(201).json({
                 success: true,
                 message: 'Cấp tài khoản Chủ nhà trọ thành công!',
-                data: {
-                    id: landlord._id,
-                    fullName: landlord.fullName,
-                    email: landlord.email,
-                    phone: landlord.phone,
-                    role: landlord.role,
-                    campus: landlord.campus,
-                    createdAt: landlord.createdAt
-                }
+                data: landlord
             });
         }
 
@@ -1332,8 +1411,17 @@ app.post('/api/admin/create-landlord', protect, authorize('admin'), async (req, 
             fullName: fullName.trim(),
             email: normalizedEmail,
             phone: phone.trim(),
+            phoneVerified: true,
             role: 'landlord',
+            verificationStatus: 'APPROVED',
+            approvedAt: new Date(),
+            approvedBy: req.user?.fullName || 'Admin',
             campus: campus || 'FPT Can Tho',
+            landlordDocuments: {
+                propertyName: propertyName || 'Cơ sở trọ chính chủ',
+                propertyAddress: propertyAddress || note || 'TP. Cần Thơ',
+                note: note || 'Chủ trọ được Admin cấp phép trực tiếp'
+            },
             createdAt: new Date()
         };
         fallbackUsers.unshift(newLandlord);
@@ -1348,7 +1436,7 @@ app.post('/api/admin/create-landlord', protect, authorize('admin'), async (req, 
     }
 });
 
-// 3. Admin xóa / thu hồi tài khoản Chủ trọ
+// 4. Admin xóa / thu hồi tài khoản Chủ trọ
 app.delete('/api/admin/landlords/:id', protect, authorize('admin'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -1358,7 +1446,7 @@ app.delete('/api/admin/landlords/:id', protect, authorize('admin'), async (req, 
             return res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ thành công.' });
         }
         const fallbackUsers = req.app.locals.fallbackUsers || [];
-        const idx = fallbackUsers.findIndex(u => String(u._id) === id && u.role === 'landlord');
+        const idx = fallbackUsers.findIndex(u => (String(u._id) === id || String(u.id) === id) && u.role === 'landlord');
         if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ.' });
         fallbackUsers.splice(idx, 1);
         res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ.' });

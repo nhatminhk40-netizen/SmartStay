@@ -149,7 +149,42 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Dự phòng an toàn chống sập trang trắng khi Vite HMR reload hoặc context re-sync
+    try {
+      const saved = localStorage.getItem('smartstay_user');
+      const user = saved ? JSON.parse(saved) : null;
+      return {
+        user,
+        isAuthenticated: !!user,
+        isLoadingAuth: false,
+        isLoadingPublicSettings: false,
+        authError: null,
+        authChecked: true,
+        appPublicSettings: { id: 'smartstay' },
+        logout: (redirectUrl) => {
+          localStorage.removeItem('smartstay_token');
+          localStorage.removeItem('smartstay_user');
+          window.location.href = redirectUrl || '/login';
+        },
+        navigateToLogin: () => { window.location.href = '/login'; },
+        checkUserAuth: async () => user,
+        checkAppState: async () => {}
+      };
+    } catch (e) {
+      return {
+        user: null,
+        isAuthenticated: false,
+        isLoadingAuth: false,
+        isLoadingPublicSettings: false,
+        authError: null,
+        authChecked: true,
+        appPublicSettings: null,
+        logout: () => {},
+        navigateToLogin: () => {},
+        checkUserAuth: async () => null,
+        checkAppState: async () => {}
+      };
+    }
   }
   return context;
 };
