@@ -18,11 +18,13 @@ import {
   School,
   Mail,
   X,
-  Building2
+  Building2,
+  Receipt
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import SafeListingModal from "@/components/SafeListingModal";
+import StudentPortalModal from "@/components/StudentPortalModal";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -86,6 +88,7 @@ export default function Header() {
   const [openUserMenu, setOpenUserMenu] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openSafeListing, setOpenSafeListing] = useState(false);
+  const [openStudentPortal, setOpenStudentPortal] = useState(false);
 
   // Notifications
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
@@ -370,7 +373,13 @@ export default function Header() {
                   <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-slate-800">
                     {/* Header info user */}
                     <div className="p-3 border-b border-slate-100 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-base overflow-hidden flex-shrink-0">
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center font-bold text-base overflow-hidden flex-shrink-0",
+                        user?.role === "transporter" ? "bg-teal-100 text-teal-800" :
+                        user?.role === "landlord" ? "bg-orange-100 text-orange-700" :
+                        user?.role === "admin" ? "bg-slate-900 text-white" :
+                        "bg-emerald-100 text-emerald-800"
+                      )}>
                         {user?.avatar ? (
                           <img
                             src={user.avatar}
@@ -384,17 +393,26 @@ export default function Header() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-xs text-slate-900 truncate">
-                          {user?.fullName || "Sinh viên Cần Thơ"}
+                          {user?.fullName || (user?.role === "transporter" ? "Đối tác Tài xế" : "Sinh viên Cần Thơ")}
                         </p>
                         <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-orange-100 text-orange-700 uppercase">
+                          <span className={cn(
+                            "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider",
+                            user?.role === "admin" ? "bg-slate-900 text-white" :
+                            user?.role === "landlord" ? "bg-orange-100 text-orange-800 border border-orange-200" :
+                            user?.role === "transporter" ? "bg-teal-100 text-teal-800 border border-teal-200" :
+                            user?.role === "employee" ? "bg-blue-100 text-blue-800" :
+                            "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          )}>
                             {user?.role === "admin"
                               ? "Quản trị viên"
                               : user?.role === "landlord"
                               ? "Chủ nhà trọ"
                               : user?.role === "employee"
                               ? "Nhân viên"
+                              : user?.role === "transporter"
+                              ? "Đối tác Vận tải"
                               : "Sinh viên"}
                           </span>
                           {user?.authProvider === "google" && (
@@ -406,6 +424,36 @@ export default function Header() {
 
                     {/* Menu items */}
                     <div className="py-1 space-y-0.5 text-xs">
+                      {/* Tài xế vận tải: Sàn nhận cuốc chuyển trọ */}
+                      {user?.role === "transporter" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenUserMenu(false);
+                            navigate("/chuyen-tro");
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold transition text-left"
+                        >
+                          <Truck className="w-4 h-4 text-teal-600" />
+                          <span>Sàn nhận chuyến chuyển trọ</span>
+                        </button>
+                      )}
+
+                      {/* Sinh viên: Hợp đồng & Hóa đơn của tôi */}
+                      {(user?.role === "student" || (!user?.role && user)) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenUserMenu(false);
+                            setOpenStudentPortal(true);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold transition text-left"
+                        >
+                          <Receipt className="w-4 h-4 text-emerald-600" />
+                          <span>Phòng & Hóa đơn của tôi</span>
+                        </button>
+                      )}
+
                       {/* Chủ trọ: Đăng phòng Safe Badge */}
                       {user?.role === "landlord" && (
                         <button
@@ -431,34 +479,38 @@ export default function Header() {
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
                       >
                         <User className="w-4 h-4 text-slate-500" />
-                        <span>Thông tin tài khoản</span>
+                        <span>{user?.role === "transporter" ? "Thông tin tài xế & Xe" : "Thông tin tài khoản"}</span>
                       </button>
 
-                      {/* Lịch sử chuyển trọ */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenUserMenu(false);
-                          navigate("/chuyen-tro");
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
-                      >
-                        <Truck className="w-4 h-4 text-slate-500" />
-                        <span>Dịch vụ chuyển trọ của tôi</span>
-                      </button>
+                      {/* Lịch sử chuyển trọ (cho Sinh viên & Chủ trọ) */}
+                      {user?.role !== "transporter" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenUserMenu(false);
+                            navigate("/chuyen-tro");
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                        >
+                          <Truck className="w-4 h-4 text-slate-500" />
+                          <span>Dịch vụ chuyển trọ của tôi</span>
+                        </button>
+                      )}
 
-                      {/* Ghép bạn */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenUserMenu(false);
-                          navigate("/ghep-ban");
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
-                      >
-                        <Users className="w-4 h-4 text-slate-500" />
-                        <span>Ghép bạn cùng phòng</span>
-                      </button>
+                      {/* Ghép bạn (CHỈ dành cho Sinh viên, KHÔNG hiển thị cho Tài xế hay Chủ trọ) */}
+                      {(user?.role === "student" || !user?.role) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenUserMenu(false);
+                            navigate("/ghep-ban");
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                        >
+                          <Users className="w-4 h-4 text-slate-500" />
+                          <span>Ghép bạn cùng phòng</span>
+                        </button>
+                      )}
 
                       {/* Admin panel link */}
                       {user?.role === "admin" && (
@@ -586,12 +638,37 @@ export default function Header() {
                   <span className="text-slate-500">Vai trò tài khoản:</span>
                   <span className="font-semibold text-slate-800 capitalize">
                     {user?.role === "admin"
-                      ? "Quản trị viên"
+                      ? "Quản trị viên Hệ thống"
+                      : user?.role === "landlord"
+                      ? "Chủ nhà trọ"
                       : user?.role === "employee"
                       ? "Nhân viên kiểm duyệt"
+                      : user?.role === "transporter"
+                      ? "Đối tác Vận tải SmartStay"
                       : "Sinh viên"}
                   </span>
                 </div>
+
+                {/* Thông tin phương tiện cho Tài xế */}
+                {user?.role === "transporter" && (
+                  <div className="p-3 bg-teal-50/70 border border-teal-200/70 rounded-xl space-y-1.5 text-xs">
+                    <div className="font-bold text-teal-900 flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-teal-600" /> Hồ sơ Đối tác Vận tải
+                    </div>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Loại xe:</span>
+                      <span className="font-bold">{user?.transporterProfile?.vehicleType || "Xe ba gác chuyển trọ"}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Khu vực hoạt động:</span>
+                      <span className="font-bold">{user?.transporterProfile?.operatingArea || "Ninh Kiều / Cái Răng, Cần Thơ"}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Đánh giá uy tín:</span>
+                      <span className="font-bold text-amber-600">⭐ {user?.transporterProfile?.rating || 5.0} ({user?.transporterProfile?.totalTrips || 1} chuyến)</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                   <span className="text-slate-500">Phương thức đăng nhập:</span>
@@ -629,6 +706,12 @@ export default function Header() {
           setOpenSafeListing(false);
           navigate("/");
         }}
+      />
+
+      {/* MODAL CỔNG THÔNG TIN SINH VIÊN */}
+      <StudentPortalModal
+        open={openStudentPortal}
+        onClose={() => setOpenStudentPortal(false)}
       />
     </>
   );

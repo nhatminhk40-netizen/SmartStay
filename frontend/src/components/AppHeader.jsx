@@ -448,6 +448,8 @@ export default function AppHeader({
                   "p-4 text-white",
                   user?.role === "landlord"
                     ? "bg-gradient-to-br from-orange-600 to-amber-700"
+                    : user?.role === "transporter"
+                    ? "bg-gradient-to-br from-teal-700 to-cyan-800"
                     : "bg-gradient-to-br from-emerald-600 to-teal-700"
                 )}>
                   <div className="flex items-start justify-between">
@@ -461,12 +463,20 @@ export default function AppHeader({
                           {user?.role === "landlord" && user?.verificationStatus === "APPROVED" && (
                             <BadgeCheck className="w-4 h-4 text-amber-300" />
                           )}
+                          {user?.role === "transporter" && (
+                            <BadgeCheck className="w-4 h-4 text-cyan-300" />
+                          )}
                         </div>
                         <div className="text-xs text-white/80 flex items-center gap-1">
                           {user?.role === "landlord" ? (
                             <span className="flex items-center gap-1">
                               <Building2 className="w-3.5 h-3.5" />
                               Chủ nhà trọ · {user?.campus || profile.campus}
+                            </span>
+                          ) : user?.role === "transporter" ? (
+                            <span className="flex items-center gap-1">
+                              <Truck className="w-3.5 h-3.5" />
+                              Đối tác Vận tải · {user?.transporterProfile?.vehicleType || "Tài xế SmartStay"}
                             </span>
                           ) : (
                             <>
@@ -483,6 +493,8 @@ export default function AppHeader({
                     <div>
                       {user?.role === "landlord" ? (
                         <span>Vai trò: <strong className="text-white">Chủ nhà trọ</strong></span>
+                      ) : user?.role === "transporter" ? (
+                        <span>Vai trò: <strong className="text-white">Đối tác Vận tải</strong></span>
                       ) : (
                         <span>MSSV: <strong className="text-white">{profile.studentId}</strong></span>
                       )}
@@ -497,6 +509,10 @@ export default function AppHeader({
                         )}>
                           {user.verificationStatus === "APPROVED" ? "Đã xác minh" :
                            user.verificationStatus === "PENDING" ? "Chờ duyệt" : "Từ chối"}
+                        </span>
+                      ) : user?.role === "transporter" ? (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/80 text-white">
+                          ⭐ {user?.transporterProfile?.rating || 5.0} Đã duyệt
                         </span>
                       ) : (
                         <div className="px-2 py-0.5 rounded-full bg-emerald-500/40 text-[11px] font-semibold text-white">
@@ -534,6 +550,16 @@ export default function AppHeader({
                       <span>Trang Quản trị (Admin Portal)</span>
                     </Link>
                   )}
+                  {user?.role === "transporter" && (
+                    <Link
+                      to="/chuyen-tro"
+                      onClick={() => setShowProfile(false)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors text-center shadow-sm"
+                    >
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>Sàn nhận chuyến chuyển trọ (/chuyen-tro)</span>
+                    </Link>
+                  )}
                   {(user?.role === "landlord" || user?.role === "employee") && (
                     <Link
                       to="/employee"
@@ -544,27 +570,31 @@ export default function AppHeader({
                       <span>Kênh Quản lý Trọ (/employee)</span>
                     </Link>
                   )}
-                  <button
-                    onClick={() => {
-                      setShowStudentPortal(true);
-                      setShowProfile(false);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200/70 rounded-xl transition-colors text-center"
-                  >
-                    <Receipt className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Hợp đồng & Hóa đơn của tôi</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditForm(profile);
-                      setShowEditProfileModal(true);
-                      setShowProfile(false);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors text-center"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Chỉnh sửa thông tin sinh viên</span>
-                  </button>
+                  {(user?.role === "student" || !user?.role) && (
+                    <button
+                      onClick={() => {
+                        setShowStudentPortal(true);
+                        setShowProfile(false);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200/70 rounded-xl transition-colors text-center"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Hợp đồng & Hóa đơn của tôi</span>
+                    </button>
+                  )}
+                  {(user?.role === "student" || !user?.role) && (
+                    <button
+                      onClick={() => {
+                        setEditForm(profile);
+                        setShowEditProfileModal(true);
+                        setShowProfile(false);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors text-center"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Chỉnh sửa thông tin sinh viên</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       logout();
@@ -573,35 +603,37 @@ export default function AppHeader({
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors text-center"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Đăng xuất ({user?.name || "Tài khoản"})</span>
+                    <span>Đăng xuất ({user?.fullName || user?.name || "Tài khoản"})</span>
                   </button>
                 </div>
 
-                {/* Account Switcher Presets */}
-                <div className="p-2.5 bg-slate-50 border-t border-slate-100">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
-                    Đổi tài khoản SV mẫu
+                {/* Account Switcher Presets (CHỈ hiển thị cho Sinh viên) */}
+                {(user?.role === "student" || !user?.role) && (
+                  <div className="p-2.5 bg-slate-50 border-t border-slate-100">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
+                      Đổi tài khoản SV mẫu
+                    </div>
+                    <div className="space-y-1">
+                      {SAMPLE_STUDENTS.map((std) => (
+                        <button
+                          key={std.studentId}
+                          onClick={() => handleSwitchAccount(std)}
+                          className={cn(
+                            "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left",
+                            profile.studentId === std.studentId
+                              ? "bg-emerald-100 text-emerald-900 font-bold"
+                              : "hover:bg-slate-200/70 text-slate-700"
+                          )}
+                        >
+                          <span className="truncate">{std.name} ({std.campus})</span>
+                          {profile.studentId === std.studentId && (
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    {SAMPLE_STUDENTS.map((std) => (
-                      <button
-                        key={std.studentId}
-                        onClick={() => handleSwitchAccount(std)}
-                        className={cn(
-                          "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left",
-                          profile.studentId === std.studentId
-                            ? "bg-emerald-100 text-emerald-900 font-bold"
-                            : "hover:bg-slate-200/70 text-slate-700"
-                        )}
-                      >
-                        <span className="truncate">{std.name} ({std.campus})</span>
-                        {profile.studentId === std.studentId && (
-                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
