@@ -10,6 +10,8 @@ const RoommateSurvey = require('./models/RoommateSurvey');
 const Report = require('./models/Report');
 const Appointment = require('./models/Appointment');
 const User = require('./models/User');
+const LogisticsRequest = require('./models/LogisticsRequest');
+const jwt = require('jsonwebtoken');
 const authRoutes = require('./routes/authRoutes');
 const { protect, authorize, checkRoomOwnership } = require('./middleware/auth');
 
@@ -993,66 +995,497 @@ app.delete('/api/surveys/:id', protect, async (req, res) => {
     }
 });
 
-// ==================== APIS SMARTSTAY LOGISTICS / MOVE ====================
-// 1. Lấy danh sách yêu cầu chuyển trọ
-app.get('/api/logistics-request', (req, res) => {
+// Helper lấy User tùy chọn nếu có Bearer token
+const getOptionalUser = async (req) => {
     try {
+        const auth = req.headers.authorization;
+        if (auth && auth.startsWith('Bearer ')) {
+            const token = auth.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'smartstay_secure_jwt_secret_key_2026_cantho');
+            if (decoded?.id && isDbConnected) {
+                return await User.findById(decoded.id).select('-password');
+            }
+        }
+    } catch {
+        // silent fail
+    }
+    return null;
+};
+
+// ==================== APIS SMARTSTAY LOGISTICS / MOVE (LUỒNG VẬN TẢI MINH BẠCH) ====================
+
+// 1. Lấy danh sách yêu cầu chuyển trọ (kèm bộ lọc trạng thái, số điện thoại, tài xế)
+app.get('/api/logistics-request', async (req, res) => {
+    try {
+        const { status, phone, driverId } = req.query;
+
+        if (isDbConnected) {
+            const query = {};
+            if (status) query.status = status;
+            if (phone) query.phone = new RegExp(escapeRegex(phone), 'i');
+            if (driverId) query.driver = driverId;
+
+            const requests = await LogisticsRequest.find(query)
+                .sort({ createdAt: -1 })
+                .populate('user', 'fullName email phone')
+                .populate('driver', 'fullName phone transporterProfile');
+
+            return res.status(200).json({
+                success: true,
+                count: requests.length,
+                data: requests
+            });
+        }
+
+        // Chế độ dự phòng khi offline / DB gián đoạn
+        let filtered = [...fallbackLogisticsRequests];
+        if (status) filtered = filtered.filter(r => r.status === status);
+        if (phone) filtered = filtered.filter(r => r.phone && r.phone.includes(phone));
+
         res.status(200).json({
             success: true,
-            count: fallbackLogisticsRequests.length,
-            data: fallbackLogisticsRequests
+            count: filtered.length,
+            data: filtered
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 2. Đặt xe chuyển trọ (Tuần E)
-app.post('/api/logistics-request', (req, res) => {
+// 2. Lấy danh sách đơn chuyển trọ KHẢ DỤNG (Chờ tài xế nhận đơn)
+app.get('/api/logistics-request/available', async (req, res) => {
+    try {
+        if (isDbConnected) {
+            const availableRequests = await LogisticsRequest.find({ status: 'pending' })
+                .sort({ createdAt: -1 });
+
+            return res.status(200).json({
+                success: true,
+                count: availableRequests.length,
+                data: availableRequests
+            });
+        }
+
+        const available = fallbackLogisticsRequests.filter(r => r.status === 'pending');
+        res.status(200).json({
+            success: true,
+            count: available.length,
+            data: available
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 3. Lấy danh sách đối tác vận chuyển / tài xế SmartStay uy tín tại Cần Thơ
+app.get('/api/logistics-request/transporters', async (req, res) => {
+    try {
+        if (isDbConnected) {
+            const drivers = await User.find({ role: 'transporter' })
+                .select('fullName phone transporterProfile campus avatar createdAt');
+
+            if (drivers.length > 0) {
+                return res.status(200).json({
+                    success: true,
+                    count: drivers.length,
+                    data: drivers
+                });
+            }
+        }
+
+        // Fallback danh sách tài xế minh họa
+        const fallbackDrivers = [
+            {
+                _id: 'usr_transporter_001',
+                fullName: 'Chú Bảy Ba Gác Cần Thơ',
+                phone: '0939 556 677',
+                role: 'transporter',
+                campus: 'FPT Can Tho',
+                transporterProfile: {
+                    vehicleType: 'Xe ba gác chuyển trọ',
+                    licensePlate: '65B1-888.99',
+                    operatingArea: 'Ninh Kiều / Cái Răng / Bình Thủy, Cần Thơ',
+                    rating: 4.9,
+                    totalTrips: 48,
+                    isVerified: true,
+                    bio: 'Tài xế ba gác uy tín tại Cần Thơ, kinh nghiệm chuyển trọ sinh viên FPT & ĐHCT 5 năm.'
+                }
+            },
+            {
+                _id: 'usr_transporter_002',
+                fullName: 'Anh Hoàng Tải Nhỏ 500kg',
+                phone: '0907 334 455',
+                role: 'transporter',
+                campus: 'ĐH Cần Thơ',
+                transporterProfile: {
+                    vehicleType: 'Xe tải nhỏ 500kg',
+                    licensePlate: '65C-123.45',
+                    operatingArea: 'Toàn TP Cần Thơ',
+                    rating: 5.0,
+                    totalTrips: 32,
+                    isVerified: true,
+                    bio: 'Xe tải thùng kín che chắn mưa gió an toàn, có sẵn xe đẩy và phụ xe khiêng lầu.'
+                }
+            }
+        ];
+
+        res.status(200).json({
+            success: true,
+            count: fallbackDrivers.length,
+            data: fallbackDrivers
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 4. Lấy danh sách đơn chuyển trọ của người dùng đang đăng nhập (Sinh viên hoặc Tài xế)
+app.get('/api/logistics-request/my-requests', protect, async (req, res) => {
+    try {
+        const userId = req.user._id || req.user.id;
+        const userRole = req.user.role;
+
+        if (isDbConnected) {
+            let query = {};
+            if (userRole === 'transporter') {
+                query = { driver: userId };
+            } else if (userRole === 'admin' || userRole === 'employee') {
+                query = {}; // Admin xem tất cả
+            } else {
+                // Sinh viên: tìm theo user ID hoặc số điện thoại của sinh viên
+                query = {
+                    $or: [
+                        { user: userId },
+                        { phone: req.user.phone }
+                    ]
+                };
+            }
+
+            const myRequests = await LogisticsRequest.find(query)
+                .sort({ createdAt: -1 })
+                .populate('driver', 'fullName phone transporterProfile');
+
+            return res.status(200).json({
+                success: true,
+                count: myRequests.length,
+                data: myRequests
+            });
+        }
+
+        const filtered = fallbackLogisticsRequests.filter(r => 
+            (r.phone && req.user.phone && r.phone.replace(/\s+/g, '') === req.user.phone.replace(/\s+/g, '')) ||
+            (userRole === 'transporter' && r.status === 'in_progress')
+        );
+
+        res.status(200).json({
+            success: true,
+            count: filtered.length,
+            data: filtered
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 5. Xem chi tiết một đơn đặt xe chuyển trọ
+app.get('/api/logistics-request/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (isDbConnected) {
+            const request = await LogisticsRequest.findOne({
+                $or: [
+                    { _id: mongoose.isValidObjectId(id) ? id : null },
+                    { requestCode: id }
+                ]
+            }).populate('user', 'fullName email phone')
+              .populate('driver', 'fullName phone transporterProfile');
+
+            if (request) {
+                return res.status(200).json({ success: true, data: request });
+            }
+        }
+
+        const fallbackItem = fallbackLogisticsRequests.find(r => r.id === id || r.requestCode === id);
+        if (fallbackItem) {
+            return res.status(200).json({ success: true, data: fallbackItem });
+        }
+
+        res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu đặt xe.' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 6. Đặt xe chuyển trọ mới (Sinh viên / Khách thuê) - Cam kết giá minh bạch
+app.post('/api/logistics-request', async (req, res) => {
     try {
         const {
             customerName,
             phone,
             vehicleType,
             distanceKm,
+            estimatedDurationMins,
             servicePackage,
+            selectedAddons,
+            pickupLocation,
+            dropoffLocation,
             pickupAddress,
             dropoffAddress,
             moveDate,
             notes,
+            basePrice,
+            distancePrice,
+            addonsPrice,
+            rawTotal,
+            studentDiscount,
             estimatedPrice
         } = req.body;
 
-        if (!phone || !pickupAddress || !dropoffAddress) {
+        const effectivePickup = pickupAddress || pickupLocation?.address;
+        const effectiveDropoff = dropoffAddress || dropoffLocation?.address;
+
+        if (!phone || !effectivePickup || !effectiveDropoff) {
             return res.status(400).json({
                 success: false,
                 message: 'Vui lòng cung cấp số điện thoại, điểm đón và điểm đến.'
             });
         }
 
-        const request = {
-            id: `logistics_${Date.now()}`,
-            customerName: customerName || 'Sinh viên Cần Thơ',
-            phone,
+        // Tự động liên kết User nếu có đăng nhập
+        const currentUser = await getOptionalUser(req);
+        const uniqueCode = `MOVE-${Date.now().toString().slice(-6)}`;
+        const finalPrice = Number(estimatedPrice) || 150000;
+
+        const newBookingData = {
+            requestCode: uniqueCode,
+            user: currentUser ? currentUser._id : undefined,
+            customerName: customerName || currentUser?.fullName || 'Sinh viên Cần Thơ',
+            phone: phone.trim(),
             vehicleType: vehicleType || 'Xe ba gác chuyển trọ',
             distanceKm: Number(distanceKm) || 5,
+            estimatedDurationMins: Number(estimatedDurationMins) || 15,
             servicePackage: servicePackage || 'Cơ bản',
-            pickupAddress,
-            dropoffAddress,
+            selectedAddons: Array.isArray(selectedAddons) ? selectedAddons : [],
+            pickupLocation: pickupLocation || { address: effectivePickup },
+            dropoffLocation: dropoffLocation || { address: effectiveDropoff },
+            pickupAddress: effectivePickup,
+            dropoffAddress: effectiveDropoff,
             moveDate: moveDate || 'Hôm nay',
             notes: notes || '',
-            estimatedPrice: Number(estimatedPrice) || 150000,
-            status: 'pending',
+            basePrice: Number(basePrice) || 120000,
+            distancePrice: Number(distancePrice) || 0,
+            addonsPrice: Number(addonsPrice) || 0,
+            rawTotal: Number(rawTotal) || finalPrice,
+            studentDiscount: Number(studentDiscount) || 0,
+            estimatedPrice: finalPrice,
+            fixedPriceGuarantee: true,
+            status: 'pending'
+        };
+
+        if (isDbConnected) {
+            const savedDoc = await LogisticsRequest.create(newBookingData);
+            return res.status(201).json({
+                success: true,
+                message: 'Yêu cầu chuyển trọ đã được tạo thành công! Cam kết giá niêm yết không phát sinh.',
+                data: savedDoc
+            });
+        }
+
+        // Fallback khi offline
+        const fallbackRecord = {
+            id: `logistics_${Date.now()}`,
+            ...newBookingData,
+            _id: `logistics_${Date.now()}`,
             createdAt: new Date()
         };
-        fallbackLogisticsRequests.unshift(request);
+        fallbackLogisticsRequests.unshift(fallbackRecord);
+
         res.status(201).json({
             success: true,
             message: 'Yêu cầu đặt xe chuyển trọ đã được ghi nhận thành công!',
-            data: request
+            data: fallbackRecord
         });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 7. Tài xế NHẬN ĐƠN chuyển trọ (Accept Dispatch)
+app.post('/api/logistics-request/:id/accept', protect, authorize('transporter', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const driverId = req.user._id || req.user.id;
+        const driverProfile = req.user.transporterProfile || {};
+
+        if (isDbConnected) {
+            const request = await LogisticsRequest.findOne({
+                $or: [
+                    { _id: mongoose.isValidObjectId(id) ? id : null },
+                    { requestCode: id }
+                ]
+            });
+
+            if (!request) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu đặt xe.' });
+            }
+
+            if (request.status !== 'pending') {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `Đơn này đã được xử lý (Trạng thái hiện tại: ${request.status}).` 
+                });
+            }
+
+            request.driver = driverId;
+            request.driverName = req.user.fullName;
+            request.driverPhone = req.user.phone || '';
+            request.driverVehicle = driverProfile.vehicleType || 'Xe chuyển trọ';
+            request.driverLicensePlate = driverProfile.licensePlate || '';
+            request.status = 'assigned';
+            request.assignedAt = new Date();
+
+            await request.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'Bạn đã nhận đơn chuyển trọ thành công! Vui lòng liên hệ sinh viên để xác nhận điểm đón.',
+                data: request
+            });
+        }
+
+        // Fallback
+        const item = fallbackLogisticsRequests.find(r => r.id === id || r.requestCode === id);
+        if (item) {
+            item.status = 'assigned';
+            item.driverName = req.user.fullName;
+            item.driverPhone = req.user.phone || '0939 556 677';
+            return res.status(200).json({
+                success: true,
+                message: 'Đã nhận đơn chuyển trọ thành công (Chế độ Fallback).',
+                data: item
+            });
+        }
+
+        res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu đặt xe.' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 8. Cập nhật tiến độ cuốc xe (Đang di chuyển / Đã hoàn thành / Hủy)
+app.patch('/api/logistics-request/:id/status', protect, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, cancellationReason } = req.body;
+
+        const validStatuses = ['pending', 'assigned', 'in_progress', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ success: false, message: 'Trạng thái cuốc xe không hợp lệ.' });
+        }
+
+        if (isDbConnected) {
+            const request = await LogisticsRequest.findOne({
+                $or: [
+                    { _id: mongoose.isValidObjectId(id) ? id : null },
+                    { requestCode: id }
+                ]
+            });
+
+            if (!request) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu đặt xe.' });
+            }
+
+            request.status = status;
+            if (status === 'completed') {
+                request.completedAt = new Date();
+                // Tăng số cuốc xe thành công cho tài xế nếu có
+                if (request.driver) {
+                    await User.findByIdAndUpdate(request.driver, {
+                        $inc: { 'transporterProfile.totalTrips': 1 }
+                    });
+                }
+            } else if (status === 'cancelled') {
+                request.cancellationReason = cancellationReason || 'Hủy theo yêu cầu';
+            }
+
+            await request.save();
+
+            return res.status(200).json({
+                success: true,
+                message: `Đã cập nhật trạng thái cuốc xe thành: ${status}`,
+                data: request
+            });
+        }
+
+        const item = fallbackLogisticsRequests.find(r => r.id === id || r.requestCode === id);
+        if (item) {
+            item.status = status;
+            return res.status(200).json({ success: true, data: item });
+        }
+
+        res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu đặt xe.' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 9. Đánh giá tài xế & Xác thực độ chính xác cước phí (Transparency Review)
+app.post('/api/logistics-request/:id/review', protect, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { rating, comment, costAccurate } = req.body;
+
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({ success: false, message: 'Vui lòng đánh giá từ 1 đến 5 sao.' });
+        }
+
+        if (isDbConnected) {
+            const request = await LogisticsRequest.findOne({
+                $or: [
+                    { _id: mongoose.isValidObjectId(id) ? id : null },
+                    { requestCode: id }
+                ]
+            });
+
+            if (!request) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy cuốc xe để đánh giá.' });
+            }
+
+            request.review = {
+                rating: Number(rating),
+                comment: comment || '',
+                costAccurate: costAccurate !== false,
+                createdAt: new Date()
+            };
+
+            await request.save();
+
+            // Cập nhật điểm uy tín của tài xế
+            if (request.driver) {
+                const allReviews = await LogisticsRequest.find({
+                    driver: request.driver,
+                    'review.rating': { $exists: true }
+                });
+                const avgRating = allReviews.reduce((sum, r) => sum + r.review.rating, 0) / allReviews.length;
+                await User.findByIdAndUpdate(request.driver, {
+                    'transporterProfile.rating': Math.round(avgRating * 10) / 10
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Cảm ơn bạn đã đánh giá dịch vụ chuyển trọ SmartStay!',
+                data: request
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Đã ghi nhận đánh giá (Chế độ Fallback).'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

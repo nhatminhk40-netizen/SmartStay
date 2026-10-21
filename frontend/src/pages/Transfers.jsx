@@ -19,7 +19,9 @@ import {
   ExternalLink,
   Crosshair,
   ArrowLeftRight,
-  Route
+  Route,
+  Star,
+  UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,6 +161,9 @@ export default function Transfers() {
   const [selectedAddons, setSelectedAddons] = useState(["loading"]);
   const [items, setItems] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'my' | 'pending' | 'transporters'
+  const [transporters, setTransporters] = useState([]);
+  const [processingId, setProcessingId] = useState(null);
 
   // Vị trí đón và đến (Object đầy đủ gồm name, address, lat, lng)
   const [pickupLocation, setPickupLocation] = useState(CAN_THO_LOCATIONS[0]); // Supper Trọ 686
@@ -189,16 +194,57 @@ export default function Transfers() {
   const studentDiscount = Math.round(rawTotal * 0.15); // Trợ giá sinh viên 15%
   const finalTotal = rawTotal - studentDiscount;
 
-  // Tải danh sách đơn đặt xe
+  // Tải danh sách đơn đặt xe và danh sách tài xế
   const loadRequests = async () => {
     setLoadingList(true);
     try {
-      const data = await base44.entities.Logistics.list();
-      setItems(Array.isArray(data) ? data : []);
+      const [allData, driverData] = await Promise.all([
+        base44.entities.Logistics.list(),
+        base44.entities.Logistics.getTransporters()
+      ]);
+      setItems(Array.isArray(allData) ? allData : []);
+      setTransporters(Array.isArray(driverData) ? driverData : []);
     } catch {
       setItems([]);
     } finally {
       setLoadingList(false);
+    }
+  };
+
+  const handleAcceptTrip = async (tripId) => {
+    if (!user) {
+      alert("Vui lòng đăng nhập với tài khoản Tài xế hoặc Quản trị để nhận đơn.");
+      return;
+    }
+    setProcessingId(tripId);
+    try {
+      const res = await base44.entities.Logistics.accept(tripId);
+      if (res && res.success) {
+        alert("🎉 Bạn đã nhận cuốc xe thành công! Hãy liên hệ khách hàng để xác nhận điểm đón.");
+        await loadRequests();
+      } else {
+        alert(res?.message || "Không thể nhận chuyến xe.");
+      }
+    } catch (err) {
+      alert("Lỗi nhận đơn: " + err.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleUpdateStatus = async (tripId, nextStatus) => {
+    setProcessingId(tripId);
+    try {
+      const res = await base44.entities.Logistics.updateStatus(tripId, nextStatus);
+      if (res && res.success) {
+        await loadRequests();
+      } else {
+        alert(res?.message || "Không thể cập nhật trạng thái.");
+      }
+    } catch (err) {
+      alert("Lỗi cập nhật: " + err.message);
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -870,97 +916,292 @@ export default function Transfers() {
           </div>
         </div>
 
-        {/* Danh sách các chuyến xe chuyển trọ gần đây */}
+        {/* Danh sách các chuyến xe & Đội xe chuyển trọ */}
         <div className="pt-6 border-t border-border">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-xl font-bold text-foreground">Chuyến xe chuyển trọ đang phục vụ</h3>
+              <h3 className="text-xl font-bold text-foreground">Hệ thống Điều phối Vận chuyển Cần Thơ</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Các chuyến xe được kết nối hỗ trợ sinh viên tại khu vực Cần Thơ
+                Kết nối sinh viên với các bác tài ba gác, xe tải nhỏ uy tín - Cam kết đúng giá, không phụ phí phát sinh
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadRequests}
-              className="rounded-full text-xs font-semibold"
-            >
-              Làm mới
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadRequests}
+                className="rounded-full text-xs font-semibold"
+              >
+                Làm mới
+              </Button>
+            </div>
           </div>
 
-          {loadingList ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : items.length === 0 ? (
-            <div className="p-8 text-center bg-card rounded-2xl border border-border text-muted-foreground text-sm">
-              Chưa có chuyến xe nào được ghi nhận. Hãy là người đầu tiên đặt xe!
-            </div>
-          ) : (
+          {/* Tab chọn hiển thị */}
+          <div className="flex items-center gap-2 border-b border-border pb-3 mb-6 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab("all")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all",
+                activeTab === "all"
+                  ? "bg-orange-600 text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              Tất cả chuyến xe ({items.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("pending")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all",
+                activeTab === "pending"
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              Đơn chờ tài xế ({items.filter(i => i.status === 'pending').length})
+            </button>
+            {user && (
+              <button
+                onClick={() => setActiveTab("my")}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all",
+                  activeTab === "my"
+                    ? "bg-sky-600 text-white shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {user.role === 'transporter' ? 'Cuốc xe của tôi' : 'Đơn đặt của tôi'}
+              </button>
+            )}
+            <button
+              onClick={() => setActiveTab("transporters")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all",
+                activeTab === "transporters"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              Đội xe đối tác ({transporters.length})
+            </button>
+          </div>
+
+          {/* Render Tab Đối tác vận chuyển */}
+          {activeTab === "transporters" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-bold text-xs px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200">
-                        {item.vehicleType || "Xe ba gác chuyển trọ"}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                          item.status === "completed"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : item.status === "in_progress"
-                            ? "bg-sky-100 text-sky-700"
-                            : "bg-amber-100 text-amber-700"
-                        )}
-                      >
-                        {item.status === "completed"
-                          ? "✓ Đã hoàn thành"
-                          : item.status === "in_progress"
-                          ? "🚚 Đang vận chuyển"
-                          : "⏳ Chờ tài xế"}
-                      </span>
+              {transporters.map((dr) => (
+                <div key={dr._id || dr.id} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-lg">
+                      <Truck className="w-6 h-6" />
                     </div>
-
-                    <h4 className="font-bold text-foreground text-sm mb-2">
-                      {item.customerName || "Sinh viên Cần Thơ"} · {item.distanceKm || 5}km
-                    </h4>
-
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <div className="flex items-start gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                        <span className="line-clamp-1">
-                          <strong>Từ:</strong> {item.pickupAddress}
-                        </span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-bold text-foreground text-sm">{dr.fullName}</h4>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold">Đối tác xác thực</span>
                       </div>
-                      <div className="flex items-start gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-orange-500 flex-shrink-0 mt-0.5" />
-                        <span className="line-clamp-1">
-                          <strong>Đến:</strong> {item.dropoffAddress}
-                        </span>
-                      </div>
-                      {item.notes && (
-                        <div className="text-[11px] text-slate-500 line-clamp-1 italic pt-1">
-                          "{item.notes}"
-                        </div>
-                      )}
+                      <p className="text-xs text-muted-foreground">{dr.transporterProfile?.vehicleType || "Xe ba gác chuyển trọ"}</p>
                     </div>
                   </div>
-
-                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Cước trọn gói:</span>
-                    <span className="font-extrabold text-orange-600 text-sm">
-                      {item.estimatedPrice ? Number(item.estimatedPrice).toLocaleString() : "190.000"}đ
-                    </span>
+                  <div className="space-y-1.5 text-xs text-muted-foreground mb-4">
+                    <div className="flex items-center justify-between">
+                      <span>Đánh giá uy tín:</span>
+                      <span className="font-bold text-amber-500 flex items-center gap-1">
+                        ★ {dr.transporterProfile?.rating || 5.0} / 5.0 ({dr.transporterProfile?.totalTrips || 10}+ cuốc)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Biển số xe:</span>
+                      <span className="font-semibold text-foreground">{dr.transporterProfile?.licensePlate || "65B1-888.99"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Khu vực:</span>
+                      <span className="text-foreground">{dr.transporterProfile?.operatingArea || "Ninh Kiều / Cái Răng"}</span>
+                    </div>
                   </div>
+                  {dr.transporterProfile?.bio && (
+                    <p className="text-[11px] text-muted-foreground italic mb-3">"{dr.transporterProfile.bio}"</p>
+                  )}
+                  <a
+                    href={`tel:${dr.phone || '0939556677'}`}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs border border-orange-200 transition-colors"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    Gọi tài xế: {dr.phone || '0939 556 677'}
+                  </a>
                 </div>
               ))}
             </div>
+          ) : (
+            /* Render Tab Danh sách các đơn chuyển trọ */
+            loadingList ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="p-8 text-center bg-card rounded-2xl border border-border text-muted-foreground text-sm">
+                Chưa có chuyến xe nào được ghi nhận. Hãy là người đầu tiên đặt xe!
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {items
+                  .filter((item) => {
+                    if (activeTab === "pending") return item.status === "pending";
+                    if (activeTab === "my" && user) {
+                      const cleanUserPhone = user.phone ? user.phone.replace(/\s+/g, '') : '';
+                      const cleanItemPhone = item.phone ? item.phone.replace(/\s+/g, '') : '';
+                      return (
+                        (cleanUserPhone && cleanItemPhone.includes(cleanUserPhone.slice(-6))) ||
+                        item.driver?._id === user._id ||
+                        item.driver === user._id ||
+                        item.user?._id === user._id ||
+                        item.user === user._id
+                      );
+                    }
+                    return true;
+                  })
+                  .map((item) => {
+                    const isTransporterOrAdmin = user?.role === 'transporter' || user?.role === 'admin' || user?.role === 'employee';
+                    const itemId = item._id || item.id;
+
+                    return (
+                      <div
+                        key={itemId}
+                        className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="font-bold text-xs px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200">
+                              {item.vehicleType || "Xe ba gác chuyển trọ"}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                                item.status === "completed"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : item.status === "in_progress"
+                                  ? "bg-sky-100 text-sky-700"
+                                  : item.status === "assigned"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-amber-100 text-amber-700"
+                              )}
+                            >
+                              {item.status === "completed"
+                                ? "✓ Đã hoàn thành"
+                                : item.status === "in_progress"
+                                ? "🚚 Đang vận chuyển"
+                                : item.status === "assigned"
+                                ? "👤 Đã có tài xế"
+                                : "⏳ Chờ tài xế nhận"}
+                            </span>
+                          </div>
+
+                          <h4 className="font-bold text-foreground text-sm mb-2 flex items-center justify-between">
+                            <span>{item.customerName || "Sinh viên Cần Thơ"}</span>
+                            <span className="text-xs font-semibold text-muted-foreground">{item.distanceKm || 5} km</span>
+                          </h4>
+
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            <div className="flex items-start gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                              <span className="line-clamp-1">
+                                <strong>Từ:</strong> {item.pickupAddress}
+                              </span>
+                            </div>
+                            <div className="flex items-start gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-orange-500 flex-shrink-0 mt-0.5" />
+                              <span className="line-clamp-1">
+                                <strong>Đến:</strong> {item.dropoffAddress}
+                              </span>
+                            </div>
+                            {item.notes && (
+                              <div className="text-[11px] text-slate-500 line-clamp-1 italic pt-1">
+                                "{item.notes}"
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Thông tin tài xế tiếp nhận */}
+                          {item.driverName && (
+                            <div className="mt-3 p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 text-xs">
+                              <div className="font-bold text-orange-900 flex items-center gap-1.5">
+                                <Truck className="w-3.5 h-3.5 text-orange-600" />
+                                Tài xế: {item.driverName}
+                              </div>
+                              <div className="text-orange-800 mt-1 flex items-center justify-between text-[11px]">
+                                <span>SĐT: <a href={`tel:${item.driverPhone}`} className="underline font-bold">{item.driverPhone}</a></span>
+                                <span>{item.driverLicensePlate || item.driverVehicle || "Đã nhận cuốc"}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Nút hành động cho Tài xế / Admin */}
+                        <div className="mt-4 pt-3 border-t border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                              Giá chốt trọn gói:
+                            </span>
+                            <span className="font-extrabold text-orange-600 text-sm">
+                              {item.estimatedPrice ? Number(item.estimatedPrice).toLocaleString() : "190.000"}đ
+                            </span>
+                          </div>
+
+                          {isTransporterOrAdmin && item.status === "pending" && (
+                            <Button
+                              size="sm"
+                              disabled={processingId === itemId}
+                              onClick={() => handleAcceptTrip(itemId)}
+                              className="w-full mt-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+                            >
+                              {processingId === itemId ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                              )}
+                              Nhận cuốc xe này
+                            </Button>
+                          )}
+
+                          {isTransporterOrAdmin && item.status === "assigned" && (
+                            <Button
+                              size="sm"
+                              disabled={processingId === itemId}
+                              onClick={() => handleUpdateStatus(itemId, "in_progress")}
+                              className="w-full mt-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs"
+                            >
+                              {processingId === itemId ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                              ) : (
+                                <Truck className="w-3.5 h-3.5 mr-1" />
+                              )}
+                              Bắt đầu vận chuyển
+                            </Button>
+                          )}
+
+                          {isTransporterOrAdmin && item.status === "in_progress" && (
+                            <Button
+                              size="sm"
+                              disabled={processingId === itemId}
+                              onClick={() => handleUpdateStatus(itemId, "completed")}
+                              className="w-full mt-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+                            >
+                              {processingId === itemId ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                              )}
+                              Xác nhận giao đồ xong
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )
           )}
         </div>
       </section>
