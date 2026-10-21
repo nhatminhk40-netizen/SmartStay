@@ -3,12 +3,15 @@ import { Link } from "react-router-dom";
 import {
   LayoutDashboard, Home as HomeIcon, Users, FileText, Receipt,
   MessageSquare, Star, Settings, Plus, Search, MapPin, CheckCircle,
-  Clock, Edit2, Trash2, X, Eye, EyeOff, FileCheck, Info, Building2, ArrowLeft
+  Clock, Edit2, Trash2, X, Eye, EyeOff, FileCheck, Info, Building2, ArrowLeft,
+  Calendar, Phone, RefreshCw, AlertCircle, Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import ContractsManager from "@/components/contracts/ContractsManager";
+import InvoiceManager from "@/components/contracts/InvoiceManager";
+import { base44 } from "@/api/base44Client";
 
 // ── MOCK DATA ──
 const mockRooms = [
@@ -166,10 +169,68 @@ export default function EmployeeDashboard() {
   const [isAddRoomOpen, setAddRoomOpen] = useState(false);
   const [passRequests, setPassRequests] = useState([]);
 
+  // Dữ liệu thực tế của Chủ trọ
+  const [realRooms, setRealRooms] = useState([]);
+  const [loadingLandlord, setLoadingLandlord] = useState(false);
+  const [roomFilter, setRoomFilter] = useState("all");
+  const [roomSearch, setRoomSearch] = useState("");
+  const [appointments, setAppointments] = useState([]);
+  const [stats, setStats] = useState({ total: 0, available: 0, rented: 0, repairing: 0 });
+
+  const loadLandlordData = async () => {
+    setLoadingLandlord(true);
+    try {
+      const [roomsRes, apptsData, statsRes] = await Promise.all([
+        base44.entities.Room.myRooms(),
+        base44.entities.Appointment.landlordList(),
+        base44.entities.Room.landlordStats()
+      ]);
+
+      if (roomsRes?.data && roomsRes.data.length > 0) {
+        setRealRooms(roomsRes.data);
+      } else {
+        setRealRooms(mockRooms);
+      }
+      setAppointments(apptsData || []);
+      if (statsRes?.stats) {
+        setStats(statsRes.stats);
+      }
+    } catch (e) {
+      console.error("Lỗi tải dữ liệu chủ trọ:", e);
+      setRealRooms(mockRooms);
+    } finally {
+      setLoadingLandlord(false);
+    }
+  };
+
   useEffect(() => {
+    loadLandlordData();
     const data = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
     setPassRequests(data.filter(r => r.status === "pending_landlord"));
   }, []);
+
+  const handleUpdateRoomStatus = async (roomId, newStatus) => {
+    try {
+      const res = await base44.entities.Room.updateAvailability(roomId, newStatus);
+      if (res.success) {
+        setRealRooms(prev => prev.map(r => (r._id === roomId || r.id === roomId) ? { ...r, status: newStatus } : r));
+        loadLandlordData();
+      }
+    } catch (err) {
+      alert("Lỗi cập nhật: " + err.message);
+    }
+  };
+
+  const handleUpdateAppointment = async (code, status, landlordResponseNote) => {
+    try {
+      const res = await base44.entities.Appointment.updateStatus(code, status, landlordResponseNote);
+      if (res.success) {
+        setAppointments(prev => prev.map(a => a.appointmentCode === code ? { ...a, status, landlordResponseNote } : a));
+      }
+    } catch (err) {
+      alert("Lỗi cập nhật lịch hẹn: " + err.message);
+    }
+  };
 
   const sidebarTabs = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
@@ -267,10 +328,10 @@ export default function EmployeeDashboard() {
             <div className="space-y-6">
               {/* Stats */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard icon={Building2} title="Tổng số phòng" value="15" sub="Đã đăng tải" colorClass="bg-blue-100 text-blue-600" />
-                <StatCard icon={CheckCircle} title="Phòng trống" value="3" sub="Sẵn sàng cho thuê" colorClass="bg-emerald-100 text-emerald-600" />
-                <StatCard icon={Users} title="Đang thuê" value="12" sub="Khách đang ở" colorClass="bg-amber-100 text-amber-600" />
-                <StatCard icon={Receipt} title="Doanh thu tháng" value="28.5M" sub="VNĐ trong tháng 10" colorClass="bg-[#f97316]/10 text-[#f97316]" />
+                <StatCard icon={Building2} title="Tổng số phòng" value={stats.total || realRooms.length} sub="Đang quản lý" colorClass="bg-blue-100 text-blue-600" />
+                <StatCard icon={CheckCircle} title="Phòng trống" value={stats.available || realRooms.filter(r => r.status === "available" || r.status === "Trống").length} sub="Sẵn sàng đón khách" colorClass="bg-emerald-100 text-emerald-600" />
+                <StatCard icon={Users} title="Đang thuê" value={stats.rented || realRooms.filter(r => r.status === "rented" || r.status === "Đang thuê").length} sub="Hợp đồng đang ở" colorClass="bg-amber-100 text-amber-600" />
+                <StatCard icon={Receipt} title="Lịch hẹn mới" value={appointments.filter(a => a.status === "pending").length} sub="Sinh viên chờ duyệt" colorClass="bg-[#f97316]/10 text-[#f97316]" />
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -311,45 +372,112 @@ export default function EmployeeDashboard() {
           {activeTab === "rooms" && (
             <div className="space-y-6">
               {/* Filters */}
-              <div className="flex flex-wrap gap-3">
-                {["Tất cả", "Đang thuê", "Phòng trống", "Đang sửa"].map((f, i) => (
-                  <button key={f} className={cn("px-4 py-2 rounded-full text-sm font-bold border transition-all", i === 0 ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-[#f4ebd9] hover:border-[#f97316]")}>
-                    {f}
+              <div className="flex flex-wrap gap-3 items-center">
+                {[
+                  { id: "all", label: "Tất cả" },
+                  { id: "available", label: "Phòng trống" },
+                  { id: "rented", label: "Đang thuê" },
+                  { id: "repairing", label: "Đang sửa" }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setRoomFilter(f.id)}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-sm font-bold border transition-all",
+                      roomFilter === f.id
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-white text-slate-600 border-[#f4ebd9] hover:border-[#f97316]"
+                    )}
+                  >
+                    {f.label}
                   </button>
                 ))}
                 <div className="flex items-center gap-2 ml-auto bg-white border border-[#f4ebd9] rounded-full px-4 py-2">
                   <Search className="w-4 h-4 text-slate-400" />
-                  <input type="text" placeholder="Tìm tên, mã phòng..." className="bg-transparent border-none focus:outline-none text-sm font-medium w-48" />
+                  <input
+                    type="text"
+                    placeholder="Tìm tên, địa chỉ phòng..."
+                    value={roomSearch}
+                    onChange={(e) => setRoomSearch(e.target.value)}
+                    className="bg-transparent border-none focus:outline-none text-sm font-medium w-48"
+                  />
                 </div>
               </div>
 
               {/* Room Grid */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                {mockRooms.map(room => (
-                  <div key={room.id} className="bg-white p-5 rounded-[24px] shadow-sm border border-[#f4ebd9] flex flex-col sm:flex-row gap-5 transition-all hover:shadow-md hover:border-[#f97316]/30">
-                    <div className="w-full sm:w-40 h-32 rounded-xl bg-slate-100 shrink-0 overflow-hidden relative">
-                      <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267" className="w-full h-full object-cover" alt="room" />
-                      {room.safe && <div className="absolute top-2 left-2 px-2 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded-lg uppercase">Safe Badge</div>}
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <h4 className="font-bold text-slate-900 line-clamp-1">{room.title}</h4>
-                          <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0", room.status === "Trống" ? "bg-emerald-100 text-emerald-700" : room.status === "Đang thuê" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600")}>
-                            {room.status}
-                          </span>
+                {realRooms
+                  .filter(r => {
+                    const statusVal = r.status === "Trống" ? "available" : (r.status === "Đang thuê" ? "rented" : (r.status === "Đang sửa" ? "repairing" : (r.status || "available")));
+                    const matchF = roomFilter === "all" || statusVal === roomFilter;
+                    const matchS = !roomSearch || r.title?.toLowerCase().includes(roomSearch.toLowerCase()) || r.address?.toLowerCase().includes(roomSearch.toLowerCase());
+                    return matchF && matchS;
+                  })
+                  .map(room => {
+                    const roomId = room._id || room.id;
+                    const isAvail = room.status === "available" || room.status === "Trống";
+                    const isRent = room.status === "rented" || room.status === "Đang thuê";
+                    const isRepair = room.status === "repairing" || room.status === "Đang sửa";
+
+                    return (
+                      <div key={roomId} className="bg-white p-5 rounded-[24px] shadow-sm border border-[#f4ebd9] flex flex-col sm:flex-row gap-5 transition-all hover:shadow-md hover:border-[#f97316]/30">
+                        <div className="w-full sm:w-40 h-32 rounded-xl bg-slate-100 shrink-0 overflow-hidden relative">
+                          <img src={room.images?.[0] || room.image_url || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"} className="w-full h-full object-cover" alt="room" />
+                          {(room.safe || room.isSafeListing) && (
+                            <div className="absolute top-2 left-2 px-2 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded-lg uppercase">
+                              Safe Badge
+                            </div>
+                          )}
                         </div>
-                        <p className="text-xs font-semibold text-slate-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> {room.campus} · {room.area}m²</p>
-                        <div className="font-black text-[#f97316] text-lg mt-2">{room.price.toLocaleString("vi-VN")}đ<span className="text-xs text-slate-400 font-medium">/tháng</span></div>
+                        <div className="flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h4 className="font-bold text-slate-900 line-clamp-1">{room.title}</h4>
+                              <span className={cn(
+                                "px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0",
+                                isAvail ? "bg-emerald-100 text-emerald-700" :
+                                isRent ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
+                              )}>
+                                {isAvail ? "Còn phòng" : (isRent ? "Đang cho thuê" : "Đang sửa")}
+                              </span>
+                            </div>
+                            <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" /> {room.campus || room.address} · {room.area || 20}m²
+                            </p>
+                            <div className="font-black text-[#f97316] text-lg mt-2">
+                              {Number(room.price).toLocaleString("vi-VN")}đ<span className="text-xs text-slate-400 font-medium">/tháng</span>
+                            </div>
+                          </div>
+
+                          {/* Quick availability toggle */}
+                          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
+                            <span className="text-xs font-bold text-slate-500">Tình trạng:</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateRoomStatus(roomId, "available")}
+                              className={cn("px-2.5 py-1 rounded-lg text-xs font-bold transition", isAvail ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                            >
+                              Còn phòng
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateRoomStatus(roomId, "rented")}
+                              className={cn("px-2.5 py-1 rounded-lg text-xs font-bold transition", isRent ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                            >
+                              Đã thuê
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateRoomStatus(roomId, "repairing")}
+                              className={cn("px-2.5 py-1 rounded-lg text-xs font-bold transition", isRepair ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}
+                            >
+                              Sửa chữa
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-                        <Button variant="outline" size="sm" className="rounded-full h-8 px-3 text-xs font-bold border-slate-200 text-slate-700">Sửa</Button>
-                        <Button variant="outline" size="sm" className="rounded-full h-8 px-3 text-xs font-bold border-slate-200 text-slate-700">Ẩn tin</Button>
-                        <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 ml-auto text-rose-500 hover:bg-rose-50"><Trash2 className="w-4 h-4" /></Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -400,56 +528,136 @@ export default function EmployeeDashboard() {
           )}
 
           {activeTab === "requests" && (
-            <div className="bg-white rounded-[24px] shadow-sm border border-[#f4ebd9] overflow-hidden p-6">
-              <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-[#f97316]" />
-                Yêu cầu Pass Phòng chờ xác nhận ({passRequests.length})
-              </h3>
-              
-              {passRequests.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-[#faf3e3] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-[#f97316]" />
+            <div className="space-y-6">
+              {/* PHẦN 1: LỊCH HẸN XEM PHÒNG CỦA SINH VIÊN */}
+              <div className="bg-white rounded-[24px] shadow-sm border border-[#f4ebd9] p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-base">
+                  <Calendar className="w-5 h-5 text-[#f97316]" />
+                  Lịch Hẹn Xem Phòng Của Sinh Viên ({appointments.length})
+                </h3>
+
+                {appointments.length === 0 ? (
+                  <div className="text-center py-8 bg-[#fdfbf7] rounded-2xl border border-slate-100">
+                    <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-600">Chưa có lịch hẹn xem phòng mới</p>
                   </div>
-                  <h4 className="font-bold text-slate-900">Không có yêu cầu mới</h4>
-                  <p className="text-sm text-slate-500 mt-1">Tất cả yêu cầu pass phòng đã được xử lý.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {passRequests.map(req => (
-                    <div key={req.id} className="bg-[#fdfbf7] border border-[#f4ebd9] rounded-2xl p-5 flex flex-col md:flex-row gap-5 items-start md:items-center">
-                      <div className="w-24 h-24 shrink-0 rounded-xl bg-slate-100 overflow-hidden">
-                        <img src={req.image || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"} alt={req.title} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase">Chờ duyệt</span>
-                          <span className="text-xs font-semibold text-slate-500">Mã: {req.id}</span>
+                ) : (
+                  <div className="space-y-3">
+                    {appointments.map(appt => (
+                      <div key={appt._id || appt.appointmentCode} className="bg-[#fdfbf7] border border-[#f4ebd9] rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-900">Mã: #{appt.appointmentCode}</span>
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-black uppercase",
+                              appt.status === "confirmed" ? "bg-emerald-100 text-emerald-800" :
+                              appt.status === "rejected" ? "bg-rose-100 text-rose-800" :
+                              appt.status === "completed" ? "bg-blue-100 text-blue-800" :
+                              "bg-amber-100 text-amber-800"
+                            )}>
+                              {appt.status === "confirmed" ? "Đã duyệt" :
+                               appt.status === "rejected" ? "Đã từ chối" :
+                               appt.status === "completed" ? "Đã dẫn xem" : "Chờ bạn duyệt"}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-slate-900 text-sm mt-1">{appt.roomId?.title || "Phòng trọ"}</h4>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-600">
+                            <span>Khách: <b className="text-slate-800">{appt.studentName}</b></span>
+                            <span>SĐT: <b className="text-emerald-700">{appt.studentPhone}</b></span>
+                            <span>Hẹn lúc: <b className="text-[#f97316]">{appt.appointmentDate} - {appt.appointmentTime}</b></span>
+                          </div>
+                          {appt.note && <p className="text-[11px] text-slate-500 italic mt-1">Ghi chú: "{appt.note}"</p>}
                         </div>
-                        <h4 className="font-bold text-slate-900 text-lg">{req.title}</h4>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
-                          <p className="text-slate-600"><span className="font-medium text-slate-400">Người đăng:</span> <span className="font-bold">{req.posterName}</span></p>
-                          <p className="text-slate-600"><span className="font-medium text-slate-400">SĐT bạn:</span> <span className="font-bold">{req.landlordPhone}</span></p>
-                          <p className="text-slate-600"><span className="font-medium text-slate-400">Giá:</span> <span className="font-bold text-[#f97316]">{Number(req.price).toLocaleString()}đ</span></p>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                          {appt.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpdateAppointment(appt.appointmentCode, "confirmed", "Chủ trọ đã đồng ý hẹn!")}
+                                className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 px-4"
+                              >
+                                Duyệt hẹn
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateAppointment(appt.appointmentCode, "rejected", "Chủ trọ bận khung giờ này")}
+                                className="rounded-full text-rose-600 hover:bg-rose-50 font-bold text-xs h-8 px-3"
+                              >
+                                Từ chối
+                              </Button>
+                            </>
+                          )}
+                          {appt.status === "confirmed" && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleUpdateAppointment(appt.appointmentCode, "completed", "Đã dẫn xem phòng thành công")}
+                              className="rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-8 px-4"
+                            >
+                              Đánh dấu đã dẫn xem
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
-                        <a href={`/xac-nhan-pass/${req.id}`} target="_blank" className="flex-1 md:w-full inline-flex items-center justify-center h-10 px-4 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-bold shadow-sm">
-                          Mở trang duyệt
-                        </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* PHẦN 2: YÊU CẦU PASS PHÒNG */}
+              <div className="bg-white rounded-[24px] shadow-sm border border-[#f4ebd9] overflow-hidden p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-base">
+                  <MessageSquare className="w-5 h-5 text-[#f97316]" />
+                  Yêu cầu Pass Phòng chờ xác nhận ({passRequests.length})
+                </h3>
+                
+                {passRequests.length === 0 ? (
+                  <div className="text-center py-8 bg-[#fdfbf7] rounded-2xl border border-slate-100">
+                    <CheckCircle className="w-8 h-8 text-[#f97316] mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-600">Không có yêu cầu pass phòng mới</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {passRequests.map(req => (
+                      <div key={req.id} className="bg-[#fdfbf7] border border-[#f4ebd9] rounded-2xl p-5 flex flex-col md:flex-row gap-5 items-start md:items-center">
+                        <div className="w-24 h-24 shrink-0 rounded-xl bg-slate-100 overflow-hidden">
+                          <img src={req.image || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"} alt={req.title} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase">Chờ duyệt</span>
+                            <span className="text-xs font-semibold text-slate-500">Mã: {req.id}</span>
+                          </div>
+                          <h4 className="font-bold text-slate-900 text-lg">{req.title}</h4>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
+                            <p className="text-slate-600"><span className="font-medium text-slate-400">Người đăng:</span> <span className="font-bold">{req.posterName}</span></p>
+                            <p className="text-slate-600"><span className="font-medium text-slate-400">SĐT bạn:</span> <span className="font-bold">{req.landlordPhone}</span></p>
+                            <p className="text-slate-600"><span className="font-medium text-slate-400">Giá:</span> <span className="font-bold text-[#f97316]">{Number(req.price).toLocaleString()}đ</span></p>
+                          </div>
+                        </div>
+                        <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
+                          <a href={`/xac-nhan-pass/${req.id}`} target="_blank" className="flex-1 md:w-full inline-flex items-center justify-center h-10 px-4 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-bold shadow-sm">
+                            Mở trang duyệt
+                          </a>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* Tab Quản lý Hợp đồng & Cọc phòng */}
           {activeTab === "contracts" && <ContractsManager />}
 
-          {/* Placeholders for other tabs to keep the UI complete */}
-          {["invoices", "reviews", "settings"].includes(activeTab) && (
+          {/* Tab Hóa đơn & Thu tiền minh bạch */}
+          {activeTab === "invoices" && <InvoiceManager />}
+
+          {/* Placeholders for other tabs */}
+          {["reviews", "settings"].includes(activeTab) && (
             <div className="bg-white rounded-[24px] p-12 shadow-sm border border-[#f4ebd9] text-center flex flex-col items-center justify-center min-h-[400px]">
               <div className="w-16 h-16 bg-[#faf3e3] rounded-full flex items-center justify-center mb-4">
                 <Info className="w-8 h-8 text-[#f97316]" />

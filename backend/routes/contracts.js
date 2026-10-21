@@ -110,7 +110,7 @@ router.get('/lookup/tenants', protect, authorize('landlord', 'admin', 'employee'
 // ==========================================
 // 3. GET /api/contracts - LẤY DANH SÁCH HỢP ĐỒNG (LỌC, TÌM KIẾM, PHÂN TRANG)
 // ==========================================
-router.get('/', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+router.get('/', protect, async (req, res) => {
     try {
         const { status, q, page = 1, limit = 10 } = req.query;
         const pageNum = Math.max(1, parseInt(page, 10));
@@ -118,9 +118,15 @@ router.get('/', protect, authorize('landlord', 'admin', 'employee'), async (req,
         const isDbConnected = req.app.locals.isDbConnected;
         const currentUserId = req.user._id || req.user.id;
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+        const isStudent = req.user.role === 'student';
 
         if (isDbConnected) {
-            let filter = isAdmin ? {} : { landlord: currentUserId };
+            let filter = {};
+            if (isStudent) {
+                filter = { tenant: currentUserId };
+            } else if (!isAdmin) {
+                filter = { landlord: currentUserId };
+            }
 
             // Lọc theo trạng thái
             if (status && status !== 'all') {
@@ -264,9 +270,50 @@ router.get('/', protect, authorize('landlord', 'admin', 'employee'), async (req,
 });
 
 // ==========================================
+// 3.1. GET /api/contracts/my-contracts - LẤY HỢP ĐỒNG CỦA SINH VIÊN ĐANG ĐĂNG NHẬP
+// ==========================================
+router.get('/my-contracts', protect, async (req, res) => {
+    try {
+        const isDbConnected = req.app.locals.isDbConnected;
+        const currentUserId = req.user._id || req.user.id;
+        const userEmail = req.user.email?.toLowerCase();
+        const userPhone = req.user.phone;
+
+        if (isDbConnected) {
+            const contracts = await Contract.find({ tenant: currentUserId })
+                .populate('room', 'title address price campus images image_url amenities contactPhone status')
+                .populate('landlord', 'fullName email phone')
+                .sort({ createdAt: -1 });
+
+            return res.status(200).json({
+                success: true,
+                count: contracts.length,
+                data: contracts
+            });
+        }
+
+        // Fallback local mode
+        const contracts = loadFallbackContracts();
+        const myContracts = contracts.filter(c => 
+            isSameId(c.tenant?._id || c.tenant?.id || c.tenant, currentUserId) ||
+            (c.tenant?.email && c.tenant.email.toLowerCase() === userEmail) ||
+            (c.tenant?.phone && userPhone && c.tenant.phone.includes(userPhone.slice(-6)))
+        );
+
+        res.status(200).json({
+            success: true,
+            count: myContracts.length,
+            data: myContracts
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi tải hợp đồng của tôi: ' + error.message });
+    }
+});
+
+// ==========================================
 // 4. GET /api/contracts/:id - XEM CHI TIẾT HỢP ĐỒNG
 // ==========================================
-router.get('/:id', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+router.get('/:id', protect, async (req, res) => {
     try {
         const { id } = req.params;
         const currentUserId = req.user._id || req.user.id;
@@ -287,8 +334,11 @@ router.get('/:id', protect, authorize('landlord', 'admin', 'employee'), async (r
                 return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
             }
 
-            if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
-                return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hợp đồng của chủ trọ khác.' });
+            const isLandlord = isSameId(contract.landlord?._id || contract.landlord, currentUserId);
+            const isTenant = isSameId(contract.tenant?._id || contract.tenant, currentUserId);
+
+            if (!isAdmin && !isLandlord && !isTenant) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hợp đồng này.' });
             }
 
             return res.status(200).json({ success: true, data: contract });
@@ -301,11 +351,14 @@ router.get('/:id', protect, authorize('landlord', 'admin', 'employee'), async (r
             return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
         }
 
-        if (!isAdmin && !isSameId(contract.landlord?._id || contract.landlord, currentUserId)) {
+        const isLandlord = isSameId(contract.landlord?._id || contract.landlord, currentUserId);
+        const isTenant = isSameId(contract.tenant?._id || contract.tenant, currentUserId);
+
+        if (!isAdmin && !isLandlord && !isTenant) {
             return res.status(403).json({ success: false, message: 'Bạn không có quyền xem hợp đồng này.' });
         }
 
-        res.status(200).json({ success: true, data: contract });
+        return res.status(200).json({ success: true, data: contract });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi xem chi tiết hợp đồng: ' + error.message });
     }
@@ -317,20 +370,18 @@ router.get('/:id', protect, authorize('landlord', 'admin', 'employee'), async (r
 router.post('/', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
     try {
         const currentUserId = req.user._id || req.user.id;
-        const {
-            roomId,
-            tenantId,
-            startDate,
-            durationMonths,
-            monthlyRent,
-            depositAmount,
-            paymentDay = 5,
-            electricPrice = 3500,
-            waterPrice = 20000,
-            terms,
-            depositStatus = 'unpaid',
-            paymentMethod = 'transfer'
-        } = req.body;
+        const roomId = req.body.roomId || req.body.room;
+        const tenantId = req.body.tenantId || req.body.tenant;
+        const startDate = req.body.startDate;
+        const durationMonths = req.body.durationMonths;
+        const monthlyRent = req.body.monthlyRent;
+        const depositAmount = req.body.depositAmount !== undefined ? req.body.depositAmount : req.body.deposit?.amount;
+        const paymentDay = req.body.paymentDay || 5;
+        const electricPrice = req.body.electricPrice !== undefined ? req.body.electricPrice : 3500;
+        const waterPrice = req.body.waterPrice !== undefined ? req.body.waterPrice : 20000;
+        const terms = req.body.terms;
+        const depositStatus = req.body.depositStatus || req.body.deposit?.status || 'unpaid';
+        const paymentMethod = req.body.paymentMethod || req.body.deposit?.paymentMethod || 'transfer';
 
         // 1. Kiểm tra các trường bắt buộc
         if (!roomId) {
@@ -896,4 +947,169 @@ router.post('/:id/renew', protect, authorize('landlord', 'admin', 'employee'), a
     }
 });
 
+// ==========================================
+// 8. BIÊN BẢN BÀN GIAO TÀI SẢN (HANDOVER INVENTORY)
+// ==========================================
+
+// Thêm thiết bị / tài sản bàn giao vào hợp đồng
+router.post('/:id/inventory', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { item, condition, quantity, photoUrl } = req.body;
+        const isDbConnected = req.app.locals.isDbConnected;
+
+        if (!item) {
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập tên thiết bị / tài sản bàn giao.' });
+        }
+
+        const newItem = {
+            item,
+            condition: condition || 'Mới / Hoạt động tốt',
+            quantity: Number(quantity) || 1,
+            photoUrl: photoUrl || '',
+            verifiedByTenant: false
+        };
+
+        if (isDbConnected) {
+            const contract = await Contract.findById(id);
+            if (!contract) return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+
+            contract.handoverInventory.push(newItem);
+            await contract.save();
+
+            return res.status(201).json({
+                success: true,
+                message: 'Đã thêm tài sản vào biên bản bàn giao.',
+                data: contract.handoverInventory
+            });
+        }
+
+        const contracts = loadFallbackContracts();
+        const contract = contracts.find(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (!contract) return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+
+        contract.handoverInventory = contract.handoverInventory || [];
+        contract.handoverInventory.push({ ...newItem, _id: 'inv_' + Date.now() });
+        saveFallbackContracts(contracts);
+
+        res.status(201).json({
+            success: true,
+            message: 'Đã thêm tài sản vào biên bản bàn giao (Local Dev).',
+            data: contract.handoverInventory
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi thêm tài sản bàn giao: ' + error.message });
+    }
+});
+
+// Sinh viên xác nhận tình trạng tài sản khi nhận phòng
+router.patch('/:id/inventory/:itemId/verify', protect, async (req, res) => {
+    try {
+        const { id, itemId } = req.params;
+        const isDbConnected = req.app.locals.isDbConnected;
+        const currentUserId = req.user._id || req.user.id;
+
+        if (isDbConnected) {
+            const contract = await Contract.findById(id);
+            if (!contract) return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+
+            // Chỉ người thuê hoặc chủ nhà/admin mới được xác nhận
+            const isTenant = isSameId(contract.tenant, currentUserId);
+            const isOwner = isSameId(contract.landlord, currentUserId);
+            const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+
+            if (!isTenant && !isOwner && !isAdmin) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền xác nhận tài sản này.' });
+            }
+
+            const item = contract.handoverInventory.id(itemId);
+            if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy tài sản trong biên bản.' });
+
+            item.verifiedByTenant = true;
+            item.verifiedAt = new Date();
+            await contract.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'Khách thuê đã xác nhận tình trạng tài sản bàn giao.',
+                data: item
+            });
+        }
+
+        const contracts = loadFallbackContracts();
+        const contract = contracts.find(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (!contract) return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+
+        const item = (contract.handoverInventory || []).find(i => isSameId(i._id, itemId));
+        if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy tài sản trong biên bản.' });
+
+        item.verifiedByTenant = true;
+        item.verifiedAt = new Date().toISOString();
+        saveFallbackContracts(contracts);
+
+        res.status(200).json({
+            success: true,
+            message: 'Đã xác nhận tình trạng tài sản (Local Dev).',
+            data: item
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi xác nhận tài sản: ' + error.message });
+    }
+});
+
+// Lưu ảnh hiện trạng bàn giao phòng lúc Check-in & Check-out
+router.post('/:id/handover-photos', protect, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { type, photos } = req.body; // type: 'checkin' | 'checkout', photos: array of URLs
+        const isDbConnected = req.app.locals.isDbConnected;
+
+        if (!Array.isArray(photos) || photos.length === 0) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp danh sách ảnh hiện trạng.' });
+        }
+
+        if (isDbConnected) {
+            const contract = await Contract.findById(id);
+            if (!contract) return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+
+            if (type === 'checkout') {
+                contract.checkoutPhotos = [...(contract.checkoutPhotos || []), ...photos];
+                contract.checkoutConfirmed = true;
+            } else {
+                contract.checkinPhotos = [...(contract.checkinPhotos || []), ...photos];
+                contract.checkinConfirmed = true;
+            }
+            await contract.save();
+
+            return res.status(200).json({
+                success: true,
+                message: `Đã lưu ảnh hiện trạng ${type === 'checkout' ? 'trả phòng (Check-out)' : 'nhận phòng (Check-in)'}.`,
+                data: contract
+            });
+        }
+
+        const contracts = loadFallbackContracts();
+        const contract = contracts.find(c => isSameId(c._id, id) || isSameId(c.id, id));
+        if (!contract) return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng.' });
+
+        if (type === 'checkout') {
+            contract.checkoutPhotos = [...(contract.checkoutPhotos || []), ...photos];
+            contract.checkoutConfirmed = true;
+        } else {
+            contract.checkinPhotos = [...(contract.checkinPhotos || []), ...photos];
+            contract.checkinConfirmed = true;
+        }
+        saveFallbackContracts(contracts);
+
+        res.status(200).json({
+            success: true,
+            message: `Đã lưu ảnh hiện trạng (Local Dev).`,
+            data: contract
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi lưu ảnh hiện trạng: ' + error.message });
+    }
+});
+
 module.exports = router;
+

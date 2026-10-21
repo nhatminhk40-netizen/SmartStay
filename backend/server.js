@@ -73,6 +73,10 @@ app.use('/api/auth', authRoutes);
 const contractRoutes = require('./routes/contracts');
 app.use('/api/contracts', contractRoutes);
 
+// Mount Utility Billing & Photo Proof routes (Minh bạch tiền điện nước)
+const billRoutes = require('./routes/billRoutes');
+app.use('/api/bills', billRoutes);
+
 
 // Bộ dữ liệu dự phòng (Fallback Data) - Ghi rõ nhãn "Dữ liệu minh họa" để bảo vệ tính trung thực
 let fallbackRooms = [
@@ -475,6 +479,171 @@ app.get('/api/rooms', async (req, res) => {
             notice: 'Đang hiển thị dữ liệu minh họa SmartStay (Chưa kết nối cơ sở dữ liệu)',
             data: list
         });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 1.1. Lấy danh sách phòng thuộc sở hữu của chủ trọ đang đăng nhập (kèm thống kê tình trạng)
+app.get('/api/rooms/my-rooms', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = req.user.email?.toLowerCase();
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+
+        if (isDbConnected) {
+            const query = isAdmin ? {} : {
+                $or: [
+                    { owner: currentUserId },
+                    { ownerEmail: currentUserEmail }
+                ]
+            };
+
+            const rooms = await Room.find(query).sort({ createdAt: -1 });
+
+            const stats = {
+                total: rooms.length,
+                available: rooms.filter(r => r.status === 'available').length,
+                rented: rooms.filter(r => r.status === 'rented').length,
+                repairing: rooms.filter(r => r.status === 'repairing').length,
+                safeVerified: rooms.filter(r => r.safe_badge || r.verificationStatus === 'verified').length,
+                seekingRoommate: rooms.filter(r => r.seeking_roommate).length
+            };
+
+            return res.status(200).json({
+                success: true,
+                count: rooms.length,
+                stats,
+                data: rooms
+            });
+        }
+
+        // Chế độ dự phòng Fallback
+        const myRooms = fallbackRooms.filter(r => 
+            isAdmin ||
+            isSameId(r.owner, currentUserId) ||
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+        );
+
+        const stats = {
+            total: myRooms.length,
+            available: myRooms.filter(r => r.status === 'available').length,
+            rented: myRooms.filter(r => r.status === 'rented').length,
+            repairing: myRooms.filter(r => r.status === 'repairing').length,
+            safeVerified: myRooms.filter(r => r.safe_badge).length,
+            seekingRoommate: myRooms.filter(r => r.seeking_roommate).length
+        };
+
+        res.status(200).json({
+            success: true,
+            count: myRooms.length,
+            stats,
+            data: myRooms
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 1.2. Thống kê kinh doanh & doanh thu phòng trọ cho Chủ trọ (Landlord Analytics)
+app.get('/api/rooms/landlord/stats', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = req.user.email?.toLowerCase();
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+
+        let myRooms = [];
+        let myContracts = [];
+        let pendingAppointmentsCount = 0;
+
+        if (isDbConnected) {
+            const roomQuery = isAdmin ? {} : {
+                $or: [{ owner: currentUserId }, { ownerEmail: currentUserEmail }]
+            };
+            myRooms = await Room.find(roomQuery);
+
+            const contractQuery = isAdmin ? {} : { landlord: currentUserId };
+            const Contract = mongoose.model('Contract');
+            myContracts = await Contract.find(contractQuery);
+
+            const roomIds = myRooms.map(r => r._id);
+            pendingAppointmentsCount = await Appointment.countDocuments({
+                $or: [
+                    { roomId: { $in: roomIds }, status: 'pending_landlord' },
+                    { landlordPhone: req.user.phone, status: 'pending_landlord' }
+                ]
+            });
+        } else {
+            myRooms = fallbackRooms;
+            pendingAppointmentsCount = fallbackAppointments.filter(a => a.status === 'pending_landlord').length;
+        }
+
+        const totalRooms = myRooms.length;
+        const rentedRooms = myRooms.filter(r => r.status === 'rented').length;
+        const availableRooms = myRooms.filter(r => r.status === 'available').length;
+        const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
+
+        // Dự tính doanh thu tháng từ các phòng đang cho thuê
+        const estimatedMonthlyRevenue = myRooms
+            .filter(r => r.status === 'rented')
+            .reduce((sum, r) => sum + (r.price || 0), 0);
+
+        // Hợp đồng sắp hết hạn trong 30 ngày tới
+        const now = Date.now();
+        const in30Days = now + 30 * 24 * 60 * 60 * 1000;
+        const expiringContractsCount = myContracts.filter(c => {
+            if (c.status !== 'active' || !c.endDate) return false;
+            const end = new Date(c.endDate).getTime();
+            return end >= now && end <= in30Days;
+        }).length;
+
+        res.status(200).json({
+            success: true,
+            stats: {
+                totalRooms,
+                availableRooms,
+                rentedRooms,
+                occupancyRate: `${occupancyRate}%`,
+                estimatedMonthlyRevenue,
+                expiringContractsCount,
+                pendingAppointmentsCount
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 1.3. Cập nhật nhanh tình trạng phòng (Còn phòng / Đã thuê) & Xác nhận minh bạch
+app.patch('/api/rooms/:id/availability', protect, checkRoomOwnership, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body; // 'available' | 'rented' | 'repairing'
+
+        if (!['available', 'rented', 'repairing'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Trạng thái phòng không hợp lệ.' });
+        }
+
+        if (isDbConnected) {
+            const room = await Room.findByIdAndUpdate(
+                id,
+                { status, lastAvailabilityConfirmedAt: new Date() },
+                { new: true }
+            );
+            if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
+            return res.status(200).json({
+                success: true,
+                message: `Đã cập nhật tình trạng phòng: ${status === 'available' ? 'Còn phòng' : (status === 'rented' ? 'Đã cho thuê' : 'Đang sửa chữa')}`,
+                data: room
+            });
+        }
+
+        const room = fallbackRooms.find(r => isSameId(r._id, id) || isSameId(r.id, id));
+        if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
+        room.status = status;
+        room.lastAvailabilityConfirmedAt = new Date();
+
+        res.status(200).json({ success: true, message: 'Đã cập nhật tình trạng phòng (Fallback).', data: room });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -1956,7 +2125,16 @@ let fallbackAppointments = [];
 
 app.post('/api/appointments', async (req, res) => {
     try {
-        const { roomId, roomTitle, studentName, studentPhone, landlordPhone, visitDate, visitTime, transportType, notes } = req.body;
+        const roomId = req.body.roomId || req.body.room;
+        const roomTitle = req.body.roomTitle || '';
+        const studentName = req.body.studentName || 'Sinh viên SmartStay';
+        const studentPhone = req.body.studentPhone || req.body.phone;
+        const landlordPhone = req.body.landlordPhone || '';
+        const visitDate = req.body.visitDate || req.body.appointmentDate;
+        const visitTime = req.body.visitTime || req.body.appointmentTime;
+        const transportType = req.body.transportType || 'Xe máy';
+        const notes = req.body.notes || req.body.note || '';
+
         if (!roomId || !studentPhone || !visitDate || !visitTime) {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp thông tin phòng, số điện thoại, ngày và giờ xem phòng.' });
         }
@@ -1994,6 +2172,88 @@ app.post('/api/appointments', async (req, res) => {
             message: 'Đặt lịch xem phòng thành công! Đang chờ chủ trọ xác nhận.',
             appointmentCode,
             data: newAppt
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Lấy danh sách lịch hẹn xem phòng cho CHỦ TRỌ
+app.get('/api/appointments/landlord', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = req.user.email?.toLowerCase();
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+
+        if (isDbConnected) {
+            let roomIds = [];
+            if (!isAdmin) {
+                const myRooms = await Room.find({
+                    $or: [{ owner: currentUserId }, { ownerEmail: currentUserEmail }]
+                }).select('_id');
+                roomIds = myRooms.map(r => r._id);
+            }
+
+            const query = isAdmin ? {} : {
+                $or: [
+                    { roomId: { $in: roomIds } },
+                    { landlordPhone: req.user.phone }
+                ]
+            };
+
+            const appts = await Appointment.find(query)
+                .sort({ createdAt: -1 })
+                .populate('roomId', 'title address price images image_url');
+
+            return res.status(200).json({
+                success: true,
+                count: appts.length,
+                data: appts
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            count: fallbackAppointments.length,
+            data: fallbackAppointments
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Lấy danh sách lịch hẹn xem phòng của SINH VIÊN đang đăng nhập
+app.get('/api/appointments/my-appointments', protect, async (req, res) => {
+    try {
+        const studentPhone = req.user.phone;
+        const studentName = req.user.fullName;
+
+        if (isDbConnected) {
+            const appts = await Appointment.find({
+                $or: [
+                    { studentPhone },
+                    { studentName }
+                ]
+            })
+            .sort({ createdAt: -1 })
+            .populate('roomId', 'title address price images image_url contactPhone');
+
+            return res.status(200).json({
+                success: true,
+                count: appts.length,
+                data: appts
+            });
+        }
+
+        const myAppts = fallbackAppointments.filter(a => 
+            (studentPhone && a.studentPhone === studentPhone) ||
+            (studentName && a.studentName === studentName)
+        );
+
+        res.status(200).json({
+            success: true,
+            count: myAppts.length,
+            data: myAppts
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

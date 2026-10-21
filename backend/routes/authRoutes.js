@@ -159,6 +159,19 @@ const defaultDemoUsers = isProd ? [] : [
             bio: 'Tài xế ba gác uy tín tại Cần Thơ, kinh nghiệm chuyển trọ sinh viên FPT & ĐHCT 5 năm. Bốc xếp cẩn thận.'
         },
         passwordHash: bcrypt.hashSync('Taixe@123456', 10)
+    },
+    {
+        _id: 'usr_student_001',
+        fullName: 'Nguyễn Văn Sinh Viên (FPT Cần Thơ)',
+        email: 'sinhvien@smartstay.vn',
+        phone: '0988776655',
+        role: 'student',
+        studentId: 'CE180001',
+        campus: 'FPT Can Tho',
+        phoneVerified: true,
+        isEmailVerified: true,
+        verificationStatus: 'APPROVED',
+        passwordHash: bcrypt.hashSync('Sinhvien@123456', 10)
     }
 ];
 
@@ -654,13 +667,14 @@ router.post('/register', async (req, res) => {
 // 4. Đăng nhập tài khoản (tự động nhận diện vai trò Chủ trọ / Sinh viên / Admin đã được duyệt)
 router.post('/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const rawEmail = req.body.email || req.body.emailOrPhone;
+        const { password } = req.body;
 
-        if (!email || !password) {
+        if (!rawEmail || !password) {
             return res.status(400).json({ success: false, message: 'Vui lòng nhập email/số điện thoại và mật khẩu.' });
         }
 
-        const cleanEmail = email.toLowerCase().trim();
+        const cleanEmail = rawEmail.toLowerCase().trim();
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
@@ -700,10 +714,18 @@ router.post('/login', async (req, res) => {
                 return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
             }
 
-            // So khớp mật khẩu
-            const isMatch = typeof user.matchPassword === 'function' 
-                ? await user.matchPassword(password)
-                : await bcrypt.compare(password, user.passwordHash || user.password);
+            // So khớp mật khẩu an toàn
+            let isMatch = false;
+            try {
+                if (typeof user.matchPassword === 'function') {
+                    isMatch = await user.matchPassword(password);
+                } else if (user.passwordHash || user.password) {
+                    isMatch = await bcrypt.compare(password, user.passwordHash || user.password);
+                }
+            } catch (cmpErr) {
+                console.error('[AUTH LOGIN] Error comparing password:', cmpErr.message);
+                isMatch = false;
+            }
 
             if (!isMatch) {
                 return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });

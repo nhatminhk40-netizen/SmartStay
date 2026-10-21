@@ -284,6 +284,95 @@ export const base44 = {
         } catch (e) {
           return { success: true, message: 'Đã xác nhận (Fallback)' };
         }
+      },
+
+      myRooms: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { count: 0, stats: {}, data: [] };
+        try {
+          const res = await fetch(`${API_BASE}/rooms/my-rooms`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const json = await res.json();
+          return json;
+        } catch {
+          return { count: 0, stats: {}, data: [] };
+        }
+      },
+
+      landlordStats: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { stats: {} };
+        try {
+          const res = await fetch(`${API_BASE}/rooms/landlord/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          return await res.json();
+        } catch {
+          return { stats: {} };
+        }
+      },
+
+      updateAvailability: async (id, status) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/rooms/${id}/availability`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ status })
+        });
+        return res.json();
+      }
+    },
+
+    Appointment: {
+      create: async (data) => {
+        const res = await fetch(`${API_BASE}/appointments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        return res.json();
+      },
+      getByCode: async (code) => {
+        const res = await fetch(`${API_BASE}/appointments/${code}`);
+        return res.json();
+      },
+      updateStatus: async (code, status, landlordResponseNote) => {
+        const res = await fetch(`${API_BASE}/appointments/${code}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, landlordResponseNote })
+        });
+        return res.json();
+      },
+      landlordList: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return [];
+        try {
+          const res = await fetch(`${API_BASE}/appointments/landlord`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          return data.data || [];
+        } catch {
+          return [];
+        }
+      },
+      myList: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return [];
+        try {
+          const res = await fetch(`${API_BASE}/appointments/my-appointments`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          return data.data || [];
+        } catch {
+          return [];
+        }
       }
     },
 
@@ -634,6 +723,21 @@ export const base44 = {
       }
       return data;
     },
+    myContracts: async () => {
+      const token = localStorage.getItem('smartstay_token');
+      if (!token) return [];
+      try {
+        const res = await fetch(`${API_BASE}/contracts/my-contracts`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const data = await res.json();
+        return data.data || [];
+      } catch {
+        return [];
+      }
+    },
     get: async (id) => {
       const token = localStorage.getItem('smartstay_token');
       const res = await fetch(`${API_BASE}/contracts/${id}`, {
@@ -746,6 +850,115 @@ export const base44 = {
       });
       const data = await res.json();
       return data.data || [];
+    },
+    addInventory: async (contractId, payload) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${contractId}/inventory`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    },
+    verifyInventory: async (contractId, itemId) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${contractId}/inventory/${itemId}/verify`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await res.json();
+    },
+    saveHandoverPhotos: async (contractId, type, photos) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/contracts/${contractId}/handover-photos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ type, photos })
+      });
+      return await res.json();
+    }
+  },
+
+  bills: {
+    create: async (billData) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/bills`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(billData)
+      });
+      return await res.json();
+    },
+    landlordList: async () => {
+      const token = localStorage.getItem('smartstay_token');
+      if (!token) return [];
+      try {
+        const res = await fetch(`${API_BASE}/bills/landlord`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const json = await res.json();
+        return json.data || [];
+      } catch {
+        return [];
+      }
+    },
+    myBills: async () => {
+      const token = localStorage.getItem('smartstay_token');
+      if (!token) return [];
+      try {
+        const res = await fetch(`${API_BASE}/bills/my-bills`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const json = await res.json();
+        return json.data || [];
+      } catch {
+        return [];
+      }
+    },
+    getByContract: async (contractId) => {
+      const token = localStorage.getItem('smartstay_token');
+      try {
+        const res = await fetch(`${API_BASE}/bills/contract/${contractId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const json = await res.json();
+        return json.data || [];
+      } catch {
+        return [];
+      }
+    },
+    pay: async (id, paymentProofUrl) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/bills/${id}/pay`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ paymentProofUrl })
+      });
+      return await res.json();
+    },
+    confirm: async (id) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/bills/${id}/confirm`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await res.json();
     }
   },
 

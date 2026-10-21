@@ -98,6 +98,20 @@ const contractSchema = new mongoose.Schema({
         }
     },
 
+    // Biên bản bàn giao tài sản & Hiện trạng phòng (Minh bạch hoàn cọc)
+    handoverInventory: [{
+        item: { type: String, required: true },
+        condition: { type: String, default: 'Mới / Hoạt động tốt' },
+        quantity: { type: Number, default: 1 },
+        photoUrl: { type: String, default: '' },
+        verifiedByTenant: { type: Boolean, default: false },
+        verifiedAt: { type: Date }
+    }],
+    checkinPhotos: [{ type: String }],
+    checkoutPhotos: [{ type: String }],
+    checkinConfirmed: { type: Boolean, default: false },
+    checkoutConfirmed: { type: Boolean, default: false },
+
     // Trạng thái hợp đồng
     status: {
         type: String,

@@ -21,11 +21,13 @@ import {
   Sparkles,
   Trash2,
   LayoutDashboard,
-  LogOut
+  LogOut,
+  Receipt
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
+import StudentPortalModal from "./StudentPortalModal";
 
 const INITIAL_NOTIFICATIONS = [
   {
@@ -114,6 +116,7 @@ export default function AppHeader({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [showStudentPortal, setShowStudentPortal] = useState(false);
 
   // Notifications state
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
@@ -263,6 +266,16 @@ export default function AppHeader({
               <span>Quản trị</span>
             </Link>
           )}
+
+          {/* Student Portal shortcut button */}
+          <button
+            onClick={() => setShowStudentPortal(true)}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-all border border-emerald-200"
+            title="Xem hợp đồng thuê phòng, hóa đơn tiền điện nước minh bạch và lịch hẹn xem phòng"
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Phòng & Hóa đơn của tôi</span>
+          </button>
 
           {/* Post Safe Listing button */}
           <button
@@ -533,6 +546,16 @@ export default function AppHeader({
                   )}
                   <button
                     onClick={() => {
+                      setShowStudentPortal(true);
+                      setShowProfile(false);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200/70 rounded-xl transition-colors text-center"
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Hợp đồng & Hóa đơn của tôi</span>
+                  </button>
+                  <button
+                    onClick={() => {
                       setEditForm(profile);
                       setShowEditProfileModal(true);
                       setShowProfile(false);
@@ -779,6 +802,12 @@ export default function AppHeader({
           </div>
         </div>
       )}
+
+      {/* Student Portal Modal */}
+      <StudentPortalModal
+        open={showStudentPortal}
+        onClose={() => setShowStudentPortal(false)}
+      />
     </header>
   );
 }

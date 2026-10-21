@@ -65,6 +65,7 @@ userSchema.pre('save', async function () {
 
 // So sánh mật khẩu đã hash
 userSchema.methods.matchPassword = async function (enteredPassword) {
+    if (!this.password) return false;
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
