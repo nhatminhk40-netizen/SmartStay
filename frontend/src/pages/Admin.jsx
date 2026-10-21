@@ -150,6 +150,28 @@ export default function Admin() {
     }
   }, [activeTab]);
 
+  // ==================== QUẢN LÝ ĐỐI TÁC VẬN TẢI / TÀI XẾ ====================
+  const [adminTransporters, setAdminTransporters] = useState([]);
+  const [loadingTransporters, setLoadingTransporters] = useState(false);
+
+  const fetchTransporters = async () => {
+    setLoadingTransporters(true);
+    try {
+      const list = await base44.entities.Logistics.getTransporters();
+      setAdminTransporters(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error("Lỗi tải danh sách tài xế:", err);
+    } finally {
+      setLoadingTransporters(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "transporters") {
+      fetchTransporters();
+    }
+  }, [activeTab]);
+
   // Phê duyệt hồ sơ Chủ trọ
   const handleApproveLandlord = async (id, name) => {
     try {
@@ -707,6 +729,7 @@ export default function Admin() {
   const menuItems = [
     { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
     { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users },
+    { id: "transporters", label: "Đối tác Vận tải / Tài xế", icon: Truck },
     { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2 },
     { id: "hero", label: "Quản lý banner (Hero)", icon: ImageIcon },
     { id: "campuses", label: "Danh mục khu vực / Campus", icon: GraduationCap },
@@ -1718,6 +1741,146 @@ export default function Admin() {
                         );
                       })}
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: ĐỐI TÁC VẬN TẢI / TÀI XẾ ── */}
+          {activeTab === "transporters" && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Header Box */}
+              <div className="p-6 rounded-2xl bg-white border border-[#f4ebd9] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-100 text-teal-800">
+                      Hạ tầng Vận tải SmartStay
+                    </span>
+                    <span className="text-xs text-slate-400">• Đội xe Cần Thơ</span>
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    Quản lý Đối tác Vận tải & Bác tài Chuyển trọ
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                    Kiểm tra hồ sơ phương tiện (Ba gác, Bán tải, Tải 1 tấn), biển số xe, số điện thoại liên hệ và đánh giá độ tin cậy từ sinh viên Cần Thơ.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={fetchTransporters}
+                    disabled={loadingTransporters}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-[#f4ebd9] hover:bg-[#faf3e3] transition flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingTransporters ? "animate-spin" : ""}`} />
+                    Làm mới danh sách
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Metrics Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="rounded-xl p-5 bg-white border border-[#f4ebd9] shadow-sm">
+                  <div className="text-xs font-bold uppercase tracking-wider mb-2 text-teal-700">Tổng tài xế đối tác</div>
+                  <div className="font-black text-3xl text-slate-900">{adminTransporters.length}</div>
+                  <div className="text-[11px] font-semibold text-slate-400 mt-1">Đã ký kết hợp tác</div>
+                </div>
+                <div className="rounded-xl p-5 bg-white border border-[#f4ebd9] shadow-sm">
+                  <div className="text-xs font-bold uppercase tracking-wider mb-2 text-emerald-600">Đang trực tuyến</div>
+                  <div className="font-black text-3xl text-emerald-600">{adminTransporters.length}</div>
+                  <div className="text-[11px] font-semibold text-slate-400 mt-1">Sẵn sàng nhận chuyến</div>
+                </div>
+                <div className="rounded-xl p-5 bg-white border border-[#f4ebd9] shadow-sm">
+                  <div className="text-xs font-bold uppercase tracking-wider mb-2 text-amber-500">Đánh giá trung bình</div>
+                  <div className="font-black text-3xl text-amber-500">5.0 ★</div>
+                  <div className="text-[11px] font-semibold text-slate-400 mt-1">Theo phản hồi sinh viên</div>
+                </div>
+                <div className="rounded-xl p-5 bg-white border border-[#f4ebd9] shadow-sm">
+                  <div className="text-xs font-bold uppercase tracking-wider mb-2 text-indigo-600">Loại phương tiện</div>
+                  <div className="font-black text-3xl text-slate-900">3</div>
+                  <div className="text-[11px] font-semibold text-slate-400 mt-1">Ba gác · Bán tải · Xe tải 1T</div>
+                </div>
+              </div>
+
+              {/* Grid danh sách tài xế */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {loadingTransporters ? (
+                  <div className="col-span-full py-16 text-center text-slate-400 text-xs">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#f97316]" />
+                    Đang tải danh sách tài xế...
+                  </div>
+                ) : adminTransporters.length === 0 ? (
+                  <div className="col-span-full py-16 text-center text-slate-400 text-xs bg-white rounded-2xl border border-[#f4ebd9]">
+                    Chưa có đối tác tài xế nào trong hệ thống.
+                  </div>
+                ) : (
+                  adminTransporters.map((dr) => {
+                    const prof = dr.transporterProfile || {};
+                    return (
+                      <div
+                        key={dr._id || dr.id}
+                        className="bg-white rounded-2xl border border-[#f4ebd9] p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg shrink-0">
+                              <Truck className="w-6 h-6" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="font-bold text-slate-900 text-sm truncate">{dr.fullName}</h4>
+                                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold shrink-0">
+                                  Xác thực
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 truncate">{dr.email}</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-xs bg-[#fdfbf7] p-3 rounded-xl border border-[#f4ebd9] mb-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-medium">Loại xe:</span>
+                              <span className="font-bold text-slate-900">{prof.vehicleType || "Xe ba gác chuyển trọ"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-medium">Biển số xe:</span>
+                              <span className="font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                                {prof.licensePlate || "65B1-888.99"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-medium">Khu vực chạy:</span>
+                              <span className="font-semibold text-slate-800">{prof.operatingArea || "Ninh Kiều / Cái Răng"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-medium">Đánh giá:</span>
+                              <span className="font-bold text-amber-500 flex items-center gap-1">
+                                ★ {prof.rating || 5.0} / 5.0 ({prof.totalTrips || 10}+ cuốc)
+                              </span>
+                            </div>
+                          </div>
+
+                          {prof.bio && (
+                            <p className="text-[11px] text-slate-500 italic mb-4">
+                              "{prof.bio}"
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                          <a
+                            href={`tel:${dr.phone || '0939556677'}`}
+                            className="flex-1 py-2 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>{dr.phone || "0939 556 677"}</span>
+                          </a>
+                          <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3" /> Sẵn sàng
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

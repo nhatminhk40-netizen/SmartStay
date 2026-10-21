@@ -251,9 +251,9 @@ export default function EmployeeDashboard() {
         <div className="bg-white rounded-[24px] p-4 shadow-sm border border-[#f4ebd9]">
           <div className="px-4 py-3 mb-2 flex justify-between items-start">
             <div>
-              <h2 className="font-heading font-black text-lg text-slate-900">Quản lý <span className="text-[#f97316]">Trọ</span></h2>
+              <h2 className="font-heading font-black text-lg text-slate-900">Kênh Quản trị <span className="text-[#f97316]">Chủ Trọ</span></h2>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mt-0.5">
-                {user?.role === "landlord" ? "Chủ nhà trọ" : "Dành cho Nhân viên"}
+                {user?.role === "landlord" ? "Chủ nhà trọ" : (user?.role === "admin" ? "Quản trị viên" : "Chủ cơ sở lưu trú")}
               </p>
               {user?.fullName && (
                 <p className="text-xs font-bold text-orange-600 truncate max-w-[130px] mt-0.5">

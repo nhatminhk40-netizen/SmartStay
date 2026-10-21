@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import PageHero from "@/components/smartstay/PageHero";
 import RoommateCard from "@/components/smartstay/RoommateCard";
 import { Field, EmptyState, Select } from "@/components/smartstay/FormBits";
+import { useAuth } from "@/lib/AuthContext";
 
 const campuses = ["ĐH Cần Thơ", "ĐH Y Dược", "ĐH Nam Cần Thơ", "ĐH FPT"];
 
@@ -43,6 +44,7 @@ const emptyForm = {
 };
 
 export default function Roommates() {
+    const { user } = useAuth();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -246,10 +248,61 @@ export default function Roommates() {
                 title="Ghép bạn cùng phòng"
                 subtitle="Tìm bạn cùng phòng văn minh — đồng điệu campus, thói quen sinh hoạt và chi phí minh bạch."
                 actionLabel={showForm ? "Đóng form" : "Đăng tìm bạn"}
-                onAction={() => setShowForm((s) => !s)}
+                onAction={() => {
+                    if (user?.role === "transporter") {
+                        alert("👋 Tính năng Đăng tìm bạn cùng phòng dành riêng cho Sinh viên. Bác tài vui lòng quản lý cuốc xe tại Cổng Tài Xế (/tai-xe).");
+                        return;
+                    }
+                    if (user?.role === "landlord") {
+                        alert("👋 Tính năng Đăng tìm bạn ở ghép dành riêng cho Sinh viên. Bác Chủ trọ vui lòng quản lý phòng tại Kênh Quản Trị Trọ (/chu-tro).");
+                        return;
+                    }
+                    setShowForm((s) => !s);
+                }}
             />
 
             <section className="max-w-7xl mx-auto px-6 py-8">
+                {/* Hướng dẫn khi Tài xế hoặc Chủ trọ xem trang ghép bạn */}
+                {user?.role === "transporter" && (
+                    <div className="bg-teal-50 border border-teal-200 text-teal-900 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
+                                <User className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-sm">Bác tài {user.fullName || "Tài xế"} đang ở mục Ghép bạn của Sinh viên</p>
+                                <p className="text-xs text-teal-700">Mục này chỉ dành cho các bạn sinh viên kết nối tìm bạn ở cùng.</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={() => window.location.href = "/tai-xe"}
+                            className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-sm shrink-0"
+                        >
+                            Vào Cổng Tài Xế (/tai-xe) ➔
+                        </Button>
+                    </div>
+                )}
+
+                {user?.role === "landlord" && (
+                    <div className="bg-orange-50 border border-orange-200 text-orange-950 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center shrink-0">
+                                <User className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-sm">Bác Chủ trọ {user.fullName || ""} đang ở mục Ghép bạn của Sinh viên</p>
+                                <p className="text-xs text-orange-700">Chức năng ghép bạn dành riêng cho các bạn sinh viên tìm bạn cùng phòng.</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={() => window.location.href = "/chu-tro"}
+                            className="bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-sm shrink-0"
+                        >
+                            Vào Kênh Chủ Trọ (/chu-tro) ➔
+                        </Button>
+                    </div>
+                )}
+
                 {/* Form Đăng tìm bạn ở ghép */}
                 {showForm && (
                     <form

@@ -62,13 +62,15 @@ export default function Login() {
         }
       }
 
-      // Nếu có returnTo cụ thể thì chuyển hướng về đó, ngược lại phân luồng theo Role
+      // Nếu có returnTo cụ thể thì chuyển hướng về đó, ngược lại phân luồng chuyên biệt theo Role
       if (returnUrl && returnUrl !== "/" && !returnUrl.includes("/login")) {
         window.location.href = returnUrl;
       } else if (role === "admin") {
         window.location.href = "/admin";
       } else if (role === "employee" || role === "landlord") {
-        window.location.href = "/employee";
+        window.location.href = "/chu-tro";
+      } else if (role === "transporter") {
+        window.location.href = "/tai-xe";
       } else {
         window.location.href = "/";
       }
@@ -99,7 +101,9 @@ export default function Login() {
         } else if (role === "admin") {
           window.location.href = "/admin";
         } else if (role === "employee" || role === "landlord") {
-          window.location.href = "/employee";
+          window.location.href = "/chu-tro";
+        } else if (role === "transporter") {
+          window.location.href = "/tai-xe";
         } else {
           window.location.href = "/";
         }

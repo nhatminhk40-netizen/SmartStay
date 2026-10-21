@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   ExternalLink,
   ChevronDown,
+  ChevronRight,
   Sparkles,
   School,
   Mail,
@@ -135,7 +136,68 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md border-b border-border/60">
+      {/* ── BANNER PHÂN BIỆT VAI TRÒ (ĐẢM BẢO KHÔNG DÙNG CHUNG GIAO DIỆN) ── */}
+      {user?.role === "transporter" && (
+        <div className="bg-teal-900 text-teal-100 text-xs py-2 px-4 border-b border-teal-800 sticky top-0 z-50 shadow-md">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-teal-300 shrink-0" />
+              <span>
+                Bác tài <strong className="text-white font-bold">{user.fullName || "Tài xế"}</strong> đang ở giao diện xem phòng của Sinh viên.
+              </span>
+            </div>
+            <Link
+              to="/tai-xe"
+              className="px-3.5 py-1 rounded-full bg-teal-400 hover:bg-teal-300 text-slate-950 font-black text-[11px] whitespace-nowrap transition shadow-sm flex items-center gap-1"
+            >
+              <span>Vào Cổng Nhận Chuyến (/tai-xe)</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {user?.role === "landlord" && (
+        <div className="bg-orange-900 text-orange-100 text-xs py-2 px-4 border-b border-orange-800 sticky top-0 z-50 shadow-md">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-orange-300 shrink-0" />
+              <span>
+                Bác Chủ trọ <strong className="text-white font-bold">{user.fullName || "Chủ trọ"}</strong> đang ở giao diện xem phòng của Sinh viên.
+              </span>
+            </div>
+            <Link
+              to="/chu-tro"
+              className="px-3.5 py-1 rounded-full bg-orange-500 hover:bg-orange-400 text-white font-black text-[11px] whitespace-nowrap transition shadow-sm flex items-center gap-1"
+            >
+              <span>Vào Kênh Quản Lý Trọ (/chu-tro)</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {user?.role === "admin" && (
+        <div className="bg-slate-950 text-slate-200 text-xs py-2 px-4 border-b border-slate-800 sticky top-0 z-50 shadow-md">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                Bạn đang duyệt với quyền Quản trị viên <strong className="text-white font-bold">{user.fullName || "Admin"}</strong>.
+              </span>
+            </div>
+            <Link
+              to="/admin"
+              className="px-3.5 py-1 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] whitespace-nowrap transition shadow-sm flex items-center gap-1"
+            >
+              <span>Vào Bảng Admin (/admin)</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <header className={cn("sticky z-40 bg-background/85 backdrop-blur-md border-b border-border/60", (user?.role === "transporter" || user?.role === "landlord" || user?.role === "admin") ? "top-9" : "top-0")}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* LOGO */}
           <Link to="/" className="flex items-center gap-2.5 group">
@@ -422,128 +484,173 @@ export default function Header() {
                       </div>
                     </div>
 
-                    {/* Menu items */}
+                    {/* Menu items theo đúng từng vai trò (Zero Role Leak) */}
                     <div className="py-1 space-y-0.5 text-xs">
-                      {/* Tài xế vận tải: Sàn nhận cuốc chuyển trọ */}
+                      {/* VAI TRÒ: TÀI XẾ / ĐỐI TÁC VẬN TẢI */}
                       {user?.role === "transporter" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenUserMenu(false);
-                            navigate("/chuyen-tro");
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold transition text-left"
-                        >
-                          <Truck className="w-4 h-4 text-teal-600" />
-                          <span>Sàn nhận chuyến chuyển trọ</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/tai-xe");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 font-bold transition text-left"
+                          >
+                            <Truck className="w-4 h-4 text-teal-700" />
+                            <span>Cổng Tài Xế Điều Phối Chuyến Xe</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              setOpenProfileModal(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                          >
+                            <User className="w-4 h-4 text-slate-500" />
+                            <span>Hồ sơ Bác tài & Xe</span>
+                          </button>
+                        </>
                       )}
 
-                      {/* Sinh viên: Hợp đồng & Hóa đơn của tôi */}
-                      {(user?.role === "student" || (!user?.role && user)) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenUserMenu(false);
-                            setOpenStudentPortal(true);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold transition text-left"
-                        >
-                          <Receipt className="w-4 h-4 text-emerald-600" />
-                          <span>Phòng & Hóa đơn của tôi</span>
-                        </button>
-                      )}
-
-                      {/* Chủ trọ: Đăng phòng Safe Badge */}
+                      {/* VAI TRÒ: CHỦ NHÀ TRỌ */}
                       {user?.role === "landlord" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenUserMenu(false);
-                            setOpenSafeListing(true);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold transition text-left"
-                        >
-                          <ShieldCheck className="w-4 h-4 text-orange-600" />
-                          <span>Đăng phòng trọ (Safe Badge)</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/chu-tro");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-900 font-bold transition text-left"
+                          >
+                            <Building2 className="w-4 h-4 text-orange-600" />
+                            <span>Kênh Quản Trị Trọ & Hóa Đơn</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              setOpenSafeListing(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-orange-50 text-slate-700 font-medium transition text-left"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-orange-600" />
+                            <span>Đăng phòng trọ (Safe Badge)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              setOpenProfileModal(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                          >
+                            <User className="w-4 h-4 text-slate-500" />
+                            <span>Thông tin Chủ trọ</span>
+                          </button>
+                        </>
                       )}
 
-                      {/* Xem hồ sơ cá nhân */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenUserMenu(false);
-                          setOpenProfileModal(true);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
-                      >
-                        <User className="w-4 h-4 text-slate-500" />
-                        <span>{user?.role === "transporter" ? "Thông tin tài xế & Xe" : "Thông tin tài khoản"}</span>
-                      </button>
-
-                      {/* Lịch sử chuyển trọ (cho Sinh viên & Chủ trọ) */}
-                      {user?.role !== "transporter" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenUserMenu(false);
-                            navigate("/chuyen-tro");
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
-                        >
-                          <Truck className="w-4 h-4 text-slate-500" />
-                          <span>Dịch vụ chuyển trọ của tôi</span>
-                        </button>
-                      )}
-
-                      {/* Ghép bạn (CHỈ dành cho Sinh viên, KHÔNG hiển thị cho Tài xế hay Chủ trọ) */}
-                      {(user?.role === "student" || !user?.role) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenUserMenu(false);
-                            navigate("/ghep-ban");
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
-                        >
-                          <Users className="w-4 h-4 text-slate-500" />
-                          <span>Ghép bạn cùng phòng</span>
-                        </button>
-                      )}
-
-                      {/* Admin panel link */}
+                      {/* VAI TRÒ: QUẢN TRỊ VIÊN (ADMIN) */}
                       {user?.role === "admin" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenUserMenu(false);
-                            navigate("/admin");
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold transition text-left"
-                        >
-                          <LayoutDashboard className="w-4 h-4" />
-                          <span>Trang Quản trị Admin</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/admin");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition text-left"
+                          >
+                            <LayoutDashboard className="w-4 h-4 text-amber-400" />
+                            <span>Bảng Quản Trị Hệ Thống (Admin)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/chu-tro");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-orange-50 text-orange-800 font-medium transition text-left"
+                          >
+                            <Building2 className="w-4 h-4 text-orange-600" />
+                            <span>Kênh Quản Trị Trọ</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/tai-xe");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-teal-50 text-teal-800 font-medium transition text-left"
+                          >
+                            <Truck className="w-4 h-4 text-teal-600" />
+                            <span>Cổng Tài Xế Vận Tải</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              setOpenProfileModal(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                          >
+                            <User className="w-4 h-4 text-slate-500" />
+                            <span>Thông tin Quản trị viên</span>
+                          </button>
+                        </>
                       )}
 
-                      {/* Employee / Landlord panel link */}
-                      {(user?.role === "employee" || user?.role === "admin" || user?.role === "landlord") && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenUserMenu(false);
-                            navigate("/employee");
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold transition text-left"
-                        >
-                          <Building2 className="w-4 h-4 text-orange-600" />
-                          <span>
-                            {user?.role === "landlord"
-                              ? "Kênh Quản lý Trọ của tôi"
-                              : "Bàn làm việc Quản lý Trọ"}
-                          </span>
-                        </button>
+                      {/* VAI TRÒ: SINH VIÊN */}
+                      {(user?.role === "student" || (!user?.role && user)) && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              setOpenStudentPortal(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold transition text-left"
+                          >
+                            <Receipt className="w-4 h-4 text-emerald-600" />
+                            <span>Phòng & Hóa đơn của tôi</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/ghep-ban");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                          >
+                            <Users className="w-4 h-4 text-slate-500" />
+                            <span>Ghép bạn cùng phòng</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/chuyen-tro");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                          >
+                            <Truck className="w-4 h-4 text-slate-500" />
+                            <span>Dịch vụ chuyển trọ sinh viên</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              setOpenProfileModal(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
+                          >
+                            <User className="w-4 h-4 text-slate-500" />
+                            <span>Thông tin tài khoản</span>
+                          </button>
+                        </>
                       )}
 
                       <div className="border-t border-slate-100 my-1" />

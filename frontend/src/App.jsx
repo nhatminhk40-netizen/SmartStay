@@ -21,6 +21,7 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Admin from '@/pages/Admin';
 import EmployeeDashboard from '@/pages/EmployeeDashboard';
+import TransporterPortal from '@/pages/TransporterPortal';
 import LandlordConfirmPage from '@/pages/LandlordConfirmPage';
 import RoomDetail from '@/pages/RoomDetail';
 import CompareRooms from '@/pages/CompareRooms';
@@ -56,18 +57,33 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      {/* Protected Admin route */}
+
+      {/* 1. Phân hệ Quản trị viên (Admin Portal) */}
       <Route path="/admin" element={
         <ProtectedRoute requiredRoles={['admin']}>
           <Admin />
         </ProtectedRoute>
       } />
-      {/* Protected Employee / Landlord route */}
+
+      {/* 2. Phân hệ Chủ trọ (Landlord Portal) */}
+      <Route path="/chu-tro" element={
+        <ProtectedRoute requiredRoles={['landlord', 'admin', 'employee']}>
+          <EmployeeDashboard />
+        </ProtectedRoute>
+      } />
       <Route path="/employee" element={
         <ProtectedRoute requiredRoles={['employee', 'admin', 'landlord']}>
           <EmployeeDashboard />
         </ProtectedRoute>
       } />
+
+      {/* 3. Phân hệ Tài xế Vận tải (Transporter Portal) */}
+      <Route path="/tai-xe" element={
+        <ProtectedRoute requiredRoles={['transporter', 'admin']}>
+          <TransporterPortal />
+        </ProtectedRoute>
+      } />
+
       {/* Landlord confirm route */}
       <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
       {/* Main app routes */}
