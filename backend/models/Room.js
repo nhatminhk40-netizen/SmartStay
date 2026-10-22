@@ -106,11 +106,6 @@ roomSchema.pre('save', function () {
     if (!this.image_url && this.images && this.images.length > 0) {
         this.image_url = this.images[0];
     }
-    // Chỉ cấp safe_badge khi đã qua xác minh verified
-    if (this.verificationStatus === 'verified') {
-        this.safe_badge = true;
-        this.isSafeBadge = true;
-    }
     if (this.listingType === 'pass') {
         this.has_pass = true;
     }

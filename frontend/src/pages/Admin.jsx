@@ -66,7 +66,6 @@ import {
 import RoommateQuiz from "@/components/RoommateQuiz";
 import LogisticsCalculator from "@/components/LogisticsCalculator";
 import PassRoomDialog from "@/components/PassRoomDialog";
-import SafeListingModal from "@/components/SafeListingModal";
 import { cn } from "@/lib/utils";
 
 // Danh mục Icon hỗ trợ cho Tiện nghi
@@ -867,7 +866,6 @@ export default function Admin() {
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 {[
                   { label: "Tổng phòng", value: totalRooms, sub: "Đang công khai", color: "#f97316" },
-                  { label: "Safe Badge", value: safeRooms, sub: `${totalRooms ? Math.round((safeRooms/totalRooms)*100) : 0}% tổng tin`, color: "#10b981" },
                   { label: "Đang Pass", value: passRooms, sub: "Sang nhượng cọc", color: "#f59e0b" },
                   { label: "Lên đầu", value: boostedRooms, sub: "Ưu tiên hiển thị", color: "#6366f1" },
                   { label: "Tìm ghép", value: roommateRooms, sub: "Nhu cầu ở ghép", color: "#a855f7" },
@@ -2107,7 +2105,6 @@ export default function Admin() {
       <RoommateQuiz open={testQuizOpen} onClose={() => setTestQuizOpen(false)} onComplete={() => { setTestQuizOpen(false); showToast("Đã hoàn thành khảo sát!"); }} />
       <LogisticsCalculator open={testLogisticsOpen} onClose={() => setTestLogisticsOpen(false)} />
       <PassRoomDialog open={testPassOpen} onClose={() => setTestPassOpen(false)} onBoost={() => { setTestPassOpen(false); showToast("Đã gửi yêu cầu Pass!"); }} />
-      <SafeListingModal open={testSafeOpen} onClose={() => setTestSafeOpen(false)} onSafe={() => { setTestSafeOpen(false); showToast("Đã duyệt Safe!"); }} />
 
       {/* ── MODAL XEM HỒ SƠ GIẤY TỜ CHỦ TRỌ ── */}
       {selectedLandlordDoc && (

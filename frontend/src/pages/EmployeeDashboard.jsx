@@ -60,10 +60,8 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [images, setImages] = useState([]);
   const [urlInput, setUrlInput] = useState("");
-  const [safeBadgeDoc, setSafeBadgeDoc] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = React.useRef(null);
-  const docInputRef = React.useRef(null);
 
   const initialForm = {
     title: "",
@@ -91,7 +89,6 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
     if (open) {
       setStep(1);
       setImages([]);
-      setSafeBadgeDoc(null);
       setUrlInput("");
       setForm({
         ...initialForm,
@@ -246,9 +243,7 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
         images: finalImages,
         image_url: finalImages[0],
         status: "available",
-        isSafeBadge: Boolean(safeBadgeDoc),
-        safe_badge: Boolean(safeBadgeDoc),
-        listingType: safeBadgeDoc ? "safe" : "standard"
+        listingType: "standard"
       };
 
       await base44.entities.Room.create(payload);
@@ -271,7 +266,7 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
           <h3 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
             <span>Thêm phòng mới</span>
             <span className="text-[#f97316] bg-orange-100/70 text-xs px-2.5 py-1 rounded-full font-bold">
-              Bước {step}/6
+              Bước {step}/5
             </span>
           </h3>
           <button 
@@ -696,64 +691,8 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
             </div>
           )}
 
-          {/* BƯỚC 5: XÁC MINH SAFE BADGE */}
+          {/* BƯỚC 5: XÁC NHẬN & HOÀN TẤT */}
           {step === 5 && (
-            <div className="space-y-4">
-              <h4 className="font-bold text-slate-900 text-base">5. Xác minh Safe Badge (Tùy chọn)</h4>
-              
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-950 space-y-1.5">
-                <p className="font-bold flex items-center gap-1.5 text-emerald-800 text-sm">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                  Huy hiệu Safe Badge giúp tăng 300% lượt thuê
-                </p>
-                <p className="text-slate-600">
-                  Tải lên giấy tờ chứng minh sở hữu (Sổ hồng, hóa đơn điện nước mang tên chủ hộ hoặc Giấy phép kinh doanh) để được cấp huy hiệu Safe Badge miễn phí.
-                </p>
-              </div>
-
-              <input 
-                ref={docInputRef}
-                type="file" 
-                accept="image/*,application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setSafeBadgeDoc(e.target.files[0]);
-                  }
-                }}
-              />
-
-              <div 
-                onClick={() => docInputRef.current?.click()}
-                className="border border-slate-200 bg-white rounded-2xl p-5 text-center cursor-pointer hover:border-[#f97316] hover:bg-orange-50/20 transition flex flex-col items-center justify-center gap-2"
-              >
-                <FileCheck className="w-8 h-8 text-[#f97316]" />
-                <span className="text-sm font-bold text-slate-800">
-                  {safeBadgeDoc ? "Đổi tệp minh chứng khác" : "Chọn tài liệu minh chứng sở hữu"}
-                </span>
-                <span className="text-xs text-slate-500">Chấp nhận định dạng Ảnh (JPG, PNG) hoặc PDF</span>
-              </div>
-
-              {safeBadgeDoc && (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/80 border border-emerald-200">
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="text-xs font-bold text-emerald-900 truncate max-w-xs">{safeBadgeDoc.name}</span>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={() => setSafeBadgeDoc(null)}
-                    className="text-xs text-rose-500 font-bold hover:underline"
-                  >
-                    Xóa
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* BƯỚC 6: XÁC NHẬN & HOÀN TẤT */}
-          {step === 6 && (
             <div className="space-y-4 text-center py-2">
               <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-2">
                 <CheckCircle className="w-8 h-8 text-emerald-600" />
@@ -782,7 +721,7 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
                   <div><span className="text-slate-400">Hình ảnh:</span> <span className="font-bold text-slate-700">{images.length} ảnh</span></div>
                   <div><span className="text-slate-400">Loại:</span> <span className="font-bold text-slate-700">{form.room_type}</span></div>
                   <div><span className="text-slate-400">Tiện nghi:</span> <span className="font-bold text-slate-700">{form.amenities.length} tiện ích</span></div>
-                  <div><span className="text-slate-400">Safe Badge:</span> <span className="font-bold text-emerald-600">{safeBadgeDoc ? "Có gửi minh chứng" : "Chưa gửi"}</span></div>
+                  <div><span className="text-slate-400">Đồng hồ riêng:</span> <span className="font-bold text-slate-700">{form.hasSeparateMeter ? "Có" : "Không"}</span></div>
                   <div className="col-span-2"><span className="text-slate-400">SĐT liên hệ:</span> <span className="font-bold text-emerald-700">{user?.phone || "Theo tài khoản đã xác minh"}</span></div>
                 </div>
               </div>
@@ -801,7 +740,7 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
             {step === 1 ? "Hủy" : "Quay lại"}
           </Button>
           
-          {step < 6 ? (
+          {step < 5 ? (
             <Button 
               onClick={handleNextStep} 
               className="rounded-full font-bold bg-[#f97316] hover:bg-[#ea580c] text-white px-8"
@@ -1085,11 +1024,6 @@ export default function EmployeeDashboard() {
                       <div key={roomId} className="bg-white p-5 rounded-[24px] shadow-sm border border-[#f4ebd9] flex flex-col sm:flex-row gap-5 transition-all hover:shadow-md hover:border-[#f97316]/30">
                         <div className="w-full sm:w-40 h-32 rounded-xl bg-slate-100 shrink-0 overflow-hidden relative">
                           <img src={room.images?.[0] || room.image_url || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"} className="w-full h-full object-cover" alt="room" />
-                          {(room.safe || room.isSafeListing) && (
-                            <div className="absolute top-2 left-2 px-2 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded-lg uppercase">
-                              Safe Badge
-                            </div>
-                          )}
                         </div>
                         <div className="flex-1 flex flex-col justify-between">
                           <div>

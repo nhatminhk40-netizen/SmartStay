@@ -4,7 +4,7 @@ import { ShieldCheck, FileCheck, Tags } from "lucide-react";
 const features = [
     {
         icon: ShieldCheck,
-        title: "100% kiểm duyệt Safe Badge",
+        title: "100% kiểm duyệt phòng trọ",
         desc: "Xác minh phòng trọ thật trước khi đăng",
     },
     {

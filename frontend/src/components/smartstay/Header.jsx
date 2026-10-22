@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
-import SafeListingModal from "@/components/SafeListingModal";
 import StudentPortalModal from "@/components/StudentPortalModal";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +87,6 @@ export default function Header() {
   const [openNotifications, setOpenNotifications] = useState(false);
   const [openUserMenu, setOpenUserMenu] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
-  const [openSafeListing, setOpenSafeListing] = useState(false);
   const [openStudentPortal, setOpenStudentPortal] = useState(false);
 
   // Notifications
@@ -254,21 +252,21 @@ export default function Header() {
                   </div>
 
                   <div className="space-y-1 py-1">
-                    {/* Đăng Safe Badge */}
+                    {/* Đăng phòng trọ */}
                     <button
                       type="button"
                       onClick={() => {
                         setOpenPostMenu(false);
-                        setOpenSafeListing(true);
+                        navigate("/chu-tro");
                       }}
                       className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-orange-50 text-left transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                        <ShieldCheck className="w-4 h-4" />
+                        <Building2 className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800">Đăng phòng Safe Badge™</p>
-                        <p className="text-[11px] text-slate-500 leading-tight">Kiểm duyệt minh bạch & gắn nhãn an toàn</p>
+                        <p className="text-xs font-bold text-slate-800">Đăng phòng trọ</p>
+                        <p className="text-[11px] text-slate-500 leading-tight">Dành cho chủ trọ đăng tin & quản lý phòng</p>
                       </div>
                     </button>
 
@@ -532,12 +530,12 @@ export default function Header() {
                             type="button"
                             onClick={() => {
                               setOpenUserMenu(false);
-                              setOpenSafeListing(true);
+                              navigate("/chu-tro");
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-orange-50 text-slate-700 font-medium transition text-left"
                           >
-                            <ShieldCheck className="w-4 h-4 text-orange-600" />
-                            <span>Đăng phòng trọ (Safe Badge)</span>
+                            <Building2 className="w-4 h-4 text-orange-600" />
+                            <span>Đăng phòng trọ mới</span>
                           </button>
                           <button
                             type="button"
@@ -805,15 +803,6 @@ export default function Header() {
         </div>
       )}
 
-      {/* MODAL SAFE LISTING */}
-      <SafeListingModal
-        open={openSafeListing}
-        onClose={() => setOpenSafeListing(false)}
-        onSafe={() => {
-          setOpenSafeListing(false);
-          navigate("/");
-        }}
-      />
 
       {/* MODAL CỔNG THÔNG TIN SINH VIÊN */}
       <StudentPortalModal

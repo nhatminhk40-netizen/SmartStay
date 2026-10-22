@@ -12,7 +12,7 @@ export const DEFAULT_HERO = {
   highlight: "minh bạch",
   titleSuffix: "cho sinh viên Cần Thơ",
   description: "Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.",
-  badge1: "100% kiểm duyệt Safe Badge",
+  badge1: "100% kiểm duyệt phòng trọ",
   badge2: "Sang nhượng cọc an toàn",
   badge3: "Giá chuyển trọ sinh viên niêm yết",
   ctaSafeText: "Đăng tin Safe",

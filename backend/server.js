@@ -463,7 +463,7 @@ app.get('/api/rooms', async (req, res) => {
             if (seekingRoommate !== undefined) query.seeking_roommate = seekingRoommate === 'true';
             if (type) query.listingType = type;
 
-            const rooms = await Room.find(query).sort({ is_boosted: -1, safe_badge: -1, createdAt: -1 });
+            const rooms = await Room.find(query).sort({ is_boosted: -1, createdAt: -1 });
             return res.status(200).json({ success: true, count: rooms.length, isFallbackMode: false, data: rooms });
         }
 
@@ -1840,8 +1840,6 @@ app.post('/api/safe-listing/admin/verify/:id', protect, authorize('admin'), asyn
 
         const updateData = {
             verificationStatus: isApproved ? 'verified' : 'rejected',
-            safe_badge: Boolean(isApproved),
-            isSafeBadge: Boolean(isApproved),
             fireSafetyCertified: Boolean(fireSafetyInspected),
             verificationEvidence: {
                 idCardVerified: true,
