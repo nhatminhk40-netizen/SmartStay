@@ -41,9 +41,9 @@ import { useAuth } from "@/lib/AuthContext";
 
 const FEATURES = [
   {
-    icon: Shield,
-    title: "Phòng Safe Badge™",
-    desc: "Phòng trọ được kiểm duyệt & xác nhận minh bạch",
+    icon: Truck,
+    title: "Hỗ trợ chuyển trọ",
+    desc: "Kết nối tài xế ba gác, xe tải chuyển đồ tiện lợi, an toàn",
   },
   {
     icon: Users,

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users, Info, Building2 } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users, Info, Building2, Truck } from "lucide-react";
 import GoogleIcon from "@/components/GoogleIcon";
 import GoogleClientIdDialog from "@/components/GoogleClientIdDialog";
 import { triggerGoogleSignIn } from "@/lib/googleAuth";
@@ -12,9 +12,9 @@ import { useAuth } from "@/lib/AuthContext";
 
 const FEATURES = [
   {
-    icon: Shield,
-    title: "Phòng Safe Badge™",
-    desc: "Phòng trọ được kiểm duyệt & xác nhận minh bạch",
+    icon: Truck,
+    title: "Hỗ trợ chuyển trọ",
+    desc: "Kết nối tài xế ba gác, xe tải chuyển đồ tiện lợi, an toàn",
   },
   {
     icon: Users,
