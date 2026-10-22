@@ -4,7 +4,8 @@ import {
   LayoutDashboard, Home as HomeIcon, Users, FileText, Receipt,
   MessageSquare, Star, Settings, Plus, Search, MapPin, CheckCircle,
   Clock, Edit2, Trash2, X, Eye, EyeOff, FileCheck, Info, Building2, ArrowLeft,
-  Calendar, Phone, RefreshCw, AlertCircle, Check
+  Calendar, Phone, RefreshCw, AlertCircle, Check, UploadCloud, Image as ImageIcon,
+  Sparkles, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,114 +49,761 @@ const StatCard = ({ icon: Icon, title, value, sub, colorClass }) => (
   </div>
 );
 
-const AddRoomModal = ({ open, onClose }) => {
+const SAMPLE_ROOM_IMAGES = [
+  "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80"
+];
+
+const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
   const [step, setStep] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [images, setImages] = useState([]);
+  const [urlInput, setUrlInput] = useState("");
+  const [safeBadgeDoc, setSafeBadgeDoc] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = React.useRef(null);
+  const docInputRef = React.useRef(null);
+
+  const initialForm = {
+    title: "",
+    price: "",
+    area_sqm: 20,
+    campus: "ĐH Cần Thơ",
+    address: "",
+    contactPhone: user?.phone || "",
+    room_type: "Phòng trọ khép kín",
+    description: "",
+    amenities: ["Máy lạnh", "Gác lửng"],
+    soundproof: false,
+    petAllowed: false,
+    curfewType: "tu_do",
+    electricityCostType: "nha_nuoc",
+    waterCost: "Theo giá nhà nước",
+    internetFee: 50000,
+    trashFee: 20000,
+    hasSeparateMeter: true,
+  };
+
+  const [form, setForm] = useState(initialForm);
+
+  useEffect(() => {
+    if (open) {
+      setStep(1);
+      setImages([]);
+      setSafeBadgeDoc(null);
+      setUrlInput("");
+      setForm({
+        ...initialForm,
+        contactPhone: user?.phone || ""
+      });
+    }
+  }, [open, user]);
+
   if (!open) return null;
 
+  // Xử lý nạp ảnh từ File input
+  const processImageFiles = (files) => {
+    const validFiles = Array.from(files).filter(f => f.type.startsWith("image/"));
+    if (validFiles.length === 0) {
+      alert("Vui lòng chọn tệp định dạng hình ảnh (.jpg, .png, .webp)!");
+      return;
+    }
+
+    const remainingSlots = 10 - images.length;
+    if (remainingSlots <= 0) {
+      alert("Bạn đã chọn đủ tối đa 10 ảnh cho phòng này!");
+      return;
+    }
+
+    const filesToRead = validFiles.slice(0, remainingSlots);
+    filesToRead.forEach(file => {
+      // Giới hạn 6MB mỗi file
+      if (file.size > 6 * 1024 * 1024) {
+        alert(`Ảnh "${file.name}" quá lớn (>6MB). Vui lòng chọn ảnh dung lượng nhỏ hơn.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result) {
+          setImages(prev => {
+            if (prev.length >= 10) return prev;
+            return [...prev, reader.result];
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileSelect = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processImageFiles(e.target.files);
+      e.target.value = "";
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processImageFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleAddUrl = () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+      alert("Đường dẫn ảnh phải bắt đầu bằng http:// hoặc https://");
+      return;
+    }
+    if (images.length >= 10) {
+      alert("Đã đạt giới hạn tối đa 10 ảnh!");
+      return;
+    }
+    setImages(prev => [...prev, trimmed]);
+    setUrlInput("");
+  };
+
+  const handleUseSamplePhotos = () => {
+    setImages(SAMPLE_ROOM_IMAGES);
+  };
+
+  const toggleAmenity = (item) => {
+    setForm(prev => {
+      const exists = prev.amenities.includes(item);
+      return {
+        ...prev,
+        amenities: exists 
+          ? prev.amenities.filter(a => a !== item) 
+          : [...prev.amenities, item]
+      };
+    });
+  };
+
+  const handleNextStep = () => {
+    if (step === 1) {
+      if (!form.title.trim()) {
+        alert("Vui lòng nhập Tên phòng / Tiêu đề!");
+        return;
+      }
+      if (!form.price || Number(form.price) <= 0) {
+        alert("Vui lòng nhập Giá phòng hợp lệ (VNĐ/tháng)!");
+        return;
+      }
+    }
+    setStep(step + 1);
+  };
+
+  const handleSubmitRoom = async () => {
+    setSubmitting(true);
+    try {
+      const finalImages = images.length > 0 ? images : [SAMPLE_ROOM_IMAGES[0]];
+      const payload = {
+        title: form.title.trim(),
+        price: Number(form.price),
+        area_sqm: Number(form.area_sqm) || 20,
+        campus: form.campus || "ĐH Cần Thơ",
+        address: form.address.trim() || `${form.campus}, Cần Thơ`,
+        location: form.address.trim() || `${form.campus}, Ninh Kiều`,
+        contactPhone: form.contactPhone.trim() || user?.phone || "0901234567",
+        room_type: form.room_type || "Phòng trọ khép kín",
+        description: form.description.trim() || "Phòng trọ mới sạch sẽ, an ninh tốt, giờ giấc tự do.",
+        amenities: form.amenities,
+        soundproof: form.soundproof,
+        petAllowed: form.petAllowed,
+        curfewType: form.curfewType,
+        electricityCostType: form.electricityCostType,
+        waterCost: form.waterCost,
+        extraFees: {
+          wifi: Number(form.internetFee) || 0,
+          trash: Number(form.trashFee) || 0,
+          parking: 0
+        },
+        hasSeparateMeter: form.hasSeparateMeter,
+        images: finalImages,
+        image_url: finalImages[0],
+        status: "available",
+        isSafeBadge: Boolean(safeBadgeDoc),
+        safe_badge: Boolean(safeBadgeDoc),
+        listingType: safeBadgeDoc ? "safe" : "standard"
+      };
+
+      await base44.entities.Room.create(payload);
+      alert(`🎉 Đã thêm phòng "${payload.title}" thành công!`);
+      onSuccess?.();
+      onClose();
+    } catch (err) {
+      console.error("Lỗi khi thêm phòng:", err);
+      alert("Lỗi khi đăng tin phòng: " + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+        {/* Header Modal */}
         <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 bg-[#fdfbf7]">
-          <h3 className="font-heading font-bold text-lg text-slate-900">
-            Thêm phòng mới <span className="text-[#f97316]">Bước {step}/6</span>
+          <h3 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
+            <span>Thêm phòng mới</span>
+            <span className="text-[#f97316] bg-orange-100/70 text-xs px-2.5 py-1 rounded-full font-bold">
+              Bước {step}/6
+            </span>
           </h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition"><X className="w-4 h-4 text-slate-500" /></button>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="p-2 hover:bg-slate-200/80 rounded-full transition text-slate-500"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
         
+        {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-[#fdfbf7]">
+          
+          {/* BƯỚC 1: THÔNG TIN CƠ BẢN */}
           {step === 1 && (
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-900">1. Thông tin cơ bản</h4>
+              <h4 className="font-bold text-slate-900 text-base">1. Thông tin cơ bản</h4>
               <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-1.5">Tên phòng / Tiêu đề</label>
-                <input type="text" className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316]" placeholder="Ví dụ: Phòng trọ ban công..." />
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Tên phòng / Tiêu đề <span className="text-rose-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
+                  placeholder="Ví dụ: Mini house cao cấp gần ĐH Cần Thơ, Phòng ban công..." 
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-600 mb-1.5">Giá (VNĐ/tháng)</label>
-                  <input type="number" className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316]" placeholder="2500000" />
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Giá thuê (VNĐ/tháng) <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="number" 
+                    value={form.price}
+                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
+                    placeholder="Ví dụ: 2500000" 
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-600 mb-1.5">Diện tích (m²)</label>
-                  <input type="number" className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316]" placeholder="20" />
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Diện tích (m²)</label>
+                  <input 
+                    type="number" 
+                    value={form.area_sqm}
+                    onChange={(e) => setForm({ ...form, area_sqm: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
+                    placeholder="20" 
+                  />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Trường / Khu vực gần nhất</label>
+                  <select 
+                    value={form.campus}
+                    onChange={(e) => setForm({ ...form, campus: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium"
+                  >
+                    <option value="ĐH Cần Thơ">ĐH Cần Thơ (Khu 2 - 3 Tháng 2)</option>
+                    <option value="ĐH FPT">ĐH FPT Cần Thơ (An Bình)</option>
+                    <option value="ĐH Y Dược Cần Thơ">ĐH Y Dược Cần Thơ</option>
+                    <option value="ĐH Nam Cần Thơ">ĐH Nam Cần Thơ</option>
+                    <option value="Cao đẳng Cần Thơ">Cao đẳng Cần Thơ</option>
+                    <option value="Ninh Kiều">Trung tâm Ninh Kiều</option>
+                    <option value="Cái Răng">Khu vực Cái Răng</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Loại hình phòng</label>
+                  <select 
+                    value={form.room_type}
+                    onChange={(e) => setForm({ ...form, room_type: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium"
+                  >
+                    <option value="Phòng trọ khép kín">Phòng trọ khép kín</option>
+                    <option value="Mini house / Studio">Mini house / Studio</option>
+                    <option value="Ký túc xá / Homestay">Ký túc xá / Homestay</option>
+                    <option value="Nhà nguyên căn">Nhà nguyên căn</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Địa chỉ cụ thể</label>
+                <input 
+                  type="text" 
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
+                  placeholder="Ví dụ: Hẻm 51 đường 3 Tháng 2, P. Xuân Khánh, Ninh Kiều" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Số điện thoại liên hệ</label>
+                <input 
+                  type="tel" 
+                  value={form.contactPhone}
+                  onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
+                  placeholder="0912345678" 
+                />
               </div>
             </div>
           )}
           
+          {/* BƯỚC 2: TIỆN NGHI & TÙY CHỌN */}
           {step === 2 && (
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-900">2. Tiện nghi & Tùy chọn</h4>
-              <div className="grid grid-cols-2 gap-3">
-                {["Máy lạnh", "Gác lửng", "Tủ lạnh", "Máy giặt", "Nước nóng"].map(a => (
-                  <label key={a} className="flex items-center gap-2 p-3 rounded-xl bg-white border border-slate-200 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 rounded text-[#f97316]" style={{ accentColor: "#f97316" }} />
-                    <span className="text-sm font-semibold text-slate-700">{a}</span>
-                  </label>
-                ))}
+              <h4 className="font-bold text-slate-900 text-base">2. Tiện nghi & Tùy chọn</h4>
+              <p className="text-xs text-slate-500">Chọn các trang thiết bị đã có sẵn trong phòng để sinh viên dễ tìm kiếm:</p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  "Máy lạnh", "Gác lửng", "Tủ lạnh", "Máy giặt", "Nước nóng", 
+                  "Tủ quần áo", "Ban công", "Bếp riêng", "Khóa vân tay"
+                ].map(a => {
+                  const isChecked = form.amenities.includes(a);
+                  return (
+                    <label 
+                      key={a} 
+                      onClick={() => toggleAmenity(a)}
+                      className={cn(
+                        "flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition-all",
+                        isChecked 
+                          ? "bg-orange-50 border-[#f97316] text-[#ea580c] shadow-xs" 
+                          : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                      )}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked} 
+                        onChange={() => {}} // handled by label onClick
+                        className="w-4 h-4 rounded text-[#f97316]" 
+                        style={{ accentColor: "#f97316" }} 
+                      />
+                      <span className="text-sm font-semibold">{a}</span>
+                    </label>
+                  );
+                })}
               </div>
-              <div className="pt-2">
-                <label className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 cursor-pointer">
-                  <span className="text-sm font-bold text-slate-700">Phòng cách âm</span>
-                  <input type="checkbox" className="w-5 h-5 rounded" style={{ accentColor: "#f97316" }} />
+
+              <div className="pt-2 space-y-2.5">
+                <label className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
+                  <div>
+                    <span className="text-sm font-bold text-slate-800 block">Phòng cách âm</span>
+                    <span className="text-xs text-slate-500">Tường dày, cửa cách âm giúp sinh viên yên tĩnh học tập</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={form.soundproof}
+                    onChange={(e) => setForm({ ...form, soundproof: e.target.checked })}
+                    className="w-5 h-5 rounded" 
+                    style={{ accentColor: "#f97316" }} 
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
+                  <div>
+                    <span className="text-sm font-bold text-slate-800 block">Giờ giấc tự do (Không chung chủ)</span>
+                    <span className="text-xs text-slate-500">Sinh viên có chìa khóa cổng hoặc vân tay riêng</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={form.curfewType === "tu_do"}
+                    onChange={(e) => setForm({ ...form, curfewType: e.target.checked ? "tu_do" : "co_gio_gioi_nghiem" })}
+                    className="w-5 h-5 rounded" 
+                    style={{ accentColor: "#f97316" }} 
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-slate-300 transition">
+                  <div>
+                    <span className="text-sm font-bold text-slate-800 block">Cho phép nuôi thú cưng</span>
+                    <span className="text-xs text-slate-500">Chấp nhận sinh viên nuôi mèo hoặc chó nhỏ</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={form.petAllowed}
+                    onChange={(e) => setForm({ ...form, petAllowed: e.target.checked })}
+                    className="w-5 h-5 rounded" 
+                    style={{ accentColor: "#f97316" }} 
+                  />
                 </label>
               </div>
             </div>
           )}
 
+          {/* BƯỚC 3: CHI PHÍ SINH HOẠT */}
           {step === 3 && (
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-900">3. Chi phí sinh hoạt (Không phụ phí ẩn)</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {["Tiền điện (đ/kWh)", "Tiền nước (đ/m3)", "Internet (đ/tháng)", "Rác (đ/tháng)"].map(c => (
-                  <div key={c}>
-                    <label className="block text-sm font-semibold text-slate-600 mb-1.5">{c}</label>
-                    <input type="number" className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316]" />
+              <h4 className="font-bold text-slate-900 text-base">3. Chi phí sinh hoạt (Minh bạch không phụ phí ẩn)</h4>
+              <p className="text-xs text-slate-500">SmartStay cam kết minh bạch chi phí để bảo vệ cả người thuê lẫn uy tín chủ trọ.</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cách tính tiền điện</label>
+                  <select 
+                    value={form.electricityCostType}
+                    onChange={(e) => setForm({ ...form, electricityCostType: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium"
+                  >
+                    <option value="nha_nuoc">Theo giá nhà nước (EVN)</option>
+                    <option value="kinh_doanh">Theo biểu giá 3.500đ / kWh</option>
+                    <option value="gia_co_dinh">Theo biểu giá 4.000đ / kWh</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cách tính tiền nước</label>
+                  <select 
+                    value={form.waterCost}
+                    onChange={(e) => setForm({ ...form, waterCost: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium"
+                  >
+                    <option value="Theo giá nhà nước">Theo giá nước sạch nhà nước</option>
+                    <option value="15.000 VNĐ/khối">15.000 VNĐ / khối (m³)</option>
+                    <option value="20.000 VNĐ/khối">20.000 VNĐ / khối (m³)</option>
+                    <option value="50.000 VNĐ/người">50.000 VNĐ / người / tháng</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Internet / Wifi (VNĐ/tháng)</label>
+                  <input 
+                    type="number" 
+                    value={form.internetFee}
+                    onChange={(e) => setForm({ ...form, internetFee: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
+                    placeholder="50000 (0 nếu miễn phí)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tiền rác & Vệ sinh (VNĐ/tháng)</label>
+                  <input 
+                    type="number" 
+                    value={form.trashFee}
+                    onChange={(e) => setForm({ ...form, trashFee: e.target.value })}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
+                    placeholder="20000"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-2.5 p-3.5 rounded-xl bg-white border border-slate-200 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={form.hasSeparateMeter}
+                    onChange={(e) => setForm({ ...form, hasSeparateMeter: e.target.checked })}
+                    className="w-4 h-4 rounded text-[#f97316]" 
+                    style={{ accentColor: "#f97316" }} 
+                  />
+                  <div>
+                    <span className="text-sm font-bold text-slate-800 block">Đồng hồ điện & nước riêng từng phòng</span>
+                    <span className="text-xs text-slate-500">Giúp phòng đạt tiêu chuẩn minh bạch và sinh viên an tâm thuê</span>
                   </div>
-                ))}
+                </label>
               </div>
             </div>
           )}
 
+          {/* BƯỚC 4: HÌNH ẢNH PHÒNG (INTERACTIVE DROPZONE & CLICK-TO-UPLOAD) */}
           {step === 4 && (
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-900">4. Hình ảnh phòng</h4>
-              <div className="border-2 border-dashed border-slate-300 rounded-2xl p-10 flex flex-col items-center justify-center bg-white text-center">
-                <div className="w-12 h-12 rounded-full bg-[#f97316]/10 flex items-center justify-center mb-3">
-                  <Plus className="w-6 h-6 text-[#f97316]" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-base">4. Hình ảnh phòng</h4>
+                  <p className="text-xs text-slate-500">Hình ảnh thực tế giúp phòng thu hút hơn 80% lượt xem.</p>
                 </div>
-                <div className="font-bold text-slate-700">Kéo thả ảnh hoặc click để tải lên</div>
-                <div className="text-sm text-slate-500 mt-1">Tối đa 10 ảnh (.jpg, .png)</div>
+                {images.length > 0 && (
+                  <span className="text-xs font-bold text-[#f97316] bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200">
+                    {images.length}/10 ảnh
+                  </span>
+                )}
+              </div>
+
+              {/* Input File ẩn kết nối trực tiếp với Dropzone */}
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                multiple 
+                accept="image/png,image/jpeg,image/webp,image/jpg" 
+                className="hidden" 
+                onChange={handleFileSelect} 
+              />
+
+              {/* VÙNG KÉO THẢ & CLICK ĐỂ CHỌN ẢNH */}
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={cn(
+                  "border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none group relative",
+                  isDragging 
+                    ? "border-[#f97316] bg-orange-50/70 scale-[1.01] shadow-md" 
+                    : "border-slate-300 hover:border-[#f97316] bg-white hover:bg-orange-50/20"
+                )}
+              >
+                <div className="w-14 h-14 rounded-full bg-[#f97316]/10 group-hover:bg-[#f97316]/20 flex items-center justify-center mb-3 transition group-hover:scale-110">
+                  <UploadCloud className="w-7 h-7 text-[#f97316]" />
+                </div>
+                <div className="font-bold text-slate-800 text-base group-hover:text-[#f97316] transition">
+                  Kéo thả ảnh hoặc click để tải lên
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Tối đa 10 ảnh (.jpg, .png, .webp) · Dung lượng dưới 6MB/ảnh
+                </div>
+                <div className="mt-3">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f97316] text-white text-xs font-bold shadow-sm">
+                    <Plus className="w-3.5 h-3.5" /> Chọn ảnh từ thiết bị
+                  </span>
+                </div>
+              </div>
+
+              {/* DANH SÁCH ẢNH ĐÃ CHỌN (PREVIEWS) */}
+              {images.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">Ảnh đã tải ({images.length}):</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setImages([])}
+                      className="text-xs font-semibold text-rose-500 hover:underline"
+                    >
+                      Xóa tất cả
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {images.map((img, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group shadow-xs hover:shadow-md transition"
+                      >
+                        <img 
+                          src={img} 
+                          alt={`Ảnh phòng ${idx + 1}`} 
+                          className="w-full h-full object-cover" 
+                        />
+                        {idx === 0 && (
+                          <span className="absolute top-1.5 left-1.5 bg-[#f97316] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow">
+                            Ảnh chính
+                          </span>
+                        )}
+                        <button 
+                          type="button" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveImage(idx);
+                          }}
+                          title="Xóa ảnh này"
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-900/70 hover:bg-rose-600 text-white flex items-center justify-center transition opacity-90 group-hover:opacity-100"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {images.length < 10 && (
+                      <button 
+                        type="button" 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="aspect-video rounded-xl border border-dashed border-slate-300 hover:border-[#f97316] hover:bg-orange-50/30 flex flex-col items-center justify-center text-slate-400 hover:text-[#f97316] transition text-xs font-bold gap-1"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Thêm ảnh
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* DÁN URL HOẶC DÙNG ẢNH MẪU */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="url" 
+                    placeholder="Hoặc dán URL ảnh trực tiếp (https://...)" 
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316]"
+                  />
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="outline"
+                    onClick={handleAddUrl}
+                    className="rounded-xl text-xs font-bold text-[#f97316] border-[#f97316] hover:bg-orange-50 shrink-0"
+                  >
+                    Thêm link
+                  </Button>
+                </div>
+
+                {images.length === 0 && (
+                  <div className="flex justify-center pt-1">
+                    <button 
+                      type="button" 
+                      onClick={handleUseSamplePhotos}
+                      className="text-xs text-[#f97316] font-semibold hover:underline flex items-center gap-1.5 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-200 transition"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" /> Thử nghiệm: Nạp 3 ảnh mẫu phòng trọ
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
+          {/* BƯỚC 5: XÁC MINH SAFE BADGE */}
           {step === 5 && (
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-900">5. Xác minh Safe Badge</h4>
-              <p className="text-sm text-slate-600">Tải lên giấy tờ chứng minh sở hữu (Sổ hồng, hóa đơn điện nước) để nhận huy hiệu Safe Badge, giúp tăng 300% lượt thuê.</p>
-              <input type="file" className="w-full p-3 bg-white rounded-xl border border-slate-200" />
+              <h4 className="font-bold text-slate-900 text-base">5. Xác minh Safe Badge (Tùy chọn)</h4>
+              
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-950 space-y-1.5">
+                <p className="font-bold flex items-center gap-1.5 text-emerald-800 text-sm">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  Huy hiệu Safe Badge giúp tăng 300% lượt thuê
+                </p>
+                <p className="text-slate-600">
+                  Tải lên giấy tờ chứng minh sở hữu (Sổ hồng, hóa đơn điện nước mang tên chủ hộ hoặc Giấy phép kinh doanh) để được cấp huy hiệu Safe Badge miễn phí.
+                </p>
+              </div>
+
+              <input 
+                ref={docInputRef}
+                type="file" 
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setSafeBadgeDoc(e.target.files[0]);
+                  }
+                }}
+              />
+
+              <div 
+                onClick={() => docInputRef.current?.click()}
+                className="border border-slate-200 bg-white rounded-2xl p-5 text-center cursor-pointer hover:border-[#f97316] hover:bg-orange-50/20 transition flex flex-col items-center justify-center gap-2"
+              >
+                <FileCheck className="w-8 h-8 text-[#f97316]" />
+                <span className="text-sm font-bold text-slate-800">
+                  {safeBadgeDoc ? "Đổi tệp minh chứng khác" : "Chọn tài liệu minh chứng sở hữu"}
+                </span>
+                <span className="text-xs text-slate-500">Chấp nhận định dạng Ảnh (JPG, PNG) hoặc PDF</span>
+              </div>
+
+              {safeBadgeDoc && (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/80 border border-emerald-200">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-bold text-emerald-900 truncate max-w-xs">{safeBadgeDoc.name}</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setSafeBadgeDoc(null)}
+                    className="text-xs text-rose-500 font-bold hover:underline"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
+          {/* BƯỚC 6: XÁC NHẬN & HOÀN TẤT */}
           {step === 6 && (
-            <div className="space-y-4 text-center py-6">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <div className="space-y-4 text-center py-2">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-2">
                 <CheckCircle className="w-8 h-8 text-emerald-600" />
               </div>
-              <h4 className="font-bold text-xl text-slate-900">Hoàn tất thiết lập!</h4>
-              <p className="text-sm text-slate-500">Phòng của bạn đã sẵn sàng để đăng lên hệ thống.</p>
+              <h4 className="font-heading font-black text-xl text-slate-900">Hoàn tất thiết lập!</h4>
+              <p className="text-sm text-slate-500">Phòng của bạn đã sẵn sàng để đăng lên hệ thống SmartStay.</p>
+
+              {/* Tóm tắt thông tin phòng */}
+              <div className="bg-white rounded-2xl p-4 border border-slate-200 text-left space-y-3 mt-4">
+                <div className="flex justify-between items-start pb-3 border-b border-slate-100">
+                  <div>
+                    <h5 className="font-bold text-slate-900 text-base">{form.title || "Phòng trọ mới"}</h5>
+                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3" /> {form.address || form.campus} · {form.area_sqm}m²
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-black text-[#f97316] text-lg">
+                      {Number(form.price || 0).toLocaleString("vi-VN")}đ
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">/tháng</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-slate-400">Hình ảnh:</span> <span className="font-bold text-slate-700">{images.length} ảnh</span></div>
+                  <div><span className="text-slate-400">Loại:</span> <span className="font-bold text-slate-700">{form.room_type}</span></div>
+                  <div><span className="text-slate-400">Tiện nghi:</span> <span className="font-bold text-slate-700">{form.amenities.length} tiện ích</span></div>
+                  <div><span className="text-slate-400">Safe Badge:</span> <span className="font-bold text-emerald-600">{safeBadgeDoc ? "Có gửi minh chứng" : "Chưa gửi"}</span></div>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
+        {/* Footer Navigation */}
         <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between">
-          <Button variant="ghost" onClick={() => step > 1 ? setStep(step - 1) : onClose()} className="rounded-full font-bold text-slate-600">
+          <Button 
+            variant="ghost" 
+            disabled={submitting}
+            onClick={() => step > 1 ? setStep(step - 1) : onClose()} 
+            className="rounded-full font-bold text-slate-600"
+          >
             {step === 1 ? "Hủy" : "Quay lại"}
           </Button>
-          <Button onClick={() => step < 6 ? setStep(step + 1) : onClose()} className="rounded-full font-bold bg-[#f97316] hover:bg-[#ea580c] text-white px-8">
-            {step === 6 ? "Đăng tin ngay" : "Tiếp tục"}
-          </Button>
+          
+          {step < 6 ? (
+            <Button 
+              onClick={handleNextStep} 
+              className="rounded-full font-bold bg-[#f97316] hover:bg-[#ea580c] text-white px-8"
+            >
+              Tiếp tục
+            </Button>
+          ) : (
+            <Button 
+              onClick={handleSubmitRoom}
+              disabled={submitting}
+              className="rounded-full font-bold bg-[#f97316] hover:bg-[#ea580c] text-white px-8 flex items-center gap-2"
+            >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {submitting ? "Đang lưu..." : "Đăng tin ngay"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -672,7 +1320,12 @@ export default function EmployeeDashboard() {
         </div>
       </main>
 
-      <AddRoomModal open={isAddRoomOpen} onClose={() => setAddRoomOpen(false)} />
+      <AddRoomModal 
+        open={isAddRoomOpen} 
+        onClose={() => setAddRoomOpen(false)} 
+        user={user}
+        onSuccess={loadLandlordData}
+      />
     </div>
   );
 }

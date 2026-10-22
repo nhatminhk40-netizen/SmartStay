@@ -178,9 +178,12 @@ export const base44 = {
 
       create: async (data) => {
         try {
+          const token = localStorage.getItem('smartstay_token');
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
           const res = await fetch(`${API_BASE}/rooms`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(data)
           });
           const json = await res.json();
@@ -203,9 +206,12 @@ export const base44 = {
 
       update: async (id, data) => {
         try {
+          const token = localStorage.getItem('smartstay_token');
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
           const res = await fetch(`${API_BASE}/rooms/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(data)
           });
           const json = await res.json();
@@ -227,8 +233,12 @@ export const base44 = {
 
       delete: async (id) => {
         try {
+          const token = localStorage.getItem('smartstay_token');
+          const headers = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
           const res = await fetch(`${API_BASE}/rooms/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers
           });
           const json = await res.json();
           const idx = FALLBACK_ROOMS.findIndex(r => r.id === id || r._id === id);
@@ -243,9 +253,12 @@ export const base44 = {
       },
 
       pass: async (data) => {
+        const token = localStorage.getItem('smartstay_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetch(`${API_BASE}/rooms/pass`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(data)
         });
         return res.json();
