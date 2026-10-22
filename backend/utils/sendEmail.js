@@ -141,7 +141,27 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
 Đội ngũ vận hành SmartStay
     `.trim();
 
-    // 1. ƯU TIÊN 1: Brevo REST API (Chạy qua HTTPS port 443 - Render Free không chặn)
+    // 1. ƯU TIÊN 1: Vercel Mail Relay (Gửi Gmail SMTP từ Vercel qua HTTPS port 443 - không bị Render chặn cổng)
+    try {
+        const vercelRelayUrl = process.env.VERCEL_RELAY_URL || 'https://smart-stay-swart.vercel.app/api/send-otp';
+        console.log(`🚀 [sendEmail] Đang gửi OTP cho ${to} qua Vercel Relay (${vercelRelayUrl})...`);
+        const relayRes = await fetch(vercelRelayUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to, otpCode, purpose, htmlContent, textContent })
+        });
+        const relayData = await relayRes.json();
+        if (relayRes.ok && relayData.success) {
+            console.log('✅ [Vercel Relay] Đã gửi email Gmail thành công! MessageId:', relayData.messageId);
+            return { messageId: relayData.messageId };
+        } else {
+            console.warn('⚠️ [Vercel Relay] Không thành công:', relayData?.message || relayData);
+        }
+    } catch (relayErr) {
+        console.warn('⚠️ [Vercel Relay] Lỗi gọi relay:', relayErr.message);
+    }
+
+    // 2. ƯU TIÊN 2: Brevo REST API (nếu có cấu hình)
     if (process.env.BREVO_API_KEY) {
         console.log(`🚀 [sendEmail] Gửi OTP đến ${to} qua Brevo HTTPS API...`);
         const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.GMAIL_USER || 'hotro@smartstay.vn';
