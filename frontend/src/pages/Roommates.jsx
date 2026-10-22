@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
     UserPlus,
@@ -18,47 +19,128 @@ import {
     ExternalLink,
     Send,
     Sparkles,
-    User
+    User,
+    ArrowUpDown,
+    Home,
+    AlertTriangle,
+    RotateCcw,
+    ChevronDown,
+    Filter
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import PageHero from "@/components/smartstay/PageHero";
 import RoommateCard from "@/components/smartstay/RoommateCard";
+import ReportModal from "@/components/smartstay/ReportModal";
+import RoommatePostWizard from "@/components/smartstay/RoommatePostWizard";
 import { Field, EmptyState, Select } from "@/components/smartstay/FormBits";
 import { useAuth } from "@/lib/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { formatGender } from "@/utils/genderLabel";
+import { calcCompatibility } from "@/utils/compatibility";
+import { roommateApi } from "@/services/roommateApi";
 
 const campuses = ["ĐH Cần Thơ", "ĐH Y Dược", "ĐH Nam Cần Thơ", "ĐH FPT"];
+const PAGE_SIZE = 12;
 
-const emptyForm = {
-    name: "",
-    gender: "Nam",
-    age: "20",
-    campus: "ĐH Cần Thơ",
-    budget: "2.2",
-    hasPet: "no",
-    smokingDrinking: "none",
-    sleepSchedule: "flexible",
-    habits: "",
-    description: "",
-    contact: "",
-};
+/**
+ * Skeleton hiển thị khi đang tải danh sách thẻ
+ */
+function RoommateCardSkeleton() {
+    return (
+        <div className="bg-card rounded-3xl border border-border/80 p-5 flex flex-col h-[320px] justify-between shadow-xs animate-pulse">
+            <div>
+                <div className="flex items-center gap-3 mb-3">
+                    <Skeleton className="w-12 h-12 rounded-2xl bg-slate-200" />
+                    <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-32 bg-slate-200 rounded" />
+                        <Skeleton className="h-3 w-24 bg-slate-100 rounded" />
+                    </div>
+                    <Skeleton className="h-6 w-16 rounded-full bg-slate-200" />
+                </div>
+                <Skeleton className="h-8 w-full rounded-xl bg-slate-100 mb-3" />
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                    <Skeleton className="h-6 w-24 rounded-lg bg-slate-100" />
+                    <Skeleton className="h-6 w-20 rounded-lg bg-slate-100" />
+                    <Skeleton className="h-6 w-16 rounded-lg bg-slate-100" />
+                </div>
+                <Skeleton className="h-10 w-full rounded-xl bg-slate-100" />
+            </div>
+            <div className="pt-3 border-t border-border/60 flex items-center justify-between">
+                <Skeleton className="h-4 w-28 bg-slate-200 rounded" />
+                <div className="flex gap-2">
+                    <Skeleton className="h-8 w-8 rounded-xl bg-slate-200" />
+                    <Skeleton className="h-8 w-20 rounded-xl bg-slate-200" />
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function Roommates() {
     const { user } = useAuth();
+    const { toast } = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const formSectionRef = useRef(null);
+
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [showForm, setShowForm] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState(emptyForm);
 
-    // Thanh tùy chỉnh bộ lọc (Filter Bar)
-    const [searchKeyword, setSearchKeyword] = useState("");
-    const [petFilter, setPetFilter] = useState("all"); // 'all', 'has_pet', 'no_pet'
-    const [smokingFilter, setSmokingFilter] = useState("all"); // 'all', 'none'
-    const [sleepFilter, setSleepFilter] = useState("all"); // 'all', 'early', 'night_owl'
-    const [campusFilter, setCampusFilter] = useState("all");
-    const [genderFilter, setGenderFilter] = useState("all");
-    const [budgetFilter, setBudgetFilter] = useState("all"); // 'all', 'under_2', '2_to_3', 'over_3'
+    // Phân trang "Tải thêm" 12 hồ sơ
+    const [page, setPage] = useState(1);
+
+    // Thu gọn bộ lọc trên Mobile (Drawer/Collapse)
+    const [showMobileFilter, setShowMobileFilter] = useState(false);
+
+    // Hồ sơ của người dùng hiện tại & Tương tác Lưu / Ẩn / Báo cáo
+    const [myProfile, setMyProfile] = useState(() => roommateApi.getMyProfile(user));
+    const [savedIds, setSavedIds] = useState(() => roommateApi.getSavedIds());
+    const [hiddenIds, setHiddenIds] = useState(() => roommateApi.getHiddenIds());
+    const [reportingProfile, setReportingProfile] = useState(null);
+
+    // Đọc trạng thái ban đầu từ URL query string
+    const urlQuery = searchParams.get("q") || "";
+    const urlPet = searchParams.get("pet") || "all";
+    const urlSmoking = searchParams.get("smoking") || "all";
+    const urlSleep = searchParams.get("sleep") || "all";
+    const urlCampus = searchParams.get("campus") || "all";
+    const urlGender = searchParams.get("gender") || "all";
+    const urlBudget = searchParams.get("budget") || "all";
+    const urlType = searchParams.get("type") || "all";
+    const urlSort = searchParams.get("sort") || (roommateApi.getMyProfile(user) ? "compat" : "newest");
+    const urlStrictList = (searchParams.get("strict") || "").split(",").filter(Boolean);
+
+    // Sắp xếp danh sách
+    const [sortBy, setSortBy] = useState(urlSort);
+
+    // Thanh tìm kiếm từ khóa kèm Debounce 400ms
+    const [searchKeyword, setSearchKeyword] = useState(urlQuery);
+    const [debouncedKeyword, setDebouncedKeyword] = useState(urlQuery);
+
+    // Bộ lọc Loại hình phòng
+    const [roomTypeFilter, setRoomTypeFilter] = useState(urlType); // 'all', 'has_room', 'need_room'
+
+    // 6 Bộ lọc tiêu chí hiện có
+    const [petFilter, setPetFilter] = useState(urlPet);
+    const [smokingFilter, setSmokingFilter] = useState(urlSmoking);
+    const [sleepFilter, setSleepFilter] = useState(urlSleep);
+    const [campusFilter, setCampusFilter] = useState(urlCampus);
+    const [genderFilter, setGenderFilter] = useState(urlGender);
+    const [budgetFilter, setBudgetFilter] = useState(urlBudget);
+
+    // Công tắc "Bắt buộc" cho từng bộ lọc (bắt buộc = loại hẳn; không bật = cộng điểm ưu tiên)
+    const [strictFilters, setStrictFilters] = useState({
+        pet: urlStrictList.includes("pet"),
+        smoking: urlStrictList.includes("smoking"),
+        sleep: urlStrictList.includes("sleep"),
+        campus: urlStrictList.includes("campus"),
+        gender: urlStrictList.includes("gender"),
+        budget: urlStrictList.includes("budget")
+    });
 
     // Modal Hộp thoại Nhắn tin Messenger / Zalo
     const [selectedRoommate, setSelectedRoommate] = useState(null);
@@ -66,30 +148,395 @@ export default function Roommates() {
     const [copiedMessage, setCopiedMessage] = useState(false);
     const [sentStatus, setSentStatus] = useState(false);
 
+    // Debounce tìm kiếm 400ms
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedKeyword(searchKeyword);
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchKeyword]);
+
+    // Đồng bộ các bộ lọc lên URL query string
+    useEffect(() => {
+        const params = new URLSearchParams();
+        if (debouncedKeyword.trim()) params.set("q", debouncedKeyword.trim());
+        if (petFilter !== "all") params.set("pet", petFilter);
+        if (smokingFilter !== "all") params.set("smoking", smokingFilter);
+        if (sleepFilter !== "all") params.set("sleep", sleepFilter);
+        if (campusFilter !== "all") params.set("campus", campusFilter);
+        if (genderFilter !== "all") params.set("gender", genderFilter);
+        if (budgetFilter !== "all") params.set("budget", budgetFilter);
+        if (roomTypeFilter !== "all") params.set("type", roomTypeFilter);
+        if (sortBy !== "newest") params.set("sort", sortBy);
+
+        const activeStrict = Object.keys(strictFilters).filter((k) => strictFilters[k]);
+        if (activeStrict.length > 0) {
+            params.set("strict", activeStrict.join(","));
+        }
+
+        setSearchParams(params, { replace: true });
+    }, [
+        debouncedKeyword,
+        petFilter,
+        smokingFilter,
+        sleepFilter,
+        campusFilter,
+        genderFilter,
+        budgetFilter,
+        roomTypeFilter,
+        sortBy,
+        strictFilters,
+        setSearchParams
+    ]);
+
     const load = async () => {
         setLoading(true);
+        setLoadError(false);
         try {
             const res = await base44.entities.Roommate.filter(
                 {},
                 { sort: "-created_date", limit: 50 }
             );
             setItems(res.items || []);
-        } catch {
+        } catch (err) {
+            console.error("Lỗi tải danh sách ở ghép:", err);
             setItems([]);
+            setLoadError(true);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
         load();
     }, []);
 
+    // Lắng nghe sự kiện cập nhật hồ sơ cá nhân và danh sách lưu
+    useEffect(() => {
+        const handleProfileUpdate = (e) => {
+            if (e.detail) {
+                setMyProfile(e.detail);
+                setSortBy("compat");
+            }
+        };
+        const handleSavedUpdate = (e) => {
+            if (e.detail) setSavedIds(e.detail);
+        };
+        const handleHiddenUpdate = (e) => {
+            if (e.detail) setHiddenIds(e.detail);
+        };
+
+        window.addEventListener("smartstay:my_profile_updated", handleProfileUpdate);
+        window.addEventListener("smartstay:saved_roommates_updated", handleSavedUpdate);
+        window.addEventListener("smartstay:hidden_roommates_updated", handleHiddenUpdate);
+
+        return () => {
+            window.removeEventListener("smartstay:my_profile_updated", handleProfileUpdate);
+            window.removeEventListener("smartstay:saved_roommates_updated", handleSavedUpdate);
+            window.removeEventListener("smartstay:hidden_roommates_updated", handleHiddenUpdate);
+        };
+    }, []);
+
+    // Bật/tắt trạng thái Bắt buộc cho từng tiêu chí
+    const toggleStrict = (key) => {
+        setStrictFilters((prev) => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+        setPage(1);
+    };
+
+    // 1. Tính toán điểm tương thích cho từng người ở ghép
+    const itemsWithCompat = useMemo(() => {
+        return items.map((it) => ({
+            ...it,
+            compat: calcCompatibility(myProfile, it)
+        }));
+    }, [items, myProfile]);
+
+    // 2. Lọc bỏ các hồ sơ đã bị ẩn
+    const visibleItems = useMemo(() => {
+        return itemsWithCompat.filter((it) => !hiddenIds.includes(String(it.id || it._id)));
+    }, [itemsWithCompat, hiddenIds]);
+
+    // 3. Lọc danh sách theo thanh tùy chỉnh nâng cao (hỗ trợ Bắt buộc vs Ưu tiên)
+    const filteredItems = useMemo(() => {
+        return visibleItems
+            .map((it) => {
+                let preferenceScore = 0;
+
+                // A. Lọc từ khóa tìm kiếm (Debounced)
+                if (debouncedKeyword.trim()) {
+                    const q = debouncedKeyword.toLowerCase();
+                    const matchName = it.name?.toLowerCase().includes(q);
+                    const matchCampus = it.campus?.toLowerCase().includes(q);
+                    const matchHabits = it.habits?.toLowerCase().includes(q);
+                    const matchDesc = it.description?.toLowerCase().includes(q);
+                    if (!matchName && !matchCampus && !matchHabits && !matchDesc) {
+                        return null;
+                    }
+                }
+
+                // B. Lọc Loại hình phòng (Tôi có phòng / Tôi tìm phòng)
+                if (roomTypeFilter === "has_room") {
+                    const hasRoom = it.type === "has_room" || it.hasRoom;
+                    if (!hasRoom) return null;
+                } else if (roomTypeFilter === "need_room") {
+                    const hasRoom = it.type === "has_room" || it.hasRoom;
+                    if (hasRoom) return null;
+                }
+
+                // C. Lọc Thú cưng
+                let matchPet = true;
+                if (petFilter === "has_pet") {
+                    matchPet = Boolean(
+                        it.hasPet ||
+                        it.habits?.toLowerCase().includes("mèo") ||
+                        it.habits?.toLowerCase().includes("chó") ||
+                        it.habits?.toLowerCase().includes("thú cưng")
+                    );
+                } else if (petFilter === "no_pet") {
+                    const hasPet = Boolean(
+                        it.hasPet ||
+                        it.habits?.toLowerCase().includes("mèo") ||
+                        it.habits?.toLowerCase().includes("chó") ||
+                        it.habits?.toLowerCase().includes("có nuôi")
+                    );
+                    matchPet = !hasPet;
+                }
+                if (petFilter !== "all") {
+                    if (strictFilters.pet) {
+                        if (!matchPet) return null;
+                    } else if (matchPet) {
+                        preferenceScore += 10;
+                    }
+                }
+
+                // D. Lọc Hút thuốc
+                let matchSmoking = true;
+                if (smokingFilter === "none") {
+                    matchSmoking = Boolean(
+                        it.smokingDrinking === "none" ||
+                        it.habits?.toLowerCase().includes("không hút")
+                    );
+                }
+                if (smokingFilter !== "all") {
+                    if (strictFilters.smoking) {
+                        if (!matchSmoking) return null;
+                    } else if (matchSmoking) {
+                        preferenceScore += 25;
+                    }
+                }
+
+                // E. Lọc Giờ giấc
+                let matchSleep = true;
+                if (sleepFilter === "early") {
+                    matchSleep = Boolean(
+                        it.sleepSchedule === "early_bird" ||
+                        it.sleepSchedule === "early" ||
+                        it.habits?.toLowerCase().includes("ngủ sớm")
+                    );
+                } else if (sleepFilter === "night_owl") {
+                    matchSleep = Boolean(
+                        it.sleepSchedule === "night_owl" ||
+                        it.habits?.toLowerCase().includes("khuya") ||
+                        it.habits?.toLowerCase().includes("cú đêm")
+                    );
+                }
+                if (sleepFilter !== "all") {
+                    if (strictFilters.sleep) {
+                        if (!matchSleep) return null;
+                    } else if (matchSleep) {
+                        preferenceScore += 25;
+                    }
+                }
+
+                // F. Lọc Campus
+                let matchCampus = true;
+                if (campusFilter !== "all") {
+                    matchCampus = Boolean(it.campus?.includes(campusFilter));
+                }
+                if (campusFilter !== "all") {
+                    if (strictFilters.campus) {
+                        if (!matchCampus) return null;
+                    } else if (matchCampus) {
+                        preferenceScore += 15;
+                    }
+                }
+
+                // G. Lọc Giới tính
+                let matchGender = true;
+                if (genderFilter !== "all") {
+                    const normGender = formatGender(it.gender);
+                    matchGender = normGender === genderFilter;
+                }
+                if (genderFilter !== "all") {
+                    if (strictFilters.gender) {
+                        if (!matchGender) return null;
+                    } else if (matchGender) {
+                        preferenceScore += 20;
+                    }
+                }
+
+                // H. Lọc Ngân sách
+                let matchBudget = true;
+                const b = Number(it.budget);
+                if (budgetFilter === "under_2") matchBudget = b < 2.0;
+                else if (budgetFilter === "2_to_3") matchBudget = b >= 2.0 && b <= 3.0;
+                else if (budgetFilter === "over_3") matchBudget = b > 3.0;
+                if (budgetFilter !== "all") {
+                    if (strictFilters.budget) {
+                        if (!matchBudget) return null;
+                    } else if (matchBudget) {
+                        preferenceScore += 20;
+                    }
+                }
+
+                return {
+                    ...it,
+                    preferenceScore
+                };
+            })
+            .filter(Boolean);
+    }, [
+        visibleItems,
+        debouncedKeyword,
+        roomTypeFilter,
+        petFilter,
+        smokingFilter,
+        sleepFilter,
+        campusFilter,
+        genderFilter,
+        budgetFilter,
+        strictFilters
+    ]);
+
+    // 4. Sắp xếp danh sách người ở ghép (kết hợp điểm ưu tiên và độ tương thích)
+    const sortedItems = useMemo(() => {
+        const list = [...filteredItems];
+        if (sortBy === "compat") {
+            list.sort((a, b) => {
+                const totalScoreA = (a.compat?.score ?? 0) + (a.preferenceScore || 0) * 0.15;
+                const totalScoreB = (b.compat?.score ?? 0) + (b.preferenceScore || 0) * 0.15;
+                return totalScoreB - totalScoreA;
+            });
+        } else if (sortBy === "budget_asc") {
+            list.sort((a, b) => (Number(a.budget) || 999) - (Number(b.budget) || 999));
+        } else if (sortBy === "budget_desc") {
+            list.sort((a, b) => (Number(b.budget) || 0) - (Number(a.budget) || 0));
+        } else {
+            // "newest" - đưa các bạn khớp ưu tiên lên trước
+            list.sort((a, b) => (b.preferenceScore || 0) - (a.preferenceScore || 0));
+        }
+        return list;
+    }, [filteredItems, sortBy]);
+
+    // Danh sách hồ sơ hiển thị sau phân trang
+    const displayedItems = useMemo(() => {
+        return sortedItems.slice(0, page * PAGE_SIZE);
+    }, [sortedItems, page]);
+
+    // Hành động: Bật / Tắt lưu hồ sơ
+    const handleToggleSave = (person) => {
+        const pId = person.id || person._id;
+        const isNowSaved = roommateApi.toggleSave(pId);
+        setSavedIds(roommateApi.getSavedIds());
+        toast({
+            title: isNowSaved ? "Đã lưu hồ sơ" : "Đã bỏ lưu",
+            description: isNowSaved
+                ? `Đã lưu hồ sơ của ${person.name} vào danh sách quan tâm.`
+                : `Đã xóa hồ sơ của ${person.name} khỏi danh sách quan tâm.`
+        });
+    };
+
+    // Hành động: Ẩn hồ sơ với Toast Hoàn tác trong 5 giây (Optimistic)
+    const handleHideProfile = (person) => {
+        const pId = String(person.id || person._id);
+        roommateApi.hideProfile(pId);
+        setHiddenIds(roommateApi.getHiddenIds());
+
+        toast({
+            title: "Đã ẩn hồ sơ",
+            description: `Hồ sơ của ${person.name} đã được tạm ẩn khỏi kết quả tìm kiếm.`,
+            action: (
+                <ToastAction
+                    altText="Hoàn tác"
+                    onClick={() => {
+                        roommateApi.unhideProfile(pId);
+                        setHiddenIds(roommateApi.getHiddenIds());
+                        toast({
+                            title: "Đã hoàn tác",
+                            description: `Hồ sơ của ${person.name} đã được hiển thị trở lại.`
+                        });
+                    }}
+                >
+                    Hoàn tác (5s)
+                </ToastAction>
+            ),
+            duration: 5000
+        });
+    };
+
+    // Hành động: Mở modal Báo cáo
+    const handleOpenReport = (person) => {
+        setReportingProfile(person);
+    };
+
+    // Hành động: Xác nhận gửi Báo cáo
+    const handleSubmitReport = async (reportData) => {
+        await roommateApi.reportProfile({
+            reporterId: user?.id || user?._id || "guest",
+            profileId: reportData.profileId,
+            reason: reportData.reason,
+            detail: reportData.detail
+        });
+        toast({
+            title: "Đã gửi báo cáo thành công",
+            description: "Cảm ơn bạn đã đóng góp phản hồi để giữ môi trường SmartStay văn minh, an toàn!"
+        });
+    };
+
+    // Mở form đăng tìm bạn hoặc cuộn đến form
+    const handlePromptCreateProfile = () => {
+        setShowForm(true);
+        if (formSectionRef.current) {
+            formSectionRef.current.scrollIntoView({ behavior: "smooth" });
+        } else {
+            window.scrollTo({ top: 280, behavior: "smooth" });
+        }
+    };
+
+    // Tạo tin nhắn kết nối được cá nhân hóa dựa trên các điểm tương đồng
+    const generateConnectMessage = (person) => {
+        const rawName = person.name || "bạn";
+        const nameParts = rawName.trim().split(/\s+/);
+        const firstName = nameParts[nameParts.length - 1];
+
+        const matched = person.compat?.matched || [];
+        if (matched.length > 0) {
+            const formattedPoints = matched
+                .slice(0, 2)
+                .map((m) => {
+                    let clean = m.trim();
+                    if (clean.toLowerCase().startsWith("cùng ")) {
+                        clean = clean.slice(5);
+                    }
+                    return clean.charAt(0).toLowerCase() + clean.slice(1);
+                })
+                .join(" và ");
+
+            return `Chào ${firstName}, mình thấy hai đứa cùng ${formattedPoints} (ngân sách ~${person.budget}tr/tháng). Mình muốn trao đổi thêm về việc ở ghép nhé!`;
+        }
+
+        return `Chào ${firstName}, mình thấy bạn đang tìm bạn ở ghép cùng trường ${person.campus || "Cần Thơ"} (ngân sách ~${person.budget}tr/tháng). Mình muốn trao đổi thêm về việc ở ghép nhé!`;
+    };
+
     // Mở hộp thoại nhắn tin
     const handleOpenConnect = (person) => {
         setSelectedRoommate(person);
-        setCustomMessage(
-            `Chào bạn ${person.name}, mình thấy bạn đang tìm bạn ở ghép cùng trường ${person.campus} trên SmartStay (ngân sách ~${person.budget}tr/tháng). Thói quen của chúng mình khá tương đồng. Mình muốn kết nối để trao đổi thêm về việc ở ghép cùng bạn nhé!`
-        );
+        const msg = generateConnectMessage(person);
+        setCustomMessage(msg.slice(0, 300));
         setCopiedMessage(false);
         setSentStatus(false);
     };
@@ -134,112 +581,47 @@ export default function Roommates() {
     // Xóa toàn bộ bộ lọc
     const handleResetFilters = () => {
         setSearchKeyword("");
+        setDebouncedKeyword("");
+        setRoomTypeFilter("all");
         setPetFilter("all");
         setSmokingFilter("all");
         setSleepFilter("all");
         setCampusFilter("all");
         setGenderFilter("all");
         setBudgetFilter("all");
+        setStrictFilters({
+            pet: false,
+            smoking: false,
+            sleep: false,
+            campus: false,
+            gender: false,
+            budget: false
+        });
+        setPage(1);
     };
 
     const hasActiveFilters =
         searchKeyword !== "" ||
+        roomTypeFilter !== "all" ||
         petFilter !== "all" ||
         smokingFilter !== "all" ||
         sleepFilter !== "all" ||
         campusFilter !== "all" ||
         genderFilter !== "all" ||
-        budgetFilter !== "all";
+        budgetFilter !== "all" ||
+        Object.values(strictFilters).some(Boolean);
 
-    // Lọc danh sách người ở ghép theo thanh tùy chỉnh
-    const filteredItems = useMemo(() => {
-        return items.filter((it) => {
-            // 1. Lọc từ khóa tìm kiếm
-            if (searchKeyword.trim()) {
-                const q = searchKeyword.toLowerCase();
-                const matchName = it.name?.toLowerCase().includes(q);
-                const matchCampus = it.campus?.toLowerCase().includes(q);
-                const matchHabits = it.habits?.toLowerCase().includes(q);
-                const matchDesc = it.description?.toLowerCase().includes(q);
-                if (!matchName && !matchCampus && !matchHabits && !matchDesc) {
-                    return false;
-                }
-            }
-
-            // 2. Lọc Thú cưng
-            if (petFilter === "has_pet") {
-                const hasPet = it.hasPet || it.habits?.toLowerCase().includes("mèo") || it.habits?.toLowerCase().includes("chó") || it.habits?.toLowerCase().includes("thú cưng");
-                if (!hasPet) return false;
-            } else if (petFilter === "no_pet") {
-                const hasPet = it.hasPet || it.habits?.toLowerCase().includes("mèo") || it.habits?.toLowerCase().includes("chó") || it.habits?.toLowerCase().includes("có nuôi");
-                if (hasPet) return false;
-            }
-
-            // 3. Lọc Hút thuốc
-            if (smokingFilter === "none") {
-                const isNoSmoking = it.smokingDrinking === "none" || it.habits?.toLowerCase().includes("không hút");
-                if (!isNoSmoking) return false;
-            }
-
-            // 4. Lọc Giấc ngủ
-            if (sleepFilter === "early") {
-                const isEarly = it.sleepSchedule === "early_bird" || it.habits?.toLowerCase().includes("ngủ sớm");
-                if (!isEarly) return false;
-            } else if (sleepFilter === "night_owl") {
-                const isNight = it.sleepSchedule === "night_owl" || it.habits?.toLowerCase().includes("khuya") || it.habits?.toLowerCase().includes("cú đêm");
-                if (!isNight) return false;
-            }
-
-            // 5. Lọc Campus
-            if (campusFilter !== "all" && !it.campus?.includes(campusFilter)) {
-                return false;
-            }
-
-            // 6. Lọc Giới tính
-            if (genderFilter !== "all" && it.gender !== genderFilter) {
-                return false;
-            }
-
-            // 7. Lọc Ngân sách
-            if (budgetFilter === "under_2" && it.budget >= 2.0) return false;
-            if (budgetFilter === "2_to_3" && (it.budget < 2.0 || it.budget > 3.0)) return false;
-            if (budgetFilter === "over_3" && it.budget <= 3.0) return false;
-
-            return true;
-        });
-    }, [items, searchKeyword, petFilter, smokingFilter, sleepFilter, campusFilter, genderFilter, budgetFilter]);
-
-    // Submit form đăng tìm bạn
-    const submit = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        try {
-            const hasPetText = form.hasPet === "yes" ? "Có nuôi thú cưng" : "Không nuôi pet";
-            const smokingText = form.smokingDrinking === "none" ? "Không hút thuốc" : "Có hút thuốc";
-            const sleepText = form.sleepSchedule === "early_bird" ? "Ngủ sớm" : (form.sleepSchedule === "night_owl" ? "Thức khuya" : "Linh hoạt");
-            const combinedHabits = [hasPetText, smokingText, sleepText, form.habits].filter(Boolean).join(", ");
-
-            await base44.entities.Roommate.create({
-                name: form.name,
-                gender: form.gender,
-                age: form.age ? Number(form.age) : 20,
-                campus: form.campus,
-                budget: form.budget ? Number(form.budget) : 2.0,
-                hasPet: form.hasPet === "yes",
-                smokingDrinking: form.smokingDrinking,
-                sleepSchedule: form.sleepSchedule,
-                habits: combinedHabits,
-                description: form.description,
-                contact: form.contact
-            });
-
-            setForm(emptyForm);
-            setShowForm(false);
-            load();
-        } finally {
-            setSaving(false);
-        }
-    };
+    // Đếm số lượng bộ lọc đang kích hoạt
+    const activeFilterCount = [
+        searchKeyword !== "",
+        roomTypeFilter !== "all",
+        petFilter !== "all",
+        smokingFilter !== "all",
+        sleepFilter !== "all",
+        campusFilter !== "all",
+        genderFilter !== "all",
+        budgetFilter !== "all"
+    ].filter(Boolean).length;
 
     return (
         <>
@@ -275,7 +657,7 @@ export default function Roommates() {
                             </div>
                         </div>
                         <Button
-                            onClick={() => window.location.href = "/tai-xe"}
+                            onClick={() => (window.location.href = "/tai-xe")}
                             className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-sm shrink-0"
                         >
                             Vào Cổng Tài Xế (/tai-xe) ➔
@@ -295,7 +677,7 @@ export default function Roommates() {
                             </div>
                         </div>
                         <Button
-                            onClick={() => window.location.href = "/chu-tro"}
+                            onClick={() => (window.location.href = "/chu-tro")}
                             className="bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-sm shrink-0"
                         >
                             Vào Kênh Chủ Trọ (/chu-tro) ➔
@@ -303,168 +685,88 @@ export default function Roommates() {
                     </div>
                 )}
 
-                {/* Form Đăng tìm bạn ở ghép */}
+                {/* Form Đăng tìm bạn ở ghép (Step-by-Step Wizard 5 Bước) */}
                 {showForm && (
-                    <form
-                        onSubmit={submit}
-                        className="bg-card rounded-3xl border border-accent/30 shadow-xl p-6 md:p-8 mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300"
-                    >
-                        <div className="md:col-span-2 flex items-center justify-between pb-3 border-b border-border">
-                            <div>
-                                <h2 className="font-heading font-bold text-foreground text-lg">Đăng tìm bạn ở ghép</h2>
-                                <p className="text-xs text-muted-foreground">Tìm bạn cùng phòng văn minh, cùng chí hướng nhanh chóng và tiện lợi.</p>
-                            </div>
+                    <div ref={formSectionRef}>
+                        <RoommatePostWizard
+                            initialUser={user}
+                            onClose={() => setShowForm(false)}
+                            onSubmit={async (newProfileData) => {
+                                await base44.entities.Roommate.create(newProfileData);
+
+                                // Lưu vào hồ sơ của tôi để tự động tính độ tương thích
+                                roommateApi.saveMyProfile(newProfileData);
+                                setMyProfile(newProfileData);
+                                setSortBy("compat");
+
+                                toast({
+                                    title: "Đã đăng hồ sơ thành công!",
+                                    description: "Hồ sơ của bạn đã được kích hoạt tính độ tương thích trên toàn hệ thống."
+                                });
+
+                                setShowForm(false);
+                                load();
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* ==================== THANH TÙY CHỈNH BỘ LỌC NÂNG CAO (FILTER BAR) ==================== */}
+                <div className="bg-card rounded-3xl border border-border/80 p-5 mb-8 shadow-xs space-y-4">
+                    {/* Hàng 1: Bộ lọc Loại hình phòng + Ô tìm kiếm + Nút Xóa bộ lọc */}
+                    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pb-3 border-b border-border/60">
+                        {/* Tab chọn loại hình phòng */}
+                        <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl shrink-0 overflow-x-auto text-xs">
                             <button
                                 type="button"
-                                onClick={() => setShowForm(false)}
-                                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                                onClick={() => { setRoomTypeFilter("all"); setPage(1); }}
+                                className={`px-3 py-1.5 rounded-xl font-bold transition whitespace-nowrap cursor-pointer ${
+                                    roomTypeFilter === "all"
+                                        ? "bg-white text-foreground shadow-2xs"
+                                        : "text-slate-600 hover:text-slate-900"
+                                }`}
                             >
-                                <X className="w-5 h-5" />
+                                Tất cả loại hình
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setRoomTypeFilter("has_room"); setPage(1); }}
+                                className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                                    roomTypeFilter === "has_room"
+                                        ? "bg-blue-600 text-white shadow-2xs"
+                                        : "text-slate-600 hover:text-blue-700"
+                                }`}
+                            >
+                                <Home className="w-3.5 h-3.5" />
+                                <span>Đã có phòng, cần thêm người</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setRoomTypeFilter("need_room"); setPage(1); }}
+                                className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                                    roomTypeFilter === "need_room"
+                                        ? "bg-emerald-600 text-white shadow-2xs"
+                                        : "text-slate-600 hover:text-emerald-700"
+                                }`}
+                            >
+                                <Search className="w-3.5 h-3.5" />
+                                <span>Chưa có phòng, tìm bạn thuê chung</span>
                             </button>
                         </div>
 
-                        <Field label="Tên hiển thị (*)">
-                            <Input
-                                value={form.name}
-                                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                required
-                                placeholder="Ví dụ: Hoàng Nam (K18 FPT)"
-                            />
-                        </Field>
-
-                        <Field label="Giới tính">
-                            <Select
-                                value={form.gender}
-                                onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                                options={["Nam", "Nữ", "Khác"]}
-                            />
-                        </Field>
-
-                        <Field label="Tuổi">
-                            <Input
-                                type="number"
-                                value={form.age}
-                                onChange={(e) => setForm({ ...form, age: e.target.value })}
-                                placeholder="20"
-                            />
-                        </Field>
-
-                        <Field label="Campus / Trường học (*)">
-                            <Select
-                                value={form.campus}
-                                onChange={(e) => setForm({ ...form, campus: e.target.value })}
-                                options={campuses}
-                            />
-                        </Field>
-
-                        <Field label="Ngân sách dự kiến (triệu/tháng)">
-                            <Input
-                                type="number"
-                                step="0.1"
-                                value={form.budget}
-                                onChange={(e) => setForm({ ...form, budget: e.target.value })}
-                                placeholder="2.5"
-                            />
-                        </Field>
-
-                        <Field label="Nuôi thú cưng">
-                            <Select
-                                value={form.hasPet}
-                                onChange={(e) => setForm({ ...form, hasPet: e.target.value })}
-                                options={[
-                                    { label: "Không nuôi thú cưng", value: "no" },
-                                    { label: "Có nuôi thú cưng (chó/mèo)", value: "yes" },
-                                    { label: "Yêu thích thú cưng", value: "friendly" }
-                                ]}
-                            />
-                        </Field>
-
-                        <Field label="Hút thuốc lá">
-                            <Select
-                                value={form.smokingDrinking}
-                                onChange={(e) => setForm({ ...form, smokingDrinking: e.target.value })}
-                                options={[
-                                    { label: "Tuyệt đối không hút thuốc", value: "none" },
-                                    { label: "Linh hoạt / Thỉnh thoảng", value: "sometimes" }
-                                ]}
-                            />
-                        </Field>
-
-                        <Field label="Giờ giấc sinh hoạt">
-                            <Select
-                                value={form.sleepSchedule}
-                                onChange={(e) => setForm({ ...form, sleepSchedule: e.target.value })}
-                                options={[
-                                    { label: "Ngủ sớm dậy sớm (Trước 23h)", value: "early_bird" },
-                                    { label: "Cú đêm / Học khuya (Sau 23h)", value: "night_owl" },
-                                    { label: "Giờ giấc linh hoạt", value: "flexible" }
-                                ]}
-                            />
-                        </Field>
-
-                        <Field label="Thói quen khác (ngăn cách bằng dấu phẩy)">
-                            <Input
-                                value={form.habits}
-                                onChange={(e) => setForm({ ...form, habits: e.target.value })}
-                                placeholder="sạch sẽ, nấu ăn tại phòng, thích yên tĩnh"
-                            />
-                        </Field>
-
-                        <Field label="Số Zalo / Liên hệ">
-                            <Input
-                                value={form.contact}
-                                onChange={(e) => setForm({ ...form, contact: e.target.value })}
-                                required
-                                placeholder="0912 345 678"
-                            />
-                        </Field>
-
-                        <div className="md:col-span-2">
-                            <Field label="Mô tả bản thân & Tiêu chí bạn cùng phòng">
-                                <textarea
-                                    value={form.description}
-                                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                                    rows={3}
-                                    placeholder="Mình là sinh viên năm 3, tính tình hòa đồng, giữ vệ sinh chung..."
-                                    className="w-full rounded-2xl border border-input bg-background px-3.5 py-2.5 text-xs focus:ring-2 focus:ring-accent/30 outline-none"
-                                />
-                            </Field>
-                        </div>
-
-                        <div className="md:col-span-2 pt-2">
-                            <Button
-                                type="submit"
-                                disabled={saving}
-                                className="w-full md:w-auto px-8 rounded-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
-                            >
-                                {saving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang đăng tin...
-                                    </>
-                                ) : (
-                                    "Xác nhận đăng tin tìm bạn"
-                                )}
-                            </Button>
-                        </div>
-                    </form>
-                )}
-
-                {/* ==================== THANH TÙY CHỈNH BỘ LỌC (FILTER BAR) ==================== */}
-                <div className="bg-card rounded-3xl border border-border/80 p-5 mb-8 shadow-xs space-y-4">
-                    <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3 border-b border-border/60">
-                        {/* Thanh tìm kiếm từ khóa */}
-                        <div className="relative flex-1">
+                        {/* Thanh tìm kiếm từ khóa kèm debounce */}
+                        <div className="relative flex-1 max-w-md">
                             <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
                                 value={searchKeyword}
                                 onChange={(e) => setSearchKeyword(e.target.value)}
                                 placeholder="Tìm theo tên, sở thích, trường học (FPT, Y Dược, Cần Thơ)..."
-                                className="w-full pl-10 pr-4 py-2 rounded-2xl border border-border bg-slate-50 text-xs focus:bg-white focus:ring-2 focus:ring-accent/30 outline-none transition"
+                                className="w-full pl-10 pr-8 py-2 rounded-2xl border border-border bg-slate-50 text-xs focus:bg-white focus:ring-2 focus:ring-accent/30 outline-none transition"
                             />
                             {searchKeyword && (
                                 <button
-                                    onClick={() => setSearchKeyword("")}
+                                    onClick={() => { setSearchKeyword(""); setDebouncedKeyword(""); }}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                 >
                                     <X className="w-3.5 h-3.5" />
@@ -472,29 +774,57 @@ export default function Roommates() {
                             )}
                         </div>
 
-                        {/* Nút Reset bộ lọc */}
-                        {hasActiveFilters && (
+                        {/* Nút đóng/mở trên mobile & Nút Xóa bộ lọc */}
+                        <div className="flex items-center gap-2 self-end lg:self-auto">
                             <button
-                                onClick={handleResetFilters}
-                                className="px-3.5 py-2 rounded-2xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition flex items-center justify-center gap-1.5 self-end md:self-auto"
+                                type="button"
+                                onClick={() => setShowMobileFilter(!showMobileFilter)}
+                                className="lg:hidden px-3.5 py-2 rounded-2xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 transition cursor-pointer"
                             >
-                                <X className="w-3.5 h-3.5" /> Xóa bộ lọc
+                                <Filter className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Bộ lọc ({activeFilterCount})</span>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMobileFilter ? "rotate-180" : ""}`} />
                             </button>
-                        )}
+
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={handleResetFilters}
+                                    className="px-3.5 py-2 rounded-2xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5" /> Xóa bộ lọc
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Hàng các nút tùy chỉnh nhanh (Thói quen & Tiêu chí) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+                    {/* Hàng 2: Các nút tùy chỉnh nhanh (Thói quen & Tiêu chí) kèm công tắc "Bắt buộc" */}
+                    <div className={`${showMobileFilter ? "grid" : "hidden"} lg:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs pt-1`}>
                         {/* 1. Tùy chỉnh Thú cưng */}
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                                <Dog className="w-3 h-3 text-orange-500" /> Thú cưng
-                            </label>
+                        <div className="bg-slate-50/70 p-2.5 rounded-2xl border border-border/60 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                    <Dog className="w-3.5 h-3.5 text-orange-500" /> Thú cưng
+                                </label>
+                                {petFilter !== "all" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleStrict("pet")}
+                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                            strictFilters.pet
+                                                ? "bg-rose-600 text-white shadow-2xs"
+                                                : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                                        }`}
+                                        title={strictFilters.pet ? "Đang Bắt buộc: Loại hẳn người không khớp" : "Đang Ưu tiên: Xếp các bạn khớp lên đầu"}
+                                    >
+                                        {strictFilters.pet ? "Bắt buộc" : "Ưu tiên"}
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={petFilter}
-                                onChange={(e) => setPetFilter(e.target.value)}
-                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition ${
-                                    petFilter !== "all" ? "bg-orange-50 text-orange-900 border-orange-300 font-bold" : "bg-white border-border"
+                                onChange={(e) => { setPetFilter(e.target.value); setPage(1); }}
+                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition cursor-pointer ${
+                                    petFilter !== "all" ? "bg-orange-50 text-orange-950 border-orange-300 font-bold" : "bg-white border-border"
                                 }`}
                             >
                                 <option value="all">Tất cả</option>
@@ -504,15 +834,31 @@ export default function Roommates() {
                         </div>
 
                         {/* 2. Tùy chỉnh Hút thuốc */}
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                                <Ban className="w-3 h-3 text-emerald-600" /> Khói thuốc
-                            </label>
+                        <div className="bg-slate-50/70 p-2.5 rounded-2xl border border-border/60 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                    <Ban className="w-3.5 h-3.5 text-emerald-600" /> Khói thuốc
+                                </label>
+                                {smokingFilter !== "all" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleStrict("smoking")}
+                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                            strictFilters.smoking
+                                                ? "bg-rose-600 text-white shadow-2xs"
+                                                : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                                        }`}
+                                        title={strictFilters.smoking ? "Đang Bắt buộc: Loại hẳn người không khớp" : "Đang Ưu tiên: Xếp các bạn khớp lên đầu"}
+                                    >
+                                        {strictFilters.smoking ? "Bắt buộc" : "Ưu tiên"}
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={smokingFilter}
-                                onChange={(e) => setSmokingFilter(e.target.value)}
-                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition ${
-                                    smokingFilter !== "all" ? "bg-emerald-50 text-emerald-900 border-emerald-300 font-bold" : "bg-white border-border"
+                                onChange={(e) => { setSmokingFilter(e.target.value); setPage(1); }}
+                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition cursor-pointer ${
+                                    smokingFilter !== "all" ? "bg-emerald-50 text-emerald-950 border-emerald-300 font-bold" : "bg-white border-border"
                                 }`}
                             >
                                 <option value="all">Tất cả</option>
@@ -521,15 +867,31 @@ export default function Roommates() {
                         </div>
 
                         {/* 3. Tùy chỉnh Giờ giấc */}
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                                <Moon className="w-3 h-3 text-indigo-600" /> Giờ giấc
-                            </label>
+                        <div className="bg-slate-50/70 p-2.5 rounded-2xl border border-border/60 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                    <Moon className="w-3.5 h-3.5 text-indigo-600" /> Giờ giấc
+                                </label>
+                                {sleepFilter !== "all" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleStrict("sleep")}
+                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                            strictFilters.sleep
+                                                ? "bg-rose-600 text-white shadow-2xs"
+                                                : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                                        }`}
+                                        title={strictFilters.sleep ? "Đang Bắt buộc: Loại hẳn người không khớp" : "Đang Ưu tiên: Xếp các bạn khớp lên đầu"}
+                                    >
+                                        {strictFilters.sleep ? "Bắt buộc" : "Ưu tiên"}
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={sleepFilter}
-                                onChange={(e) => setSleepFilter(e.target.value)}
-                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition ${
-                                    sleepFilter !== "all" ? "bg-indigo-50 text-indigo-900 border-indigo-300 font-bold" : "bg-white border-border"
+                                onChange={(e) => { setSleepFilter(e.target.value); setPage(1); }}
+                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition cursor-pointer ${
+                                    sleepFilter !== "all" ? "bg-indigo-50 text-indigo-950 border-indigo-300 font-bold" : "bg-white border-border"
                                 }`}
                             >
                                 <option value="all">Tất cả</option>
@@ -539,14 +901,30 @@ export default function Roommates() {
                         </div>
 
                         {/* 4. Tùy chỉnh Khu vực Campus */}
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-accent" /> Khu vực Campus
-                            </label>
+                        <div className="bg-slate-50/70 p-2.5 rounded-2xl border border-border/60 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5 text-accent" /> Campus
+                                </label>
+                                {campusFilter !== "all" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleStrict("campus")}
+                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                            strictFilters.campus
+                                                ? "bg-rose-600 text-white shadow-2xs"
+                                                : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                                        }`}
+                                        title={strictFilters.campus ? "Đang Bắt buộc: Loại hẳn người không khớp" : "Đang Ưu tiên: Xếp các bạn khớp lên đầu"}
+                                    >
+                                        {strictFilters.campus ? "Bắt buộc" : "Ưu tiên"}
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={campusFilter}
-                                onChange={(e) => setCampusFilter(e.target.value)}
-                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition ${
+                                onChange={(e) => { setCampusFilter(e.target.value); setPage(1); }}
+                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition cursor-pointer ${
                                     campusFilter !== "all" ? "bg-accent/10 text-accent border-accent/40 font-bold" : "bg-white border-border"
                                 }`}
                             >
@@ -559,33 +937,66 @@ export default function Roommates() {
                         </div>
 
                         {/* 5. Tùy chỉnh Giới tính */}
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                                <User className="w-3 h-3 text-blue-500" /> Giới tính
-                            </label>
+                        <div className="bg-slate-50/70 p-2.5 rounded-2xl border border-border/60 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                    <User className="w-3.5 h-3.5 text-blue-500" /> Giới tính
+                                </label>
+                                {genderFilter !== "all" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleStrict("gender")}
+                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                            strictFilters.gender
+                                                ? "bg-rose-600 text-white shadow-2xs"
+                                                : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                                        }`}
+                                        title={strictFilters.gender ? "Đang Bắt buộc: Loại hẳn người không khớp" : "Đang Ưu tiên: Xếp các bạn khớp lên đầu"}
+                                    >
+                                        {strictFilters.gender ? "Bắt buộc" : "Ưu tiên"}
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={genderFilter}
-                                onChange={(e) => setGenderFilter(e.target.value)}
-                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition ${
-                                    genderFilter !== "all" ? "bg-blue-50 text-blue-900 border-blue-300 font-bold" : "bg-white border-border"
+                                onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
+                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition cursor-pointer ${
+                                    genderFilter !== "all" ? "bg-blue-50 text-blue-950 border-blue-300 font-bold" : "bg-white border-border"
                                 }`}
                             >
                                 <option value="all">Tất cả</option>
                                 <option value="Nam">Nam</option>
                                 <option value="Nữ">Nữ</option>
+                                <option value="Khác">Khác</option>
                             </select>
                         </div>
 
                         {/* 6. Tùy chỉnh Ngân sách */}
-                        <div>
-                            <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                                <Wallet className="w-3 h-3 text-amber-500" /> Ngân sách
-                            </label>
+                        <div className="bg-slate-50/70 p-2.5 rounded-2xl border border-border/60 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                    <Wallet className="w-3.5 h-3.5 text-amber-500" /> Ngân sách
+                                </label>
+                                {budgetFilter !== "all" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleStrict("budget")}
+                                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                            strictFilters.budget
+                                                ? "bg-rose-600 text-white shadow-2xs"
+                                                : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                                        }`}
+                                        title={strictFilters.budget ? "Đang Bắt buộc: Loại hẳn người không khớp" : "Đang Ưu tiên: Xếp các bạn khớp lên đầu"}
+                                    >
+                                        {strictFilters.budget ? "Bắt buộc" : "Ưu tiên"}
+                                    </button>
+                                )}
+                            </div>
                             <select
                                 value={budgetFilter}
-                                onChange={(e) => setBudgetFilter(e.target.value)}
-                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition ${
-                                    budgetFilter !== "all" ? "bg-amber-50 text-amber-900 border-amber-300 font-bold" : "bg-white border-border"
+                                onChange={(e) => { setBudgetFilter(e.target.value); setPage(1); }}
+                                className={`w-full py-1.5 px-2 rounded-xl border text-xs font-medium outline-none transition cursor-pointer ${
+                                    budgetFilter !== "all" ? "bg-amber-50 text-amber-950 border-amber-300 font-bold" : "bg-white border-border"
                                 }`}
                             >
                                 <option value="all">Mọi mức giá</option>
@@ -597,44 +1008,135 @@ export default function Roommates() {
                     </div>
                 </div>
 
-                {/* Kết quả tìm kiếm */}
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-heading font-bold text-foreground text-lg">
-                        Tìm thấy {filteredItems.length} bạn phù hợp
-                    </h2>
-                    {hasActiveFilters && (
-                        <span className="text-xs text-muted-foreground">
-                            Đang áp dụng bộ lọc tùy chỉnh
-                        </span>
-                    )}
+                {/* ==================== TIÊU ĐỀ KẾT QUẢ ĐỘNG & DROPDOWN SẮP XẾP ==================== */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
+                    <div>
+                        <h2 className="font-heading font-bold text-foreground text-lg flex items-center gap-2 flex-wrap">
+                            <span>
+                                Tìm thấy {sortedItems.length} bạn phù hợp
+                                {sortedItems.length > PAGE_SIZE && (
+                                    <span className="text-xs text-muted-foreground font-normal ml-1">
+                                        (đang hiển thị {displayedItems.length})
+                                    </span>
+                                )}
+                            </span>
+                            {myProfile && (
+                                <span className="text-[11px] font-normal text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 inline-flex items-center gap-1">
+                                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                                    Đã kích hoạt tính độ hòa hợp
+                                </span>
+                            )}
+                        </h2>
+                        {hasActiveFilters && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Đang áp dụng {activeFilterCount} bộ lọc tùy chỉnh
+                                {Object.values(strictFilters).some(Boolean) && " (có bộ lọc Bắt buộc)"}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Dropdown sắp xếp theo tiêu chí */}
+                    <div className="flex items-center gap-2 self-end sm:self-auto text-xs">
+                        <label className="text-slate-500 font-medium flex items-center gap-1">
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Sắp xếp:</span>
+                        </label>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="py-1.5 px-3 rounded-xl border border-border bg-white text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-accent/30 shadow-2xs cursor-pointer"
+                        >
+                            <option value="compat" disabled={!myProfile}>
+                                {myProfile ? "✨ Phù hợp nhất (% hợp)" : "✨ Phù hợp nhất (cần hồ sơ)"}
+                            </option>
+                            <option value="newest">Mới nhất / Ưu tiên</option>
+                            <option value="budget_asc">Ngân sách tăng dần</option>
+                            <option value="budget_desc">Ngân sách giảm dần</option>
+                        </select>
+                    </div>
                 </div>
 
+                {/* Danh sách thẻ hồ sơ / Skeleton / Empty / Error */}
                 {loading ? (
-                    <div className="flex justify-center py-16">
-                        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {Array.from({ length: 6 }).map((_, idx) => (
+                            <RoommateCardSkeleton key={idx} />
+                        ))}
                     </div>
-                ) : filteredItems.length === 0 ? (
+                ) : loadError ? (
+                    <div className="p-12 text-center bg-card rounded-3xl border border-rose-200 bg-rose-50/40">
+                        <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+                        <h3 className="font-heading font-bold text-rose-950 text-base mb-1">
+                            Không thể tải danh sách hồ sơ ở ghép
+                        </h3>
+                        <p className="text-xs text-rose-700 mb-4 max-w-sm mx-auto">
+                            Có lỗi khi kết nối tới máy chủ. Vui lòng kiểm tra lại mạng hoặc thử lại.
+                        </p>
+                        <Button
+                            onClick={load}
+                            className="rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-6 shadow-sm cursor-pointer"
+                        >
+                            Thử lại
+                        </Button>
+                    </div>
+                ) : sortedItems.length === 0 ? (
                     <div className="p-12 text-center bg-card rounded-3xl border border-dashed border-border">
-                        <EmptyState text="Không tìm thấy bạn nào khớp với bộ lọc thói quen này." />
+                        <EmptyState text="Chưa có bạn phù hợp, thử bỏ bớt bộ lọc" />
                         {hasActiveFilters && (
                             <button
                                 onClick={handleResetFilters}
-                                className="mt-4 px-4 py-2 rounded-full bg-accent text-white text-xs font-bold hover:bg-accent/90"
+                                className="mt-4 px-5 py-2.5 rounded-full bg-accent text-white text-xs font-bold hover:bg-accent/90 shadow-xs transition cursor-pointer"
                             >
                                 Xóa bộ lọc để xem tất cả
                             </button>
                         )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {filteredItems.map((it) => (
-                            <RoommateCard key={it.id} item={it} onConnect={handleOpenConnect} />
-                        ))}
-                    </div>
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
+                            {displayedItems.map((it) => (
+                                <RoommateCard
+                                    key={it.id || it._id}
+                                    item={it}
+                                    compat={it.compat}
+                                    isSaved={savedIds.includes(String(it.id || it._id))}
+                                    onToggleSave={handleToggleSave}
+                                    onHide={handleHideProfile}
+                                    onReport={handleOpenReport}
+                                    onPromptCreateProfile={handlePromptCreateProfile}
+                                    onConnect={handleOpenConnect}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Nút "Tải thêm 12 hồ sơ" */}
+                        {displayedItems.length < sortedItems.length && (
+                            <div className="flex justify-center mt-10">
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((p) => p + 1)}
+                                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-white hover:bg-accent hover:text-white text-slate-700 font-bold text-xs border border-border shadow-xs hover:shadow-md transition active:scale-95 cursor-pointer"
+                                >
+                                    <span>Tải thêm 12 hồ sơ</span>
+                                    <span className="text-[11px] opacity-75">
+                                        (còn lại {sortedItems.length - displayedItems.length})
+                                    </span>
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </section>
 
-            {/* ==================== MODAL KẾT NỐI TIN NHẮN (MESSENGER CONNECT) ==================== */}
+            {/* Modal Báo cáo hồ sơ vi phạm */}
+            <ReportModal
+                open={Boolean(reportingProfile)}
+                profile={reportingProfile}
+                onClose={() => setReportingProfile(null)}
+                onSubmit={handleSubmitReport}
+            />
+
+            {/* ==================== MODAL KẾT NỐI TIN NHẮN (GIỮ NGUYÊN) ==================== */}
             {selectedRoommate && (
                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative animate-in zoom-in-95 duration-200">
@@ -670,34 +1172,61 @@ export default function Roommates() {
                             </p>
                         </div>
 
-                        {/* Khung tin nhắn mẫu có thể chỉnh sửa */}
+                        {/* Khung tin nhắn mẫu có thể chỉnh sửa kèm giới hạn 300 ký tự */}
                         <div className="mb-4">
-                            <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                Nội dung tin nhắn gửi đến bạn ấy:
-                            </label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-[11px] font-bold text-slate-700">
+                                    Nội dung tin nhắn gửi đến bạn ấy:
+                                </label>
+                                <span
+                                    className={`text-[10px] font-semibold ${
+                                        customMessage.length >= 300 ? "text-rose-600 font-bold" : "text-muted-foreground"
+                                    }`}
+                                >
+                                    {customMessage.length}/300 ký tự
+                                </span>
+                            </div>
                             <textarea
                                 rows={4}
+                                maxLength={300}
                                 value={customMessage}
-                                onChange={(e) => setCustomMessage(e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-2xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none leading-relaxed"
+                                onChange={(e) => setCustomMessage(e.target.value.slice(0, 300))}
+                                placeholder="Nhập lời nhắn kết nối..."
+                                className="w-full px-3 py-2.5 rounded-2xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none leading-relaxed resize-none"
                             />
                         </div>
 
                         {/* Các hành động kết nối */}
                         <div className="space-y-2.5">
-                            <button
-                                type="button"
-                                onClick={handleOpenZalo}
-                                className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                            >
-                                <ExternalLink className="w-4 h-4" /> Mở Zalo nhắn tin trực tiếp
-                            </button>
+                            {/* Nút Zalo: Chỉ hiển thị hoạt động khi người nhận bật cho phép hoặc đã phản hồi */}
+                            {selectedRoommate.allowZalo || selectedRoommate.allowShareContact || selectedRoommate.hasRepliedInChat ? (
+                                <button
+                                    type="button"
+                                    onClick={handleOpenZalo}
+                                    className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                                >
+                                    <ExternalLink className="w-4 h-4" /> Mở Zalo nhắn tin trực tiếp
+                                </button>
+                            ) : (
+                                <div className="space-y-1">
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs flex items-center justify-center gap-2 border border-slate-200 cursor-not-allowed opacity-80"
+                                    >
+                                        <ExternalLink className="w-4 h-4 text-slate-300" /> Mở Zalo nhắn tin trực tiếp
+                                    </button>
+                                    <p className="text-[10px] text-center text-slate-400 italic">
+                                        🔒 Hiện sau khi bạn ấy phản hồi trong Chat SmartStay
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="flex gap-2">
                                 <button
                                     type="button"
                                     onClick={handleCopyMessage}
-                                    className="flex-1 py-2 rounded-xl border border-border text-xs font-bold text-slate-700 hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
+                                    className="flex-1 py-2 rounded-xl border border-border text-xs font-bold text-slate-700 hover:bg-slate-50 transition flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
                                     {copiedMessage ? (
                                         <>

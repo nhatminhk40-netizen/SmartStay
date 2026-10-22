@@ -493,6 +493,7 @@ export const base44 = {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
             const mapped = json.data.map(s => ({
+              ...s,
               id: s._id || s.id,
               name: s.name,
               gender: s.gender || 'Nam',
@@ -503,10 +504,14 @@ export const base44 = {
               petPolicy: s.petPolicy || (s.hasPet ? 'pet_friendly' : 'no_pet'),
               smokingDrinking: s.smokingDrinking || 'none',
               sleepSchedule: s.sleepSchedule || 'flexible',
+              cleanliness: s.cleanliness || 'daily',
+              guestPolicy: s.guestPolicy || 'ask_first',
               habits: s.habits || `${s.sleepSchedule === 'night_owl' ? 'Thức khuya' : (s.sleepSchedule === 'early_bird' ? 'Ngủ sớm' : 'Linh hoạt')}, ${s.smokingDrinking === 'none' ? 'Không hút thuốc' : ''}, ${s.hasPet ? 'Có thú cưng' : 'Không nuôi pet'}`.replace(/^, |, $/g, ''),
               description: s.description || `Tìm bạn ở ghép cùng trường ${s.campus || 'Cần Thơ'}, văn minh, tôn trọng sinh hoạt chung.`,
               contact: s.contactZalo || '0901***567',
-              rawContact: s.rawContact || s.contactZalo || ''
+              rawContact: s.rawContact || s.contactZalo || '',
+              avatarUrl: s.avatarUrl || s.avatar || null,
+              verified: Boolean(s.verified)
             }));
             return { items: mapped, count: mapped.length };
           }
