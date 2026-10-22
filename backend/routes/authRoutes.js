@@ -289,7 +289,15 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             const isMockDomain = cleanEmail.endsWith('@smartstay.vn') || cleanEmail.endsWith('@example.com') || cleanEmail.endsWith('@test.com');
             const hasGmailCredentials = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASS);
 
-            if (!isMockDomain && hasGmailCredentials) {
+            if (!isMockDomain) {
+                if (!hasGmailCredentials) {
+                    console.error('❌ [sendOtp] GMAIL_USER/GMAIL_APP_PASS chưa cấu hình trên server.');
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Máy chủ chưa được cấu hình tài khoản gửi Gmail SMTP (GMAIL_USER & GMAIL_APP_PASS). Vui lòng cấu hình biến môi trường trên Render.'
+                    });
+                }
+
                 try {
                     await sendOtpEmail({
                         to: cleanEmail,
@@ -300,23 +308,16 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
                     console.error('❌ [sendOtpEmail Error]:', mailErr.message);
                     return res.status(500).json({
                         success: false,
-                        message: 'Không thể gửi email OTP qua máy chủ Gmail. Vui lòng kiểm tra lại cấu hình GMAIL_USER và GMAIL_APP_PASS.'
+                        message: `Không thể gửi email OTP qua máy chủ Gmail (${mailErr.message}). Vui lòng kiểm tra lại mật khẩu ứng dụng Gmail.`
                     });
                 }
-            } else if (!hasGmailCredentials) {
-                console.warn(`⚠️ [sendOtp] GMAIL_USER/GMAIL_APP_PASS chưa cấu hình. Mã OTP kiểm thử cho ${cleanEmail} là: ${otpCode}`);
             } else {
-                console.log(`ℹ️ [Dev Mock Email OTP]: Bỏ qua gửi SMTP thực tế cho ${cleanEmail} (tránh Mailer-Daemon bounce). Mã OTP kiểm thử: ${otpCode}`);
+                console.log(`ℹ️ [Dev Mock Domain]: Bỏ qua gửi SMTP cho ${cleanEmail}. Mã OTP: ${otpCode}`);
             }
 
             return res.status(200).json({
                 success: true,
-                message: !hasGmailCredentials
-                    ? `[Chế độ thử nghiệm] Chưa cấu hình Gmail SMTP trên server. Mã OTP là: ${otpCode}`
-                    : (isMockDomain
-                        ? `[Chế độ thử nghiệm] Mã OTP cho ${cleanEmail} là ${otpCode}`
-                        : 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'),
-                otpPreview: (!hasGmailCredentials || !isProd) ? otpCode : undefined
+                message: 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'
             });
         }
 
@@ -326,7 +327,7 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             if (cleanPhone.length < 8) {
                 return res.status(400).json({ success: false, message: 'Vui lòng nhập số điện thoại hợp lệ.' });
             }
-            const otpCode = isProd ? String(crypto.randomInt(100000, 1000000)) : '123456';
+            const otpCode = String(crypto.randomInt(100000, 1000000));
             phoneOtpStore.set(cleanPhone, {
                 code: otpCode,
                 expiresAt: Date.now() + 5 * 60 * 1000
@@ -334,8 +335,7 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
 
             return res.status(200).json({
                 success: true,
-                message: `Mã OTP đã được gửi đến số ${cleanPhone}`,
-                otpPreview: isProd ? undefined : otpCode
+                message: `Mã OTP đã được gửi đến số ${cleanPhone}`
             });
         }
 

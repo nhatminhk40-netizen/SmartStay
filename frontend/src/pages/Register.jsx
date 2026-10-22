@@ -93,7 +93,6 @@ export default function Register() {
   // Step 2: OTP state
   const [otpCode, setOtpCode] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(60);
-  const [demoOtpCode, setDemoOtpCode] = useState("123456");
 
   // Step 3: Landlord Documents state
   const [idCardNumber, setIdCardNumber] = useState("");
@@ -146,17 +145,12 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const res = await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
+      await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
       setOtpCountdown(60);
-      if (res && res.otpPreview) {
-        setDemoOtpCode(res.otpPreview);
-      }
       setCurrentStep(2);
       toast({
         title: "Đã gửi mã xác thực",
-        description: res && res.otpPreview
-          ? `Mã OTP xác thực của bạn: ${res.otpPreview}`
-          : `Mã OTP đã được gửi đến email ${email}. Vui lòng kiểm tra hộp thư Gmail.`
+        description: `Mã OTP đã được gửi đến email ${email}. Vui lòng kiểm tra hộp thư Gmail.`
       });
     } catch (err) {
       setError(err.message || "Không thể gửi mã xác thực OTP qua email.");
@@ -171,8 +165,7 @@ export default function Register() {
     setLoading(true);
     setError("");
     try {
-      const res = await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
-      if (res && res.otpPreview) setDemoOtpCode(res.otpPreview);
+      await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
       setOtpCountdown(60);
       toast({
         title: "Đã gửi lại mã",
@@ -739,22 +732,6 @@ export default function Register() {
                   <strong className="text-slate-900">{email}</strong>. Vui lòng kiểm tra hộp thư đến (hoặc hòm thư rác/spam).
                 </p>
               </div>
-
-              {demoOtpCode && (
-                <div className="mb-5 p-3.5 rounded-xl bg-orange-50 border border-orange-200/80 text-xs text-orange-950 flex items-center justify-between shadow-sm">
-                  <div>
-                    <span className="text-slate-600 block text-[11px]">Mã OTP xác thực:</span>
-                    <strong className="font-mono text-base font-black text-orange-600 tracking-widest">{demoOtpCode}</strong>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setOtpCode(demoOtpCode)}
-                    className="px-3 py-1.5 rounded-lg bg-orange-600 text-white font-bold text-xs hover:bg-orange-700 transition active:scale-95 shadow-sm"
-                  >
-                    Điền nhanh
-                  </button>
-                </div>
-              )}
 
               <div className="flex justify-center mb-6">
                 <InputOTP
