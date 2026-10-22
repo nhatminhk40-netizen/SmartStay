@@ -1,23 +1,35 @@
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 const nodemailer = require('nodemailer');
 
 /**
  * Khởi tạo transporter Nodemailer với dịch vụ Gmail
- * Đọc GMAIL_USER và GMAIL_APP_PASS từ process.env (Bảo mật: Tuyệt đối không log credentials)
+ * Cấu hình port 587 STARTTLS + IPv4 first để tránh timeout trên hạ tầng cloud (Render/Docker)
  */
 const createTransporter = () => {
     const user = process.env.GMAIL_USER ? process.env.GMAIL_USER.trim() : '';
     const pass = process.env.GMAIL_APP_PASS ? process.env.GMAIL_APP_PASS.replace(/\s+/g, '') : '';
 
     if (!user || !pass) {
-        console.warn('⚠️ [sendEmail] GMAIL_USER hoặc GMAIL_APP_PASS chưa được thiết lập đầy đủ trong backend/.env');
+        console.warn('⚠️ [sendEmail] GMAIL_USER hoặc GMAIL_APP_PASS chưa được thiết lập đầy đủ');
     }
 
     return nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // true cho port 465, false cho port 587 (dùng STARTTLS)
         auth: {
             user,
             pass
-        }
+        },
+        tls: {
+            rejectUnauthorized: false
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000
     });
 };
 
