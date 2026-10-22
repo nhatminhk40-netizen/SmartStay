@@ -92,7 +92,8 @@ export default function Register() {
 
   // Step 2: OTP state
   const [otpCode, setOtpCode] = useState("");
-  const [otpCountdown, setOtpCountdown] = useState(15);
+  const [otpCountdown, setOtpCountdown] = useState(60);
+  const [showOtpHelp, setShowOtpHelp] = useState(false);
 
   // Step 3: Landlord Documents state
   const [idCardNumber, setIdCardNumber] = useState("");
@@ -146,7 +147,7 @@ export default function Register() {
     setLoading(true);
     try {
       await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
-      setOtpCountdown(15);
+      setOtpCountdown(60);
       setCurrentStep(2);
       toast({
         title: "Đã gửi mã xác thực",
@@ -166,7 +167,7 @@ export default function Register() {
     setError("");
     try {
       await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
-      setOtpCountdown(15);
+      setOtpCountdown(60);
       toast({
         title: "Đã gửi lại mã",
         description: `Mã xác thực mới đã được gửi đến ${email}.`
@@ -772,9 +773,16 @@ export default function Register() {
               </button>
 
               <div className="flex items-center justify-between text-xs text-muted-foreground mt-5">
-                <span>Không nhận được mã?</span>
+                <button
+                  type="button"
+                  onClick={() => setShowOtpHelp(!showOtpHelp)}
+                  className="font-semibold text-slate-600 hover:text-orange-600 transition-colors underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Info className="w-3.5 h-3.5 text-orange-500" />
+                  Không nhận được mã?
+                </button>
                 {otpCountdown > 0 ? (
-                  <span className="text-slate-400">Gửi lại sau {otpCountdown}s</span>
+                  <span className="text-slate-400 font-medium">Gửi lại sau {otpCountdown}s</span>
                 ) : (
                   <button
                     type="button"
@@ -787,6 +795,20 @@ export default function Register() {
                   </button>
                 )}
               </div>
+
+              {showOtpHelp && (
+                <div className="mt-4 p-3.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-xs text-slate-800 animate-in fade-in slide-in-from-top-1 shadow-xs">
+                  <div className="font-bold text-orange-950 mb-1.5 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-orange-600" />
+                    <span>Hướng dẫn kiểm tra mã xác thực:</span>
+                  </div>
+                  <ul className="list-disc pl-4 space-y-1.5 text-slate-700 text-[11px] leading-relaxed">
+                    <li>Vui lòng kiểm tra kỹ thư mục <strong>Thư rác (Spam)</strong>, <strong>Quảng cáo</strong> hoặc <strong>Cập nhật</strong> trong hộp thư Gmail.</li>
+                    <li>Đảm bảo địa chỉ email <strong className="text-slate-900">{email}</strong> của bạn là chính xác và còn dung lượng nhận thư.</li>
+                    <li>Nếu gõ nhầm email, bạn có thể <button type="button" onClick={() => setCurrentStep(1)} className="text-orange-600 font-bold underline hover:text-orange-700 inline">quay lại bước 1 để sửa email</button>.</li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
