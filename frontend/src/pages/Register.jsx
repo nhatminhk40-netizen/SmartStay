@@ -36,6 +36,7 @@ import { toast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
 import { cn } from "@/lib/utils";
 import LandlordDocUploader, { PROOF_DOCUMENT_TYPES } from "@/components/LandlordDocUploader";
+import { useAuth } from "@/lib/AuthContext";
 
 const FEATURES = [
   {
@@ -64,6 +65,16 @@ const SAMPLE_DOCS = {
 
 export default function Register() {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === "admin") navigate("/admin");
+      else if (user.role === "employee" || user.role === "landlord") navigate("/chu-tro");
+      else if (user.role === "transporter") navigate("/tai-xe");
+      else navigate("/");
+    }
+  }, [isAuthenticated, user, navigate]);
 
   // Step state: 1 = Basic Info & Role, 2 = Phone OTP, 3 = Landlord Documents (if landlord), 4 = Done/Pending Notice
   const [currentStep, setCurrentStep] = useState(1);

@@ -52,49 +52,54 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Auth routes - no Layout wrapper */}
+      {/* Auth routes - Không cần đăng nhập */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* 1. Phân hệ Quản trị viên (Admin Portal) */}
-      <Route path="/admin" element={
-        <ProtectedRoute requiredRoles={['admin']}>
-          <Admin />
-        </ProtectedRoute>
-      } />
+      {/* Tất cả các phân hệ và trang bên dưới: Bắt buộc phải đăng nhập / đăng ký */}
+      <Route element={<ProtectedRoute />}>
+        {/* 1. Phân hệ Quản trị viên (Admin Portal) */}
+        <Route path="/admin" element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <Admin />
+          </ProtectedRoute>
+        } />
 
-      {/* 2. Phân hệ Chủ trọ (Landlord Portal) */}
-      <Route path="/chu-tro" element={
-        <ProtectedRoute requiredRoles={['landlord', 'admin', 'employee']}>
-          <EmployeeDashboard />
-        </ProtectedRoute>
-      } />
-      <Route path="/employee" element={
-        <ProtectedRoute requiredRoles={['employee', 'admin', 'landlord']}>
-          <EmployeeDashboard />
-        </ProtectedRoute>
-      } />
+        {/* 2. Phân hệ Chủ trọ (Landlord Portal) */}
+        <Route path="/chu-tro" element={
+          <ProtectedRoute requiredRoles={['landlord', 'admin', 'employee']}>
+            <EmployeeDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/employee" element={
+          <ProtectedRoute requiredRoles={['employee', 'admin', 'landlord']}>
+            <EmployeeDashboard />
+          </ProtectedRoute>
+        } />
 
-      {/* 3. Phân hệ Tài xế Vận tải (Transporter Portal) */}
-      <Route path="/tai-xe" element={
-        <ProtectedRoute requiredRoles={['transporter', 'admin']}>
-          <TransporterPortal />
-        </ProtectedRoute>
-      } />
+        {/* 3. Phân hệ Tài xế Vận tải (Transporter Portal) */}
+        <Route path="/tai-xe" element={
+          <ProtectedRoute requiredRoles={['transporter', 'admin']}>
+            <TransporterPortal />
+          </ProtectedRoute>
+        } />
 
-      {/* Landlord confirm route */}
-      <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
-      {/* Main app routes */}
-      <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/phong/:id" element={<RoomDetail />} />
-        <Route path="/so-sanh" element={<CompareRooms />} />
-        <Route path="/ghep-ban" element={<Roommates />} />
-        <Route path="/chuyen-tro" element={<Transfers />} />
-        <Route path="/pass-phong" element={<RoomPass />} />
+        {/* 4. Xác nhận Pass phòng */}
+        <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
+
+        {/* 5. Giao diện chính (Khám phá, Ghép bạn, Chuyển trọ, Pass phòng) */}
+        <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/phong/:id" element={<RoomDetail />} />
+          <Route path="/so-sanh" element={<CompareRooms />} />
+          <Route path="/ghep-ban" element={<Roommates />} />
+          <Route path="/chuyen-tro" element={<Transfers />} />
+          <Route path="/pass-phong" element={<RoomPass />} />
+        </Route>
       </Route>
+
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

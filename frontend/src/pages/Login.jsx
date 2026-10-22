@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import GoogleIcon from "@/components/GoogleIcon";
 import GoogleClientIdDialog from "@/components/GoogleClientIdDialog";
 import { triggerGoogleSignIn } from "@/lib/googleAuth";
 import { safeReturnTo } from "@/lib/authReturnTo";
+import { useAuth } from "@/lib/AuthContext";
 
 const FEATURES = [
   {
@@ -28,11 +29,22 @@ const FEATURES = [
 ];
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === "admin") navigate("/admin");
+      else if (user.role === "employee" || user.role === "landlord") navigate("/chu-tro");
+      else if (user.role === "transporter") navigate("/tai-xe");
+      else navigate("/");
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
