@@ -92,7 +92,7 @@ export default function Register() {
 
   // Step 2: OTP state
   const [otpCode, setOtpCode] = useState("");
-  const [otpCountdown, setOtpCountdown] = useState(60);
+  const [otpCountdown, setOtpCountdown] = useState(15);
 
   // Step 3: Landlord Documents state
   const [idCardNumber, setIdCardNumber] = useState("");
@@ -146,7 +146,7 @@ export default function Register() {
     setLoading(true);
     try {
       await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
-      setOtpCountdown(60);
+      setOtpCountdown(15);
       setCurrentStep(2);
       toast({
         title: "Đã gửi mã xác thực",
@@ -166,7 +166,7 @@ export default function Register() {
     setError("");
     try {
       await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
-      setOtpCountdown(60);
+      setOtpCountdown(15);
       toast({
         title: "Đã gửi lại mã",
         description: `Mã xác thực mới đã được gửi đến ${email}.`

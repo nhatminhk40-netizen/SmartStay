@@ -231,8 +231,8 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
                 const existingOtp = await Otp.findOne({ email: cleanEmail, purpose });
                 if (existingOtp && existingOtp.sentAt) {
                     const elapsedMs = Date.now() - new Date(existingOtp.sentAt).getTime();
-                    if (elapsedMs < 60 * 1000) {
-                        const waitSec = Math.ceil((60 * 1000 - elapsedMs) / 1000);
+                    if (elapsedMs < 15 * 1000) {
+                        const waitSec = Math.ceil((15 * 1000 - elapsedMs) / 1000);
                         return res.status(429).json({
                             success: false,
                             message: `Vui lòng đợi ${waitSec} giây trước khi gửi lại mã.`
@@ -245,8 +245,8 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
                 const existing = fallbackOtps.get(key);
                 if (existing && existing.sentAt) {
                     const elapsedMs = Date.now() - existing.sentAt;
-                    if (elapsedMs < 60 * 1000) {
-                        const waitSec = Math.ceil((60 * 1000 - elapsedMs) / 1000);
+                    if (elapsedMs < 15 * 1000) {
+                        const waitSec = Math.ceil((15 * 1000 - elapsedMs) / 1000);
                         return res.status(429).json({
                             success: false,
                             message: `Vui lòng đợi ${waitSec} giây trước khi gửi lại mã.`
