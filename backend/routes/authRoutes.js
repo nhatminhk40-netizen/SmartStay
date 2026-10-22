@@ -373,45 +373,38 @@ router.post('/verify-otp', verifyOtpLimiter, async (req, res) => {
                 otpRecord = fallbackOtps.get(key);
             }
 
-            const isDevMasterCode = (enteredCode === '123456');
-
-            if (!otpRecord && !isDevMasterCode) {
+            if (!otpRecord) {
                 return res.status(400).json({ success: false, message: 'Mã xác thực không hợp lệ hoặc đã hết hạn.' });
             }
 
-            if (otpRecord) {
-                const expiresTime = isFallback ? otpRecord.expiresAt : new Date(otpRecord.expiresAt).getTime();
-                if (Date.now() > expiresTime && !isDevMasterCode) {
-                    if (isFallback) {
-                        req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
-                    } else {
-                        await Otp.deleteOne({ _id: otpRecord._id });
-                    }
-                    return res.status(400).json({ success: false, message: 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.' });
+            const expiresTime = isFallback ? otpRecord.expiresAt : new Date(otpRecord.expiresAt).getTime();
+            if (Date.now() > expiresTime) {
+                if (isFallback) {
+                    req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
+                } else {
+                    await Otp.deleteOne({ _id: otpRecord._id });
                 }
-
-                // Quy tắc 5: Tối đa 5 lần nhập sai, sau đó hủy mã
-                if (otpRecord.attempts >= 5 && !isDevMasterCode) {
-                    if (isFallback) {
-                        req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
-                    } else {
-                        await Otp.deleteOne({ _id: otpRecord._id });
-                    }
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Mã xác thực đã bị hủy do nhập sai quá 5 lần. Vui lòng yêu cầu gửi mã mới.'
-                    });
-                }
+                return res.status(400).json({ success: false, message: 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.' });
             }
 
-            // Quy tắc 5: So sánh bằng crypto.timingSafeEqual hoặc mã master dev
-            let isMatch = isDevMasterCode;
-            if (!isMatch && otpRecord) {
-                const enteredHash = crypto.createHash('sha256').update(enteredCode).digest('hex');
-                const inputBuf = Buffer.from(enteredHash, 'hex');
-                const storedBuf = Buffer.from(otpRecord.codeHash, 'hex');
-                isMatch = (inputBuf.length === storedBuf.length) && crypto.timingSafeEqual(inputBuf, storedBuf);
+            // Quy tắc 5: Tối đa 5 lần nhập sai, sau đó hủy mã
+            if (otpRecord.attempts >= 5) {
+                if (isFallback) {
+                    req.app.locals.fallbackOtps.delete(`${cleanEmail}_${purpose}`);
+                } else {
+                    await Otp.deleteOne({ _id: otpRecord._id });
+                }
+                return res.status(400).json({
+                    success: false,
+                    message: 'Mã xác thực đã bị hủy do nhập sai quá 5 lần. Vui lòng yêu cầu gửi mã mới.'
+                });
             }
+
+            // Quy tắc 5: So sánh bằng crypto.timingSafeEqual với mã băm SHA-256 trong DB
+            const enteredHash = crypto.createHash('sha256').update(enteredCode).digest('hex');
+            const inputBuf = Buffer.from(enteredHash, 'hex');
+            const storedBuf = Buffer.from(otpRecord.codeHash, 'hex');
+            const isMatch = (inputBuf.length === storedBuf.length) && crypto.timingSafeEqual(inputBuf, storedBuf);
 
             if (!isMatch) {
                 if (otpRecord) {
