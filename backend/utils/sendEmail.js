@@ -5,8 +5,8 @@ const nodemailer = require('nodemailer');
  * Đọc GMAIL_USER và GMAIL_APP_PASS từ process.env (Bảo mật: Tuyệt đối không log credentials)
  */
 const createTransporter = () => {
-    const user = process.env.GMAIL_USER;
-    const pass = process.env.GMAIL_APP_PASS;
+    const user = process.env.GMAIL_USER ? process.env.GMAIL_USER.trim() : '';
+    const pass = process.env.GMAIL_APP_PASS ? process.env.GMAIL_APP_PASS.replace(/\s+/g, '') : '';
 
     if (!user || !pass) {
         console.warn('⚠️ [sendEmail] GMAIL_USER hoặc GMAIL_APP_PASS chưa được thiết lập đầy đủ trong backend/.env');

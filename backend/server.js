@@ -66,6 +66,24 @@ if (process.env.MONGO_URI) {
         });
 }
 
+// Health check endpoints (hỗ trợ kiểm tra khi deploy lên Render/Vercel)
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: '🚀 SmartStay Backend API is running...',
+        database: app.locals.isDbConnected ? 'connected' : 'fallback_mode'
+    });
+});
+
+app.get(['/health', '/api/health'], (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        uptime: process.uptime(),
+        database: app.locals.isDbConnected ? 'connected' : 'fallback_mode',
+        timestamp: new Date()
+    });
+});
+
 // Mount Authentication routes
 app.use('/api/auth', authRoutes);
 
