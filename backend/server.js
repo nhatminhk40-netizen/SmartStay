@@ -747,6 +747,13 @@ app.post('/api/rooms', protect, async (req, res) => {
             data.image_url = data.images[0];
         }
 
+        if (!data.address || !data.address.trim()) {
+            return res.status(400).json({ success: false, message: 'Địa chỉ cụ thể của phòng trọ là bắt buộc.' });
+        }
+
+        // Tự động sử dụng số điện thoại đã xác minh của chủ trọ
+        data.contactPhone = req.user.phone || data.contactPhone || '0901234567';
+
         // Bảo mật: Không cho phép client tự gán Safe Badge khi chưa kiểm duyệt
         data.isSafeBadge = false;
         data.safe_badge = false;

@@ -209,6 +209,10 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
         alert("Vui lòng nhập Giá phòng hợp lệ (VNĐ/tháng)!");
         return;
       }
+      if (!form.address.trim()) {
+        alert("Vui lòng nhập Địa chỉ cụ thể của phòng trọ (Số nhà, hẻm, tên đường, phường/xã)!");
+        return;
+      }
     }
     setStep(step + 1);
   };
@@ -222,9 +226,9 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
         price: Number(form.price),
         area_sqm: Number(form.area_sqm) || 20,
         campus: form.campus || "ĐH Cần Thơ",
-        address: form.address.trim() || `${form.campus}, Cần Thơ`,
-        location: form.address.trim() || `${form.campus}, Ninh Kiều`,
-        contactPhone: form.contactPhone.trim() || user?.phone || "0901234567",
+        address: form.address.trim(),
+        location: form.address.trim(),
+        contactPhone: user?.phone || form.contactPhone.trim() || "0901234567",
         room_type: form.room_type || "Phòng trọ khép kín",
         description: form.description.trim() || "Phòng trọ mới sạch sẽ, an ninh tốt, giờ giấc tự do.",
         amenities: form.amenities,
@@ -357,25 +361,34 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Địa chỉ cụ thể</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Địa chỉ cụ thể <span className="text-rose-500">*</span>
+                </label>
                 <input 
                   type="text" 
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                   className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
                   placeholder="Ví dụ: Hẻm 51 đường 3 Tháng 2, P. Xuân Khánh, Ninh Kiều" 
+                  required
                 />
+                <p className="text-xs text-slate-400 mt-1">
+                  Bắt buộc nhập chính xác địa chỉ từng khu/nhà trọ để sinh viên định vị và đặt lịch hẹn xem phòng.
+                </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Số điện thoại liên hệ</label>
-                <input 
-                  type="tel" 
-                  value={form.contactPhone}
-                  onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium" 
-                  placeholder="0912345678" 
-                />
+              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-orange-50/70 border border-orange-200/70 text-xs text-slate-700">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0 text-[#f97316]">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900">
+                    Số điện thoại liên hệ: <span className="text-[#f97316] font-bold">{user?.phone || "Đã xác thực theo tài khoản"}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Hệ thống tự động sử dụng số điện thoại đã xác minh của tài khoản bạn, không cần nhập lại.
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -770,6 +783,7 @@ const AddRoomModal = ({ open, onClose, user, onSuccess }) => {
                   <div><span className="text-slate-400">Loại:</span> <span className="font-bold text-slate-700">{form.room_type}</span></div>
                   <div><span className="text-slate-400">Tiện nghi:</span> <span className="font-bold text-slate-700">{form.amenities.length} tiện ích</span></div>
                   <div><span className="text-slate-400">Safe Badge:</span> <span className="font-bold text-emerald-600">{safeBadgeDoc ? "Có gửi minh chứng" : "Chưa gửi"}</span></div>
+                  <div className="col-span-2"><span className="text-slate-400">SĐT liên hệ:</span> <span className="font-bold text-emerald-700">{user?.phone || "Theo tài khoản đã xác minh"}</span></div>
                 </div>
               </div>
             </div>
