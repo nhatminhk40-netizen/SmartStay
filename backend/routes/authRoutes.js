@@ -285,9 +285,11 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             }
 
             // Gửi qua Gmail SMTP (backend/utils/sendEmail.js)
-            // Nếu là email test nội bộ (@smartstay.vn, @example.com, @test.com), bỏ qua gửi SMTP để tránh Google Mailer-Daemon báo lỗi hòm thư không tồn tại
+            // Nếu là email test nội bộ (@smartstay.vn, @example.com, @test.com) hoặc chưa cấu hình Gmail credentials
             const isMockDomain = cleanEmail.endsWith('@smartstay.vn') || cleanEmail.endsWith('@example.com') || cleanEmail.endsWith('@test.com');
-            if (!isMockDomain) {
+            const hasGmailCredentials = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASS);
+
+            if (!isMockDomain && hasGmailCredentials) {
                 try {
                     await sendOtpEmail({
                         to: cleanEmail,
@@ -301,16 +303,20 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
                         message: 'Không thể gửi email OTP qua máy chủ Gmail. Vui lòng kiểm tra lại cấu hình GMAIL_USER và GMAIL_APP_PASS.'
                     });
                 }
+            } else if (!hasGmailCredentials) {
+                console.warn(`⚠️ [sendOtp] GMAIL_USER/GMAIL_APP_PASS chưa cấu hình. Mã OTP kiểm thử cho ${cleanEmail} là: ${otpCode}`);
             } else {
                 console.log(`ℹ️ [Dev Mock Email OTP]: Bỏ qua gửi SMTP thực tế cho ${cleanEmail} (tránh Mailer-Daemon bounce). Mã OTP kiểm thử: ${otpCode}`);
             }
 
             return res.status(200).json({
                 success: true,
-                message: isMockDomain
-                    ? `[Chế độ thử nghiệm] Mã OTP cho ${cleanEmail} là ${otpCode}`
-                    : 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).',
-                otpPreview: isProd ? undefined : otpCode
+                message: !hasGmailCredentials
+                    ? `[Chế độ thử nghiệm] Chưa cấu hình Gmail SMTP trên server. Mã OTP là: ${otpCode}`
+                    : (isMockDomain
+                        ? `[Chế độ thử nghiệm] Mã OTP cho ${cleanEmail} là ${otpCode}`
+                        : 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'),
+                otpPreview: (!hasGmailCredentials || !isProd) ? otpCode : undefined
             });
         }
 
