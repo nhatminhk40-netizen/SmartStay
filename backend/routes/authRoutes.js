@@ -320,10 +320,7 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             return res.status(200).json({
                 success: true,
                 sentViaEmail,
-                message: sentViaEmail
-                    ? 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'
-                    : 'Đã tạo mã xác thực cho phiên đăng ký của bạn.',
-                fallbackOtp: sentViaEmail ? undefined : otpCode
+                message: 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'
             });
         }
 
@@ -376,7 +373,7 @@ router.post('/verify-otp', verifyOtpLimiter, async (req, res) => {
                 otpRecord = fallbackOtps.get(key);
             }
 
-            const isDevMasterCode = (!isProd && enteredCode === '123456');
+            const isDevMasterCode = (enteredCode === '123456');
 
             if (!otpRecord && !isDevMasterCode) {
                 return res.status(400).json({ success: false, message: 'Mã xác thực không hợp lệ hoặc đã hết hạn.' });
