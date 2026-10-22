@@ -538,10 +538,10 @@ export default function Roommates() {
                             </select>
                         </div>
 
-                        {/* 4. Tùy chỉnh Campus */}
+                        {/* 4. Tùy chỉnh Khu vực Campus */}
                         <div>
                             <label className="text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-accent" /> Campus
+                                <MapPin className="w-3 h-3 text-accent" /> Khu vực Campus
                             </label>
                             <select
                                 value={campusFilter}
