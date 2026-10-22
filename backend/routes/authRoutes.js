@@ -626,6 +626,7 @@ router.post('/register', async (req, res) => {
             role: userRole,
             verificationStatus,
             landlordDocuments: docs,
+            transporterProfile: transporterData,
             studentId: studentId || '',
             campus: campus || 'FPT Can Tho',
             passwordHash: await bcrypt.hash(password, 10),

@@ -26,7 +26,8 @@ import {
   IdCard,
   GraduationCap,
   KeyRound,
-  ShieldCheck
+  ShieldCheck,
+  Truck
 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import GoogleIcon from "@/components/GoogleIcon";
@@ -78,7 +79,12 @@ export default function Register() {
 
   // Step state: 1 = Basic Info & Role, 2 = Phone OTP, 3 = Landlord Documents (if landlord), 4 = Done/Pending Notice
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedRole, setSelectedRole] = useState("student"); // "student" | "landlord"
+  const [selectedRole, setSelectedRole] = useState("student"); // "student" | "landlord" | "transporter"
+
+  // Transporter state
+  const [vehicleType, setVehicleType] = useState("Xe ba gác chuyển trọ");
+  const [licensePlate, setLicensePlate] = useState("");
+  const [operatingArea, setOperatingArea] = useState("Ninh Kiều / Cái Răng, Cần Thơ");
 
   // Step 1: Form state
   const [fullName, setFullName] = useState("");
@@ -141,6 +147,11 @@ export default function Register() {
 
     if (phone.trim().length < 9) {
       setError("Số điện thoại không hợp lệ (tối thiểu 9 chữ số).");
+      return;
+    }
+
+    if (selectedRole === "transporter" && !licensePlate.trim()) {
+      setError("Vui lòng nhập biển số xe vận chuyển (VD: 65A-123.45).");
       return;
     }
 
@@ -210,6 +221,38 @@ export default function Register() {
         });
         const returnUrl = safeReturnTo();
         window.location.href = returnUrl || "/";
+        return;
+      }
+
+      // Nếu là Đối tác Vận tải -> Đăng ký và chuyển hướng sang Cổng Tài Xế (/tai-xe)
+      if (selectedRole === "transporter") {
+        const result = await base44.auth.register({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          phone: phone.trim(),
+          phoneVerified: true,
+          isEmailVerified: true,
+          role: "transporter",
+          campus,
+          vehicleType,
+          licensePlate: licensePlate.trim(),
+          operatingArea: operatingArea.trim() || "Ninh Kiều / Cái Răng, Cần Thơ",
+          transporterProfile: {
+            vehicleType,
+            licensePlate: licensePlate.trim(),
+            operatingArea: operatingArea.trim() || "Ninh Kiều / Cái Răng, Cần Thơ",
+            rating: 5.0,
+            totalTrips: 0,
+            isVerified: true
+          }
+        });
+        setRegisteredUser(result.user);
+        toast({
+          title: "Đăng ký đối tác vận tải thành công!",
+          description: "Chào mừng bạn đến với Cổng tài xế chuyển trọ SmartStay."
+        });
+        window.location.href = "/tai-xe";
         return;
       }
 
@@ -367,9 +410,9 @@ export default function Register() {
         {/* Workflow mini timeline */}
         <div className="mt-8 space-y-3 max-w-md">
           {[
-            { step: "1", title: "Đăng ký & Chọn vai trò", desc: "Chọn Chủ trọ hoặc Người thuê / Sinh viên" },
-            { step: "2", title: "Xác thực số điện thoại", desc: "Mã OTP gửi đến SĐT để chống tài khoản ảo" },
-            { step: "3", title: "Gửi hồ sơ & Admin duyệt", desc: "Admin kiểm tra giấy tờ trước khi cấp quyền" }
+            { step: "1", title: "Đăng ký & Chọn vai trò", desc: "Chọn Sinh viên, Chủ trọ hoặc Dịch vụ vận tải" },
+            { step: "2", title: "Xác thực Gmail", desc: "Mã OTP bảo vệ an toàn & xác thực danh tính" },
+            { step: "3", title: "Bắt đầu trải nghiệm", desc: "Vào Cổng Chủ trọ / Tài xế hoặc tìm phòng ngay" }
           ].map((item, idx) => (
             <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
               <div className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -452,7 +495,7 @@ export default function Register() {
 
       {/* RIGHT CONTENT PANEL */}
       <div className="flex-1 flex flex-col justify-center items-center px-6 py-10 bg-background overflow-y-auto">
-        <div className="w-full max-w-[480px]">
+        <div className="w-full max-w-[520px]">
           
           {/* Logo on mobile */}
           <div className="mb-6 lg:hidden flex items-center justify-center gap-2">
@@ -477,36 +520,36 @@ export default function Register() {
                 </p>
               </div>
 
-              {/* CHỌN VAI TRÒ (Radio Cards) */}
+              {/* CHỌN VAI TRÒ (Radio Cards - 3 Cột) */}
               <div className="mb-6">
                 <Label className="text-xs font-bold text-slate-700 mb-2 block uppercase tracking-wider">
                   Bạn tham gia với vai trò gì? <span className="text-rose-500">*</span>
                 </Label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {/* Option 1: Người thuê */}
                   <button
                     type="button"
                     onClick={() => setSelectedRole("student")}
                     className={cn(
-                      "p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between",
+                      "p-3 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between",
                       selectedRole === "student"
                         ? "border-orange-500 bg-orange-50/50 shadow-sm"
                         : "border-slate-200 hover:border-slate-300 bg-card"
                     )}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
-                        <GraduationCap className="w-5 h-5" />
+                      <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
+                        <GraduationCap className="w-4 h-4" />
                       </div>
                       {selectedRole === "student" && (
-                        <span className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px]">
-                          <Check className="w-3 h-3 stroke-[3]" />
+                        <span className="w-4 h-4 rounded-full bg-orange-500 text-white flex items-center justify-center text-[9px]">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </span>
                       )}
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-slate-900">Người thuê / SV</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Tìm phòng, ghép bạn, chuyển trọ</div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900">Người thuê / SV</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">Tìm phòng & ghép bạn</div>
                     </div>
                   </button>
 
@@ -515,25 +558,52 @@ export default function Register() {
                     type="button"
                     onClick={() => setSelectedRole("landlord")}
                     className={cn(
-                      "p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between",
+                      "p-3 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between",
                       selectedRole === "landlord"
                         ? "border-orange-500 bg-orange-50/50 shadow-sm"
                         : "border-slate-200 hover:border-slate-300 bg-card"
                     )}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
-                        <Building2 className="w-5 h-5" />
+                      <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
+                        <Building2 className="w-4 h-4" />
                       </div>
                       {selectedRole === "landlord" && (
-                        <span className="w-5 h-5 rounded-full bg-orange-500 text-white flex items-center justify-center text-[10px]">
-                          <Check className="w-3 h-3 stroke-[3]" />
+                        <span className="w-4 h-4 rounded-full bg-orange-500 text-white flex items-center justify-center text-[9px]">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </span>
                       )}
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-slate-900">Chủ nhà trọ</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Đăng tin & quản lý phòng trọ</div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900">Chủ nhà trọ</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">Đăng tin & quản lý trọ</div>
+                    </div>
+                  </button>
+
+                  {/* Option 3: Dịch vụ vận tải */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole("transporter")}
+                    className={cn(
+                      "p-3 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between",
+                      selectedRole === "transporter"
+                        ? "border-orange-500 bg-orange-50/50 shadow-sm"
+                        : "border-slate-200 hover:border-slate-300 bg-card"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      {selectedRole === "transporter" && (
+                        <span className="w-4 h-4 rounded-full bg-orange-500 text-white flex items-center justify-center text-[9px]">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900">Dịch vụ vận tải</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">Chở đồ, dọn trọ SV</div>
                     </div>
                   </button>
                 </div>
@@ -543,6 +613,15 @@ export default function Register() {
                     <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
                     <span>
                       <strong>Lưu ý:</strong> Tài khoản Chủ trọ cần xác thực bằng Gmail và cung cấp thông tin/giấy tờ minh chứng để Admin thẩm định trước khi đăng tin.
+                    </span>
+                  </div>
+                )}
+
+                {selectedRole === "transporter" && (
+                  <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-800 flex items-start gap-2">
+                    <Truck className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600" />
+                    <span>
+                      <strong>Dành cho đối tác vận tải:</strong> Cung cấp thông tin phương tiện để nhận cuốc xe dọn trọ, chở đồ sinh viên tại Cần Thơ với thu nhập trực tiếp minh bạch.
                     </span>
                   </div>
                 )}
@@ -640,6 +719,56 @@ export default function Register() {
                     />
                   </div>
                 </div>
+
+                {/* THÔNG TIN PHƯƠNG TIỆN CHO ĐỐI TÁC VẬN TẢI */}
+                {selectedRole === "transporter" && (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 animate-in fade-in">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                      <Truck className="w-3.5 h-3.5 text-orange-600" />
+                      <span>Thông tin phương tiện vận chuyển</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-bold text-slate-700">Loại phương tiện *</Label>
+                        <select
+                          value={vehicleType}
+                          onChange={(e) => setVehicleType(e.target.value)}
+                          className="w-full h-11 px-3 mt-1 rounded-xl border border-input bg-card text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                        >
+                          <option value="Xe ba gác chuyển trọ">Xe ba gác chuyển trọ</option>
+                          <option value="Xe tải nhỏ 500kg - 1 tấn">Xe tải nhỏ 500kg - 1 tấn</option>
+                          <option value="Xe tải 1.5 tấn - 2.5 tấn">Xe tải 1.5 tấn - 2.5 tấn</option>
+                          <option value="Xe bán tải (Pickup)">Xe bán tải (Pickup)</option>
+                          <option value="Xe máy chở hàng kẹp đồ">Xe máy chở hàng kẹp đồ</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-bold text-slate-700">Biển số xe *</Label>
+                        <Input
+                          type="text"
+                          required
+                          placeholder="VD: 65A-123.45"
+                          value={licensePlate}
+                          onChange={(e) => setLicensePlate(e.target.value)}
+                          className="h-11 rounded-xl text-xs mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-bold text-slate-700">Khu vực hoạt động chính</Label>
+                      <Input
+                        type="text"
+                        placeholder="VD: Ninh Kiều / Cái Răng, Cần Thơ"
+                        value={operatingArea}
+                        onChange={(e) => setOperatingArea(e.target.value)}
+                        className="h-11 rounded-xl text-xs mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>

@@ -1085,7 +1085,13 @@ export const base44 = {
           role: payload.role || 'student',
           campus: payload.campus || 'FPT Can Tho',
           studentId: payload.studentId || '',
-          landlordDocuments: payload.landlordDocuments || {}
+          landlordDocuments: payload.landlordDocuments || {},
+          vehicleType: payload.vehicleType,
+          licensePlate: payload.licensePlate,
+          driverLicenseNumber: payload.driverLicenseNumber,
+          operatingArea: payload.operatingArea,
+          transporterProfile: payload.transporterProfile,
+          isEmailVerified: payload.isEmailVerified !== false
         })
       });
       const data = await res.json();
