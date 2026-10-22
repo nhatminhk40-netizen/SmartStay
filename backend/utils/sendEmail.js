@@ -35,6 +35,11 @@ const createTransporter = () => {
 
 /**
  * Gửi email chứa mã xác thực OTP
+ * Hỗ trợ 3 phương thức:
+ * 1. Brevo REST API (HTTPS port 443 - Tối ưu 100% cho Render Free không bị chặn cổng)
+ * 2. Resend REST API (HTTPS port 443)
+ * 3. Nodemailer Gmail SMTP (cho môi trường local / máy chủ mở cổng 587)
+ *
  * @param {Object} params
  * @param {string} params.to - Địa chỉ email người nhận
  * @param {string} params.otpCode - Mã OTP 6 chữ số
@@ -42,8 +47,6 @@ const createTransporter = () => {
  * @returns {Promise<Object>} kết quả gửi thư
  */
 const sendOtpEmail = async ({ to, otpCode, purpose = 'VERIFY_EMAIL' }) => {
-    const transporter = createTransporter();
-
     let purposeText = 'xác thực tài khoản';
     if (purpose === 'REGISTER') {
         purposeText = 'hoàn tất đăng ký tài khoản';
@@ -138,6 +141,64 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
 Đội ngũ vận hành SmartStay
     `.trim();
 
+    // 1. ƯU TIÊN 1: Brevo REST API (Chạy qua HTTPS port 443 - Render Free không chặn)
+    if (process.env.BREVO_API_KEY) {
+        console.log(`🚀 [sendEmail] Gửi OTP đến ${to} qua Brevo HTTPS API...`);
+        const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.GMAIL_USER || 'hotro@smartstay.vn';
+        const senderName = process.env.BREVO_SENDER_NAME || 'SmartStay Cần Thơ';
+
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': process.env.BREVO_API_KEY.trim(),
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: { name: senderName, email: senderEmail },
+                to: [{ email: to }],
+                subject: 'Mã xác thực SmartStay',
+                htmlContent,
+                textContent
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(`Brevo API (${response.status}): ${data.message || JSON.stringify(data)}`);
+        }
+        console.log('✅ [Brevo API] Gửi email thành công. MessageId:', data.messageId);
+        return { messageId: data.messageId };
+    }
+
+    // 2. ƯU TIÊN 2: Resend API (HTTPS port 443)
+    if (process.env.RESEND_API_KEY) {
+        console.log(`🚀 [sendEmail] Gửi OTP đến ${to} qua Resend HTTPS API...`);
+        const fromEmail = process.env.RESEND_FROM || 'SmartStay <onboarding@resend.dev>';
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                from: fromEmail,
+                to: [to],
+                subject: 'Mã xác thực SmartStay',
+                html: htmlContent,
+                text: textContent
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(`Resend API: ${data.message || JSON.stringify(data)}`);
+        }
+        console.log('✅ [Resend API] Gửi email thành công. ID:', data.id);
+        return { messageId: data.id };
+    }
+
+    // 3. Nodemailer Gmail SMTP (Phù hợp máy local hoặc máy chủ không chặn cổng SMTP)
+    const transporter = createTransporter();
     const mailOptions = {
         from: `"SmartStay" <${process.env.GMAIL_USER}>`,
         to,

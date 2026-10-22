@@ -287,14 +287,18 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             // Gửi qua Gmail SMTP (backend/utils/sendEmail.js)
             // Nếu là email test nội bộ (@smartstay.vn, @example.com, @test.com) hoặc chưa cấu hình Gmail credentials
             const isMockDomain = cleanEmail.endsWith('@smartstay.vn') || cleanEmail.endsWith('@example.com') || cleanEmail.endsWith('@test.com');
-            const hasGmailCredentials = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASS);
+            const hasEmailProvider = Boolean(
+                process.env.BREVO_API_KEY ||
+                process.env.RESEND_API_KEY ||
+                (process.env.GMAIL_USER && process.env.GMAIL_APP_PASS)
+            );
 
             if (!isMockDomain) {
-                if (!hasGmailCredentials) {
-                    console.error('❌ [sendOtp] GMAIL_USER/GMAIL_APP_PASS chưa cấu hình trên server.');
+                if (!hasEmailProvider) {
+                    console.error('❌ [sendOtp] Chưa cấu hình dịch vụ gửi email (BREVO_API_KEY hoặc Gmail) trên server.');
                     return res.status(500).json({
                         success: false,
-                        message: 'Máy chủ chưa được cấu hình tài khoản gửi Gmail SMTP (GMAIL_USER & GMAIL_APP_PASS). Vui lòng cấu hình biến môi trường trên Render.'
+                        message: 'Máy chủ chưa cấu hình dịch vụ gửi Email (BREVO_API_KEY hoặc GMAIL_USER / GMAIL_APP_PASS). Vui lòng thêm biến môi trường trên Render.'
                     });
                 }
 
