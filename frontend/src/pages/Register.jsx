@@ -778,10 +778,12 @@ export default function Register() {
                 ) : (
                   <button
                     type="button"
+                    disabled={loading}
                     onClick={handleResendOtp}
-                    className="font-bold transition-colors hover:underline text-orange-500"
+                    className="font-bold transition-colors hover:underline text-orange-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                   >
-                    Gửi lại mã OTP
+                    {loading && <Loader2 className="w-3 h-3 animate-spin" />}
+                    {loading ? "Đang gửi lại mã..." : "Gửi lại mã OTP"}
                   </button>
                 )}
               </div>
