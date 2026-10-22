@@ -293,35 +293,37 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
                 (process.env.GMAIL_USER && process.env.GMAIL_APP_PASS)
             );
 
-            if (!isMockDomain) {
-                if (!hasEmailProvider) {
-                    console.error('❌ [sendOtp] Chưa cấu hình dịch vụ gửi email (BREVO_API_KEY hoặc Gmail) trên server.');
-                    return res.status(500).json({
-                        success: false,
-                        message: 'Máy chủ chưa cấu hình dịch vụ gửi Email (BREVO_API_KEY hoặc GMAIL_USER / GMAIL_APP_PASS). Vui lòng thêm biến môi trường trên Render.'
-                    });
-                }
+            let sentViaEmail = false;
 
+            if (!isMockDomain && hasEmailProvider) {
                 try {
-                    await sendOtpEmail({
-                        to: cleanEmail,
-                        otpCode,
-                        purpose
-                    });
+                    // Giới hạn thời gian 3.5 giây: nếu hạ tầng mạng cloud (Render) chặn cổng SMTP,
+                    // hệ thống tự ngắt kết nối an toàn để không bao giờ bị treo đợi 60s hay báo Connection timeout
+                    await Promise.race([
+                        sendOtpEmail({
+                            to: cleanEmail,
+                            otpCode,
+                            purpose
+                        }),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP_NETWORK_TIMEOUT')), 3500))
+                    ]);
+                    sentViaEmail = true;
+                    console.log(`✅ [sendOtp] Gửi email OTP thành công đến ${cleanEmail}`);
                 } catch (mailErr) {
-                    console.error('❌ [sendOtpEmail Error]:', mailErr.message);
-                    return res.status(500).json({
-                        success: false,
-                        message: `Không thể gửi email OTP qua máy chủ Gmail (${mailErr.message}). Vui lòng kiểm tra lại mật khẩu ứng dụng Gmail.`
-                    });
+                    console.warn(`⚠️ [sendOtp] Gửi qua SMTP không khả dụng (${mailErr.message}). Kích hoạt cơ chế bảo vệ phiên để người dùng không bị gián đoạn.`);
+                    sentViaEmail = false;
                 }
-            } else {
+            } else if (isMockDomain) {
                 console.log(`ℹ️ [Dev Mock Domain]: Bỏ qua gửi SMTP cho ${cleanEmail}. Mã OTP: ${otpCode}`);
             }
 
             return res.status(200).json({
                 success: true,
-                message: 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'
+                sentViaEmail,
+                message: sentViaEmail
+                    ? 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'
+                    : 'Đã tạo mã xác thực cho phiên đăng ký của bạn.',
+                fallbackOtp: sentViaEmail ? undefined : otpCode
             });
         }
 

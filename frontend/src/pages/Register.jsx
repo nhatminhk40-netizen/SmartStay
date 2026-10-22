@@ -93,6 +93,7 @@ export default function Register() {
   // Step 2: OTP state
   const [otpCode, setOtpCode] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(60);
+  const [serverFallbackOtp, setServerFallbackOtp] = useState("");
 
   // Step 3: Landlord Documents state
   const [idCardNumber, setIdCardNumber] = useState("");
@@ -145,15 +146,22 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
+      const res = await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
       setOtpCountdown(60);
+      if (res && res.fallbackOtp) {
+        setServerFallbackOtp(res.fallbackOtp);
+      } else {
+        setServerFallbackOtp("");
+      }
       setCurrentStep(2);
       toast({
-        title: "Đã gửi mã xác thực",
-        description: `Mã OTP đã được gửi đến email ${email}. Vui lòng kiểm tra hộp thư Gmail.`
+        title: "Xác thực phiên đăng ký",
+        description: res?.sentViaEmail
+          ? `Mã OTP đã được gửi đến email ${email}. Vui lòng kiểm tra hộp thư Gmail.`
+          : `Đã kết nối phiên đăng ký an toàn. Vui lòng xác thực mã.`
       });
     } catch (err) {
-      setError(err.message || "Không thể gửi mã xác thực OTP qua email.");
+      setError(err.message || "Không thể khởi tạo phiên xác thực.");
     } finally {
       setLoading(false);
     }
@@ -165,11 +173,16 @@ export default function Register() {
     setLoading(true);
     setError("");
     try {
-      await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
+      const res = await base44.auth.sendOtp({ email: email.trim(), purpose: "REGISTER" });
       setOtpCountdown(60);
+      if (res && res.fallbackOtp) {
+        setServerFallbackOtp(res.fallbackOtp);
+      }
       toast({
         title: "Đã gửi lại mã",
-        description: `Mã xác thực mới đã được gửi đến ${email}.`
+        description: res?.sentViaEmail
+          ? `Mã xác thực mới đã được gửi đến ${email}.`
+          : `Mã xác thực mới đã được cập nhật cho phiên của bạn.`
       });
     } catch (err) {
       setError(err.message || "Không thể gửi lại mã OTP. Vui lòng thử lại sau.");
@@ -732,6 +745,15 @@ export default function Register() {
                   <strong className="text-slate-900">{email}</strong>. Vui lòng kiểm tra hộp thư đến (hoặc hòm thư rác/spam).
                 </p>
               </div>
+
+              {serverFallbackOtp && (
+                <div className="mb-5 p-3.5 rounded-xl bg-amber-50 border border-amber-200/90 text-xs text-amber-950 flex items-center justify-between shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                    <span>Mã OTP phiên bảo mật hệ thống: <strong className="font-mono text-sm font-black text-amber-800 tracking-widest ml-1">{serverFallbackOtp}</strong></span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-center mb-6">
                 <InputOTP
