@@ -353,44 +353,44 @@ export default function Register() {
     });
   };
 
-  // ── Left Branding Panel ──
+  // ── Left Branding Panel (Giao diện chuẩn đồng bộ với Login) ──
   const LeftPanel = () => (
     <div
-      className="hidden lg:flex lg:w-[48%] relative flex-col justify-between overflow-hidden p-10 select-none"
+      className="hidden lg:flex lg:w-[48%] relative flex-col justify-between overflow-hidden select-none"
       style={{
-        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0c1a2e 100%)",
+        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0c1a2e 100%)",
       }}
     >
+      {/* Decorative blobs */}
       <div
         className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full opacity-20 blur-3xl pointer-events-none"
         style={{ background: "radial-gradient(circle, #f97316, transparent 70%)" }}
       />
       <div
         className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full opacity-15 blur-3xl pointer-events-none"
-        style={{ background: "radial-gradient(circle, #10b981, transparent 70%)" }}
+        style={{ background: "radial-gradient(circle, #6366f1, transparent 70%)" }}
       />
 
-      <div className="relative z-10 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
-          <Shield className="w-5 h-5 text-orange-500" />
-        </div>
-        <span className="text-white font-black text-2xl tracking-tight">SmartStay</span>
+      {/* Top - Logo (text only) */}
+      <div className="relative z-10 p-10 pb-0">
+        <span className="text-white font-bold text-xl tracking-tight">SmartStay</span>
       </div>
 
-      <div className="relative z-10 my-auto py-8">
+      {/* Middle - Headline */}
+      <div className="relative z-10 px-10 py-6 my-auto">
         <div
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold mb-6"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-6"
           style={{
             background: "rgba(249,115,22,0.15)",
             color: "#fb923c",
             border: "1px solid rgba(249,115,22,0.3)",
           }}
         >
-          <ShieldCheck className="w-3.5 h-3.5 text-orange-400" />
-          <span>Quy trình xác thực minh bạch & bảo mật</span>
+          <Building2 className="w-3.5 h-3.5 text-orange-400" />
+          <span>Nền tảng tìm phòng trọ minh bạch Cần Thơ</span>
         </div>
-        <h1 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight mb-4">
-          Nền tảng phòng trọ
+        <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4">
+          Tìm phòng trọ
           <br />
           <span
             style={{
@@ -399,37 +399,38 @@ export default function Register() {
               WebkitTextFillColor: "transparent",
             }}
           >
-            số 1 tại TP. Cần Thơ
+            an toàn & thông minh
           </span>
         </h1>
-        <p className="text-slate-300 text-sm leading-relaxed max-w-md">
-          Chủ nhà trọ được thẩm định giấy tờ bởi Quản trị viên. Sinh viên an tâm tìm phòng,
-          không lo tin ảo, giá cả minh bạch tuyệt đối.
+        <p className="text-slate-400 text-base leading-relaxed max-w-md">
+          Hàng trăm phòng trọ chất lượng dành riêng cho sinh viên Cần Thơ.
+          Minh bạch giá cả, an toàn tuyệt đối.
         </p>
-
-        {/* Workflow mini timeline */}
-        <div className="mt-8 space-y-3 max-w-md">
-          {[
-            { step: "1", title: "Đăng ký & Chọn vai trò", desc: "Chọn Sinh viên, Chủ trọ hoặc Dịch vụ vận tải" },
-            { step: "2", title: "Xác thực Gmail", desc: "Mã OTP bảo vệ an toàn & xác thực danh tính" },
-            { step: "3", title: "Bắt đầu trải nghiệm", desc: "Vào Cổng Chủ trọ / Tài xế hoặc tìm phòng ngay" }
-          ].map((item, idx) => (
-            <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
-              <div className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
-                {item.step}
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white">{item.title}</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">{item.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
-      <div className="relative z-10 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
-        <span>© 2026 SmartStay Cần Thơ</span>
-        <span>Hỗ trợ: hotro@smartstay.vn</span>
+      {/* Bottom - Feature cards */}
+      <div className="relative z-10 p-10 pt-0 grid gap-4">
+        {FEATURES.map(({ icon: Icon, title, desc }) => (
+          <div
+            key={title}
+            className="flex items-start gap-4 p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <div
+              className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(249,115,22,0.15)" }}
+            >
+              <Icon className="w-5 h-5" style={{ color: "#f97316" }} />
+            </div>
+            <div>
+              <p className="text-white font-semibold text-sm">{title}</p>
+              <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{desc}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

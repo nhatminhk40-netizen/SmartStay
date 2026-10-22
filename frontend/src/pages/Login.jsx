@@ -166,7 +166,7 @@ export default function Login() {
             }}
           >
             <Building2 className="w-3.5 h-3.5 text-orange-400" />
-            <span>Nền tảng tìm phòng trọ #1 Cần Thơ</span>
+            <span>Nền tảng tìm phòng trọ minh bạch Cần Thơ</span>
           </div>
           <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4">
             Tìm phòng trọ
