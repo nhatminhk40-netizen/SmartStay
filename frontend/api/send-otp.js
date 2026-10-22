@@ -24,8 +24,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, message: 'Thiếu email người nhận hoặc mã OTP' });
   }
 
-  const gmailUser = (process.env.GMAIL_USER || 'trieuvyvoctct@gmail.com').trim();
-  const gmailPass = (process.env.GMAIL_APP_PASS || 'uxqi kgcb smem xvvm').replace(/\s+/g, '');
+  const gmailUser = (process.env.GMAIL_USER || 'smartstay06@gmail.com').trim();
+  const gmailPass = (process.env.GMAIL_APP_PASS || 'ijgn pxtc hxxs mufc').replace(/\s+/g, '');
 
   try {
     const transporter = nodemailer.createTransport({
