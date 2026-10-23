@@ -263,8 +263,16 @@ export default function EmailOtpVerification({
                 <InputOTPSlot index={5} className="w-10 sm:w-12 h-12 text-lg font-bold rounded-xl border-2" />
               </InputOTPGroup>
             </InputOTP>
+            <div className="w-full mt-2 p-3 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs text-left">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <span className="font-bold text-amber-900">Chưa nhận được mã?</span> Kiểm tra mục <strong className="font-bold underline decoration-amber-400">Thư rác (Spam)</strong> hoặc Quảng cáo trong hộp thư Gmail của bạn.
+                </div>
+              </div>
+            </div>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Mã có hiệu lực trong 5 phút. Vui lòng kiểm tra kỹ hòm thư.
+              Mã có hiệu lực trong 1 phút (60 giây). Vui lòng kiểm tra kỹ hòm thư.
             </p>
           </div>
 

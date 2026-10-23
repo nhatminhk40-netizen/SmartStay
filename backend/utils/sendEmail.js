@@ -48,10 +48,14 @@ const createTransporter = () => {
  */
 const sendOtpEmail = async ({ to, otpCode, purpose = 'VERIFY_EMAIL' }) => {
     let purposeText = 'xác thực tài khoản';
+    let dynamicSubject = `[SmartStay] Mã OTP của bạn là: ${otpCode}`;
+
     if (purpose === 'REGISTER') {
         purposeText = 'hoàn tất đăng ký tài khoản';
+        dynamicSubject = `[SmartStay] ${otpCode} là mã xác nhận đăng ký tài khoản`;
     } else if (purpose === 'RESET_PASSWORD') {
         purposeText = 'đặt lại mật khẩu đăng nhập';
+        dynamicSubject = `[SmartStay] ${otpCode} là mã đặt lại mật khẩu`;
     }
 
     const htmlContent = `
@@ -60,9 +64,14 @@ const sendOtpEmail = async ({ to, otpCode, purpose = 'VERIFY_EMAIL' }) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mã xác thực SmartStay</title>
+  <title>${dynamicSubject}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+  <!-- Preheader preview text (chống spam & hiển thị ngay trên thanh thông báo) -->
+  <div style="display:none;font-size:1px;color:#f8fafc;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    Mã xác nhận SmartStay của bạn: ${otpCode}. Mã có hiệu lực trong vòng 1 phút (60 giây). Vui lòng không chia sẻ mã này.
+  </div>
+
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 40px 10px;">
     <tr>
       <td align="center">
@@ -71,7 +80,7 @@ const sendOtpEmail = async ({ to, otpCode, purpose = 'VERIFY_EMAIL' }) => {
           <tr>
             <td style="background-color: #ea580c; padding: 24px 32px; text-align: left;">
               <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
-                SmartStay
+                SmartStay Cần Thơ
               </h1>
               <p style="margin: 4px 0 0; color: #ffedd5; font-size: 13px;">
                 Nền tảng phòng trọ & bạn cùng phòng sinh viên Cần Thơ
@@ -95,7 +104,7 @@ const sendOtpEmail = async ({ to, otpCode, purpose = 'VERIFY_EMAIL' }) => {
                   ${otpCode}
                 </span>
                 <p style="margin: 8px 0 0; font-size: 12px; color: #c2410c; font-weight: 600;">
-                  Mã có hiệu lực trong vòng 5 phút (hết hạn sau 5 phút)
+                  Mã có hiệu lực trong vòng 1 phút (hết hạn sau 60 giây)
                 </p>
               </div>
 
@@ -115,10 +124,15 @@ const sendOtpEmail = async ({ to, otpCode, purpose = 'VERIFY_EMAIL' }) => {
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Footer & Anti-Spam Tip -->
           <tr>
-            <td style="background-color: #f8fafc; padding: 16px 32px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
-              Email được gửi tự động từ hệ thống SmartStay. Vui lòng không trả lời trực tiếp email này.
+            <td style="background-color: #f8fafc; padding: 18px 32px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11.5px; color: #64748b; line-height: 1.6;">
+              <p style="margin: 0 0 8px; color: #475569;">
+                💡 <strong>Mẹo nhỏ:</strong> Nếu thư này nằm trong mục <em>Thư rác (Spam)</em> hoặc <em>Quảng cáo</em>, bạn vui lòng bấm <strong>"Báo cáo không phải là thư rác" (Not Spam)</strong> để các thông báo sau này luôn đến Hộp thư đến nhé!
+              </p>
+              <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                Email được gửi tự động từ hệ thống SmartStay Cần Thơ. Vui lòng không trả lời trực tiếp email này.
+              </p>
             </td>
           </tr>
         </table>
@@ -130,15 +144,16 @@ const sendOtpEmail = async ({ to, otpCode, purpose = 'VERIFY_EMAIL' }) => {
     `;
 
     const textContent = `
-Mã xác thực SmartStay
-
+[SmartStay Cần Thơ]
 Bạn đang thực hiện yêu cầu ${purposeText} trên hệ thống SmartStay.
 Mã xác thực của bạn là: ${otpCode}
 
-Mã có hiệu lực trong vòng 5 phút.
+Mã có hiệu lực trong vòng 1 phút (60 giây).
 LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
 
-Đội ngũ vận hành SmartStay
+💡 Mẹo: Nếu thư rơi vào mục Thư rác, vui lòng đánh dấu "Không phải spam" để nhận email nhanh nhất.
+
+Đội ngũ vận hành SmartStay Cần Thơ
     `.trim();
 
     // 1. ƯU TIÊN 1: Vercel Mail Relay (Gửi Gmail SMTP từ Vercel qua HTTPS port 443 - không bị Render chặn cổng)
@@ -148,7 +163,7 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
         const relayRes = await fetch(vercelRelayUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to, otpCode, purpose, htmlContent, textContent })
+            body: JSON.stringify({ to, otpCode, purpose, subject: dynamicSubject, htmlContent, textContent })
         });
         const relayData = await relayRes.json();
         if (relayRes.ok && relayData.success) {
@@ -177,7 +192,7 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
             body: JSON.stringify({
                 sender: { name: senderName, email: senderEmail },
                 to: [{ email: to }],
-                subject: 'Mã xác thực SmartStay',
+                subject: dynamicSubject,
                 htmlContent,
                 textContent
             })
@@ -191,10 +206,10 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
         return { messageId: data.messageId };
     }
 
-    // 2. ƯU TIÊN 2: Resend API (HTTPS port 443)
+    // 3. ƯU TIÊN 3: Resend API (HTTPS port 443)
     if (process.env.RESEND_API_KEY) {
         console.log(`🚀 [sendEmail] Gửi OTP đến ${to} qua Resend HTTPS API...`);
-        const fromEmail = process.env.RESEND_FROM || 'SmartStay <onboarding@resend.dev>';
+        const fromEmail = process.env.RESEND_FROM || 'SmartStay Cần Thơ <onboarding@resend.dev>';
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -204,7 +219,7 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
             body: JSON.stringify({
                 from: fromEmail,
                 to: [to],
-                subject: 'Mã xác thực SmartStay',
+                subject: dynamicSubject,
                 html: htmlContent,
                 text: textContent
             })
@@ -217,14 +232,22 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
         return { messageId: data.id };
     }
 
-    // 3. Nodemailer Gmail SMTP (Phù hợp máy local hoặc máy chủ không chặn cổng SMTP)
+    // 4. Nodemailer Gmail SMTP (Phù hợp máy local hoặc máy chủ không chặn cổng SMTP)
     const transporter = createTransporter();
+    const mailSender = process.env.GMAIL_USER ? process.env.GMAIL_USER.trim() : 'smartstay06@gmail.com';
     const mailOptions = {
-        from: `"SmartStay" <${process.env.GMAIL_USER}>`,
+        from: `"SmartStay Cần Thơ" <${mailSender}>`,
+        replyTo: mailSender,
         to,
-        subject: 'Mã xác thực SmartStay',
+        subject: dynamicSubject,
         text: textContent,
-        html: htmlContent
+        html: htmlContent,
+        headers: {
+            'X-Priority': '1 (Highest)',
+            'X-MSMail-Priority': 'High',
+            'Importance': 'High',
+            'X-Mailer': 'SmartStay-System-v1.0'
+        }
     };
 
     return await transporter.sendMail(mailOptions);

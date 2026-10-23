@@ -162,7 +162,7 @@ export default function Register() {
       setCurrentStep(2);
       toast({
         title: "Đã gửi mã xác thực",
-        description: `Mã OTP đã được gửi đến email ${email}. Vui lòng kiểm tra hộp thư Gmail.`
+        description: `Mã OTP đã được gửi đến email ${email}. Nếu không thấy ở Hộp thư đến, vui lòng kiểm tra thư mục Thư rác (Spam).`
       });
     } catch (err) {
       setError(err.message || "Không thể khởi tạo phiên xác thực.");
@@ -181,7 +181,7 @@ export default function Register() {
       setOtpCountdown(60);
       toast({
         title: "Đã gửi lại mã",
-        description: `Mã xác thực mới đã được gửi đến ${email}.`
+        description: `Mã xác thực mới đã gửi đến ${email}. Đừng quên kiểm tra thư mục Thư rác (Spam) nhé!`
       });
     } catch (err) {
       setError(err.message || "Không thể gửi lại mã OTP. Vui lòng thử lại sau.");
@@ -846,7 +846,7 @@ export default function Register() {
           {/* ==================== BƯỚC 2: XÁC THỰC SỐ ĐIỆN THOẠI ==================== */}
           {currentStep === 2 && (
             <div className="animate-in fade-in duration-200">
-              <div className="mb-6">
+              <div className="mb-4">
                 <button
                   type="button"
                   onClick={() => setCurrentStep(1)}
@@ -860,11 +860,36 @@ export default function Register() {
                 </h2>
                 <p className="text-muted-foreground text-xs mt-1">
                   Mã xác thực gồm 6 số đã được gửi qua Gmail đến địa chỉ{" "}
-                  <strong className="text-slate-900">{email}</strong>. Vui lòng kiểm tra hộp thư đến (hoặc hòm thư rác/spam).
+                  <strong className="text-slate-900">{email}</strong>.
                 </p>
               </div>
 
-              <div className="flex justify-center mb-6">
+              {/* Banner hướng dẫn kiểm tra Thư rác / Spam nổi bật */}
+              <div className="mb-6 p-4 rounded-2xl bg-amber-50/95 border border-amber-200 text-amber-950 text-xs shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-amber-950 text-xs">
+                        Chưa thấy thư trong Hộp thư đến?
+                      </span>
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-200/90 text-amber-900">
+                        Kiểm tra Thư rác (Spam)
+                      </span>
+                    </div>
+                    <p className="text-[11.5px] text-amber-900/90 leading-relaxed">
+                      Do cơ chế bảo mật của Gmail với tài khoản mới, email có thể được tự động chuyển vào mục <strong className="text-amber-950 font-bold underline decoration-amber-400">Thư rác (Spam)</strong> hoặc <strong className="text-amber-950 font-bold">Quảng cáo / Cập nhật</strong>.
+                    </p>
+                    <p className="text-[11px] text-amber-800 font-semibold pt-0.5">
+                      👉 Anh/Chị hãy mở ứng dụng Gmail ➔ bấm vào <strong>Menu (3 gạch)</strong> ➔ chọn <strong>Thư rác (Spam)</strong> để lấy mã xác thực nhé!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center justify-center mb-6">
                 <InputOTP
                   maxLength={6}
                   value={otpCode}
@@ -880,6 +905,9 @@ export default function Register() {
                     <InputOTPSlot index={5} />
                   </InputOTPGroup>
                 </InputOTP>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Mã có hiệu lực trong vòng 1 phút (60 giây)
+                </p>
               </div>
 
               <button

@@ -24,10 +24,10 @@ export default function InvoiceManager() {
     dueDate: "",
     electricPrevious: 0,
     electricCurrent: 0,
-    electricPhoto: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80",
+    electricPhoto: "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=600&q=80",
     waterPrevious: 0,
     waterCurrent: 0,
-    waterPhoto: "https://images.unsplash.com/photo-1541888946425-d0fbb186c5f7?auto=format&fit=crop&w=600&q=80",
+    waterPhoto: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80",
     otherFees: [
       { name: "Tiền rác & Vệ sinh", amount: 30000 },
       { name: "Internet / Wifi", amount: 50000 }

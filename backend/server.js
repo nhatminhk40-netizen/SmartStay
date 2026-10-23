@@ -27,8 +27,23 @@ app.disable('x-powered-by');
 
 // Security Middlewares - Helmet bảo mật HTTP Headers
 app.use(helmet({
-    contentSecurityPolicy: false, // Cho phép load ảnh và avatar từ các nguồn Unsplash, Cloudinary
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://res.cloudinary.com", "https://*.googleusercontent.com", "https://api.dicebear.com"],
+            connectSrc: ["'self'", "http://localhost:5173", "http://localhost:5000", "ws://localhost:5173", "https://accounts.google.com"],
+            frameSrc: ["'self'", "https://accounts.google.com"],
+            frameAncestors: ["'self'"],
+            formAction: ["'self'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"]
+        }
+    },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
     frameguard: { action: 'sameorigin' },
     noSniff: true,
     hsts: {
@@ -40,6 +55,14 @@ app.use(helmet({
         policy: 'strict-origin-when-cross-origin'
     }
 }));
+
+// Đảm bảo mọi response luôn mang header chống Sniffing và Clickjacking
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+    next();
+});
 
 // CORS Middleware có whitelist kiểm soát chặt chẽ, chống Cross-Domain Misconfiguration
 const allowedCorsOrigins = [
@@ -64,6 +87,26 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// Chống tấn công NoSQL Injection (loại bỏ triệt để các operator $ và . khỏi body/query/params khi pentest)
+const sanitizeNoSql = (data) => {
+    if (!data || typeof data !== 'object') return data;
+    for (const key of Object.keys(data)) {
+        if (key.startsWith('$') || key.includes('.')) {
+            delete data[key];
+        } else if (typeof data[key] === 'object') {
+            sanitizeNoSql(data[key]);
+        }
+    }
+    return data;
+};
+
+app.use((req, res, next) => {
+    if (req.body) sanitizeNoSql(req.body);
+    if (req.query) sanitizeNoSql(req.query);
+    if (req.params) sanitizeNoSql(req.params);
+    next();
+});
 
 // Trạng thái kết nối DB & Biến dùng chung
 let isDbConnected = false;
@@ -1744,7 +1787,7 @@ app.post('/api/safe-listing/send-otp', (req, res) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     otpStore[phone] = {
         code,
-        expiresAt: now + 5 * 60 * 1000, // Hết hạn sau 5 phút
+        expiresAt: now + 1 * 60 * 1000, // Hết hạn sau 1 phút
         sendCount: (existing && (now - existing.firstSentAt < tenMinutes)) ? existing.sendCount + 1 : 1,
         firstSentAt: (existing && (now - existing.firstSentAt < tenMinutes)) ? existing.firstSentAt : now,
         attempts: 0

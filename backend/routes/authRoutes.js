@@ -45,6 +45,17 @@ const verifyOtpLimiter = rateLimit({
     legacyHeaders: false
 });
 
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 50, // Tối đa 50 lần thử đăng nhập từ 1 IP trong 15 phút chống Brute Force
+    message: {
+        success: false,
+        message: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 // Kho lưu trữ tạm mã OTP xác thực số điện thoại
 const phoneOtpStore = new Map();
 
@@ -259,8 +270,8 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             const otpCode = String(crypto.randomInt(100000, 1000000));
             // Quy tắc 5: Lưu dạng băm SHA-256, không lưu OTP gốc
             const codeHash = crypto.createHash('sha256').update(otpCode).digest('hex');
-            // Quy tắc 5: Hết hạn sau 5 phút
-            const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+            // Quy tắc: Hết hạn sau 1 phút (60 giây)
+            const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
 
             // Lưu bản ghi OTP vào MongoDB hoặc Fallback Map
             if (req.app.locals.isDbConnected) {
@@ -320,7 +331,7 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             return res.status(200).json({
                 success: true,
                 sentViaEmail,
-                message: 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).'
+                message: 'Mã xác thực OTP đã được gửi đến email của bạn. Nếu không thấy ở Hộp thư đến, vui lòng kiểm tra thư mục Thư rác (Spam).'
             });
         }
 
@@ -333,7 +344,7 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
             const otpCode = String(crypto.randomInt(100000, 1000000));
             phoneOtpStore.set(cleanPhone, {
                 code: otpCode,
-                expiresAt: Date.now() + 5 * 60 * 1000
+                expiresAt: Date.now() + 1 * 60 * 1000
             });
 
             return res.status(200).json({
@@ -668,13 +679,13 @@ router.post('/register', async (req, res) => {
 });
 
 // 4. Đăng nhập tài khoản (tự động nhận diện vai trò Chủ trọ / Sinh viên / Admin đã được duyệt)
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     try {
         const rawEmail = req.body.email || req.body.emailOrPhone;
         const { password } = req.body;
 
-        if (!rawEmail || !password) {
-            return res.status(400).json({ success: false, message: 'Vui lòng nhập email/số điện thoại và mật khẩu.' });
+        if (!rawEmail || !password || typeof rawEmail !== 'string' || typeof password !== 'string') {
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập email/số điện thoại và mật khẩu hợp lệ.' });
         }
 
         const cleanEmail = rawEmail.toLowerCase().trim();
