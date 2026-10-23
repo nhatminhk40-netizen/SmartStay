@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users, Info, Building2, Truck } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users, Building2, Truck } from "lucide-react";
 import GoogleIcon from "@/components/GoogleIcon";
 import GoogleClientIdDialog from "@/components/GoogleClientIdDialog";
 import { triggerGoogleSignIn } from "@/lib/googleAuth";
@@ -227,13 +227,6 @@ export default function Login() {
             <p className="text-muted-foreground text-sm mt-1.5">
               Đăng nhập để khám phá và quản lý phòng trọ chất lượng
             </p>
-            {/* Ghi chú tự động nhận diện vai trò */}
-            <div className="mt-3 p-2.5 rounded-xl bg-orange-50/80 border border-orange-200/80 text-[11px] text-orange-800 flex items-start gap-2">
-              <Info className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
-              <span className="leading-tight">
-                <strong>Tự động nhận diện vai trò:</strong> Bạn chỉ cần nhập Email hoặc Số điện thoại. Tài khoản Chủ trọ đã được duyệt sẽ tự động kích hoạt quyền Chủ trọ mà không cần chọn lại vai trò.
-              </span>
-            </div>
           </div>
 
           {/* Google Button */}
@@ -306,7 +299,6 @@ export default function Login() {
                   type="text"
                   autoComplete="email"
                   autoFocus
-                  placeholder="ban@example.com hoặc 0901234567"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-12 rounded-xl"

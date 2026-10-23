@@ -26,11 +26,7 @@ const mockTenants = [
   { id: 2, name: "Trần Thị B", phone: "0987654321", room: "Phòng 102", startDate: "15/09/2026", endDate: "15/09/2027", status: "Chưa thu" },
 ];
 
-const mockTodos = [
-  { id: 1, text: "Hóa đơn phòng 102 quá hạn 3 ngày", type: "warning" },
-  { id: 2, text: "Hợp đồng phòng 101 sắp hết hạn (30 ngày)", type: "info" },
-  { id: 3, text: "Có 2 yêu cầu xem phòng mới", type: "action" },
-];
+
 
 // ── SUBCOMPONENTS ──
 
@@ -935,36 +931,21 @@ export default function EmployeeDashboard() {
                 <StatCard icon={Receipt} title="Lịch hẹn mới" value={appointments.filter(a => a.status === "pending").length} sub="Sinh viên chờ duyệt" colorClass="bg-[#f97316]/10 text-[#f97316]" />
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* To do list */}
-                <div className="lg:col-span-1 bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
-                  <h3 className="font-bold text-slate-900 mb-4">Việc cần làm</h3>
-                  <div className="space-y-3">
-                    {mockTodos.map(todo => (
-                      <div key={todo.id} className="flex gap-3 p-3 rounded-xl bg-[#fdfbf7] border border-slate-100">
-                        <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", todo.type === "warning" ? "bg-rose-500" : todo.type === "info" ? "bg-blue-500" : "bg-[#f97316]")} />
-                        <div className="text-sm font-semibold text-slate-700">{todo.text}</div>
-                      </div>
-                    ))}
-                  </div>
+              {/* Revenue Chart */}
+              <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-bold text-slate-900">Biểu đồ doanh thu (6 tháng)</h3>
+                  <select className="text-sm font-bold bg-slate-50 border-none rounded-lg p-2 focus:ring-0 text-slate-600">
+                    <option>2026</option>
+                  </select>
                 </div>
-
-                {/* Dummy Charts */}
-                <div className="lg:col-span-2 bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-slate-900">Biểu đồ doanh thu (6 tháng)</h3>
-                    <select className="text-sm font-bold bg-slate-50 border-none rounded-lg p-2 focus:ring-0 text-slate-600">
-                      <option>2026</option>
-                    </select>
-                  </div>
-                  <div className="h-48 flex items-end justify-between gap-2">
-                    {[40, 60, 45, 80, 65, 95].map((h, i) => (
-                      <div key={i} className="w-full bg-[#faf3e3] rounded-t-xl relative group">
-                        <div className="absolute bottom-0 w-full bg-[#f97316] rounded-t-xl transition-all" style={{ height: `${h}%` }} />
-                        <div className="absolute -bottom-6 w-full text-center text-xs font-bold text-slate-400">Th {i+5}</div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="h-48 flex items-end justify-between gap-2">
+                  {[40, 60, 45, 80, 65, 95].map((h, i) => (
+                    <div key={i} className="w-full bg-[#faf3e3] rounded-t-xl relative group">
+                      <div className="absolute bottom-0 w-full bg-[#f97316] rounded-t-xl transition-all" style={{ height: `${h}%` }} />
+                      <div className="absolute -bottom-6 w-full text-center text-xs font-bold text-slate-400">Th {i+5}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
