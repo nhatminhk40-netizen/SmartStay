@@ -20,15 +20,82 @@ export function setGoogleClientId(clientId) {
 }
 
 /**
+ * Tải động Google Identity Services (GIS) SDK khi cần hoặc khi trình duyệt rảnh rỗi.
+ * Giúp tối ưu hóa First Contentful Paint và tránh cảnh báo bảo mật SRI / Cross-domain JS trên trang chủ.
+ */
+let googleScriptPromise = null;
+
+export function loadGoogleGsiScript() {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("window is not defined"));
+  }
+  if (window.google?.accounts?.oauth2) {
+    return Promise.resolve(window.google);
+  }
+  if (googleScriptPromise) {
+    return googleScriptPromise;
+  }
+
+  googleScriptPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById("google-gsi-client");
+    if (existing) {
+      if (window.google?.accounts?.oauth2) return resolve(window.google);
+      existing.addEventListener("load", () => resolve(window.google), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Không thể tải Google Identity Services SDK.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "google-gsi-client";
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve(window.google);
+    script.onerror = () => {
+      googleScriptPromise = null;
+      reject(new Error("Không thể kết nối đến máy chủ xác thực Google. Vui lòng kiểm tra kết nối mạng."));
+    };
+    document.head.appendChild(script);
+  });
+
+  return googleScriptPromise;
+}
+
+// Tự động tải nhẹ GSI trong nền khi trình duyệt rảnh rỗi (idle) để sẵn sàng khi người dùng bấm Đăng nhập
+if (typeof window !== "undefined") {
+  const schedulePreload = () => {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(() => {
+        loadGoogleGsiScript().catch(() => {});
+      });
+    } else {
+      setTimeout(() => {
+        loadGoogleGsiScript().catch(() => {});
+      }, 2000);
+    }
+  };
+
+  if (document.readyState === "complete") {
+    schedulePreload();
+  } else {
+    window.addEventListener("load", schedulePreload, { once: true });
+  }
+}
+
+/**
  * Kích hoạt luồng đăng nhập Google OAuth 2.0 chính thức qua Google Identity Services (GIS).
  * Mở cửa sổ popup trực tiếp từ accounts.google.com
  */
 export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId }) {
-  // 1. Kiểm tra Google SDK đã tải xong chưa
-  if (typeof window === "undefined" || !window.google?.accounts?.oauth2) {
-    const errorMsg = "Google Identity Services SDK chưa được tải xong. Vui lòng thử lại sau vài giây.";
-    onError?.(new Error(errorMsg));
-    return;
+  // 1. Đảm bảo Google SDK đã sẵn sàng
+  if (typeof window === "undefined") return;
+  if (!window.google?.accounts?.oauth2) {
+    try {
+      await loadGoogleGsiScript();
+    } catch (loadErr) {
+      onError?.(loadErr);
+      return;
+    }
   }
 
   // 2. Lấy Google Client ID

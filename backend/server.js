@@ -22,14 +22,45 @@ const { protect, authorize, checkRoomOwnership } = require('./middleware/auth');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Security Middlewares
+// Tắt thông tin header X-Powered-By để tránh rò rỉ công nghệ server
+app.disable('x-powered-by');
+
+// Security Middlewares - Helmet bảo mật HTTP Headers
 app.use(helmet({
-    contentSecurityPolicy: false, // Cho phép load ảnh từ các nguồn như Unsplash
-    crossOriginEmbedderPolicy: false
+    contentSecurityPolicy: false, // Cho phép load ảnh và avatar từ các nguồn Unsplash, Cloudinary
+    crossOriginEmbedderPolicy: false,
+    frameguard: { action: 'sameorigin' },
+    noSniff: true,
+    hsts: {
+        maxAge: 63072000,
+        includeSubDomains: true,
+        preload: true
+    },
+    referrerPolicy: {
+        policy: 'strict-origin-when-cross-origin'
+    }
 }));
+
+// CORS Middleware có whitelist kiểm soát chặt chẽ, chống Cross-Domain Misconfiguration
+const allowedCorsOrigins = [
+    'https://smart-stay-swart.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:5000'
+];
+
 app.use(cors({
-    origin: true,
-    credentials: true
+    origin: function (origin, callback) {
+        // Cho phép request không có origin (server-to-server, mobile app, postman/curl)
+        if (!origin) return callback(null, true);
+        if (allowedCorsOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
+            return callback(null, true);
+        }
+        return callback(new Error('CORS Policy: Nguồn truy cập này không được phép liên kết dữ liệu với SmartStay API.'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
