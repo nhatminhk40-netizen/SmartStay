@@ -823,7 +823,26 @@ router.post('/login', loginLimiter, async (req, res) => {
 // 5. Đăng nhập / Đăng ký nhanh qua Google OAuth
 router.post('/google', async (req, res) => {
     try {
-        const { email, fullName, googleId, avatar, campus, role } = req.body;
+        let { email, fullName, googleId, avatar, campus, role, access_token } = req.body;
+
+        // Nếu client không gửi được email (do Adblock / CORS ở trình duyệt) nhưng có access_token:
+        // Server Node.js chủ động gọi trực tiếp máy chủ Google OAuth để lấy email và hồ sơ thật
+        if (!email && access_token) {
+            try {
+                const gRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${encodeURIComponent(access_token)}`);
+                if (gRes.ok) {
+                    const gData = await gRes.json();
+                    if (gData.email) {
+                        email = gData.email;
+                        fullName = fullName || gData.name || gData.email.split('@')[0];
+                        googleId = googleId || gData.sub;
+                        avatar = avatar || gData.picture || '';
+                    }
+                }
+            } catch (fetchGoogleErr) {
+                console.warn('[AUTH GOOGLE] Backend fetch Google userinfo failed:', fetchGoogleErr.message);
+            }
+        }
 
         if (!email) {
             return res.status(400).json({ success: false, message: 'Thiếu thông tin email từ Google.' });
@@ -846,6 +865,11 @@ router.post('/google', async (req, res) => {
                 }
                 if (!user.avatar && avatar) {
                     user.avatar = avatar;
+                    hasChange = true;
+                }
+                if (assignedRole === 'landlord' && user.role === 'student') {
+                    user.role = 'landlord';
+                    if (!user.verificationStatus) user.verificationStatus = 'UNVERIFIED';
                     hasChange = true;
                 }
                 if (hasChange) {
@@ -878,6 +902,7 @@ router.post('/google', async (req, res) => {
                 access_token: token,
                 user: {
                     id: user._id,
+                    _id: user._id,
                     fullName: user.fullName,
                     email: user.email,
                     role: user.role,
@@ -897,6 +922,7 @@ router.post('/google', async (req, res) => {
         if (!user) {
             user = {
                 _id: `usr_gg_${Date.now()}`,
+                id: `usr_gg_${Date.now()}`,
                 fullName: defaultName,
                 email: normalizedEmail,
                 authProvider: 'google',
@@ -909,6 +935,10 @@ router.post('/google', async (req, res) => {
                 createdAt: new Date()
             };
             fallbackUsers.push(user);
+            saveFallbackUsers(fallbackUsers);
+        } else if (assignedRole === 'landlord' && user.role === 'student') {
+            user.role = 'landlord';
+            if (!user.verificationStatus) user.verificationStatus = 'UNVERIFIED';
             saveFallbackUsers(fallbackUsers);
         }
 
@@ -925,6 +955,7 @@ router.post('/google', async (req, res) => {
             access_token: token,
             user: {
                 id: user._id,
+                _id: user._id,
                 fullName: user.fullName,
                 email: user.email,
                 role: user.role,

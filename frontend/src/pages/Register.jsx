@@ -402,12 +402,15 @@ export default function Register() {
         setGoogleLoading(false);
         setShowClientIdDialog(true);
       },
-      onSuccess: () => {
+      onSuccess: (result) => {
         setGoogleLoading(false);
+        const resolvedRole = result?.user?.role || roleToAssign;
         const returnUrl = safeReturnTo();
-        if (roleToAssign === "landlord") {
+        if (resolvedRole === "landlord" || resolvedRole === "employee") {
           window.location.href = "/chu-tro";
-        } else if (roleToAssign === "transporter") {
+        } else if (resolvedRole === "admin") {
+          window.location.href = "/admin";
+        } else if (resolvedRole === "transporter") {
           window.location.href = "/tai-xe";
         } else {
           window.location.href = returnUrl || "/";
