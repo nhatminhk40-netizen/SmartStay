@@ -87,7 +87,7 @@ export default function Login() {
         window.location.href = "/";
       }
     } catch (err) {
-      setError(err.message || "Email/Số điện thoại hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      setError(err.message || "Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -287,7 +287,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="login-email" className="text-sm font-medium text-foreground">
-                Email hoặc Số điện thoại
+                Email
               </Label>
               <div className="relative">
                 <Mail
