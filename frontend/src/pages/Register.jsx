@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import LandlordDocUploader, { PROOF_DOCUMENT_TYPES } from "@/components/LandlordDocUploader";
 import { useAuth } from "@/lib/AuthContext";
 
-const FEATURES = [
+const STUDENT_FEATURES = [
   {
     icon: Truck,
     title: "Hỗ trợ chuyển trọ",
@@ -54,6 +54,24 @@ const FEATURES = [
     icon: Star,
     title: "Đánh giá thực tế",
     desc: "Review từ người thuê thật, không quảng cáo ảo",
+  },
+];
+
+const LANDLORD_FEATURES = [
+  {
+    icon: Users,
+    title: "Tiếp cận 10.000+ sinh viên Cần Thơ",
+    desc: "Kết nối trực tiếp sinh viên ĐH FPT & ĐH Cần Thơ có nhu cầu ở thực, thông tin minh bạch",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Huy hiệu Chủ trọ Uy tín (Safe Listing)",
+    desc: "Phòng trọ được xác thực nổi bật hơn, tăng gấp 3 lần lượt liên hệ và chốt cọc nhanh hơn 40%",
+  },
+  {
+    icon: CheckCircle2,
+    title: "Bộ lọc khách thuê nghiêm túc",
+    desc: "Giảm 90% tình trạng bùng hẹn xem phòng, tìm khách thuê văn minh phù hợp quy định nhà trọ",
   },
 ];
 
@@ -115,6 +133,7 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [registeredUser, setRegisteredUser] = useState(null);
+  const [skippedVerification, setSkippedVerification] = useState(false);
 
   // Countdown timer for OTP
   useEffect(() => {
@@ -270,13 +289,51 @@ export default function Register() {
   };
 
 
+  // Xử lý bỏ qua xác minh giấy tờ (tạo tài khoản trước, xác minh sau)
+  const handleSkipVerification = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const payload = {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+        phone: phone.trim(),
+        phoneVerified: true,
+        isEmailVerified: true,
+        role: "landlord",
+        campus,
+        verificationStatus: "UNVERIFIED",
+        landlordDocuments: {
+          idCardNumber: idCardNumber.trim() || "",
+          propertyName: propertyName.trim() || ("Cơ sở trọ của " + fullName.trim()),
+          propertyAddress: propertyAddress.trim() || "Cần Thơ",
+          idCardFrontUrl: "",
+          idCardBackUrl: "",
+          ownershipDocUrl: "",
+          ownershipDocType: "UTILITY_BILL",
+          note: "Chủ trọ tạo tài khoản và chọn bổ sung giấy tờ xác minh sau trong Cài đặt."
+        }
+      };
+
+      const result = await base44.auth.register(payload);
+      setRegisteredUser(result.user);
+      setSkippedVerification(true);
+      setCurrentStep(4);
+    } catch (err) {
+      setError(err.message || "Không thể tạo tài khoản. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Step 3 submit: Submit Landlord application
   const handleStep3Submit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!idCardNumber.trim() || !propertyName.trim() || !propertyAddress.trim()) {
-      setError("Vui lòng nhập số CCCD, tên nhà trọ và địa chỉ cơ sở.");
+    if (!propertyName.trim()) {
+      setError("Vui lòng nhập tên khu trọ hoặc tòa nhà.");
       return;
     }
 
@@ -288,12 +345,14 @@ export default function Register() {
         password,
         phone: phone.trim(),
         phoneVerified: true,
+        isEmailVerified: true,
         role: "landlord",
         campus,
+        verificationStatus: "PENDING",
         landlordDocuments: {
           idCardNumber: idCardNumber.trim(),
           propertyName: propertyName.trim(),
-          propertyAddress: propertyAddress.trim(),
+          propertyAddress: propertyAddress.trim() || "Cần Thơ",
           idCardFrontUrl: idCardFrontUrl.trim(),
           idCardBackUrl: idCardBackUrl.trim(),
           ownershipDocUrl: ownershipDocUrl.trim(),
@@ -305,6 +364,7 @@ export default function Register() {
 
       const result = await base44.auth.register(payload);
       setRegisteredUser(result.user);
+      setSkippedVerification(false);
       setCurrentStep(4); // Advance to Completed / Pending Screen
     } catch (err) {
       setError(err.message || "Gửi hồ sơ thất bại. Vui lòng thử lại.");
@@ -333,10 +393,11 @@ export default function Register() {
   const [showClientIdDialog, setShowClientIdDialog] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const startGoogleOAuth = () => {
+  const startGoogleOAuth = (roleToAssign = selectedRole) => {
     setError("");
     setGoogleLoading(true);
     triggerGoogleSignIn({
+      role: roleToAssign,
       onPromptClientId: () => {
         setGoogleLoading(false);
         setShowClientIdDialog(true);
@@ -344,7 +405,13 @@ export default function Register() {
       onSuccess: () => {
         setGoogleLoading(false);
         const returnUrl = safeReturnTo();
-        window.location.href = returnUrl || "/";
+        if (roleToAssign === "landlord") {
+          window.location.href = "/chu-tro";
+        } else if (roleToAssign === "transporter") {
+          window.location.href = "/tai-xe";
+        } else {
+          window.location.href = returnUrl || "/";
+        }
       },
       onError: (err) => {
         setGoogleLoading(false);
@@ -387,30 +454,53 @@ export default function Register() {
           }}
         >
           <Building2 className="w-3.5 h-3.5 text-orange-400" />
-          <span>Nền tảng tìm phòng trọ minh bạch Cần Thơ</span>
+          <span>
+            {selectedRole === "landlord"
+              ? "Dành riêng cho Chủ nhà trọ & Quản lý căn hộ tại Cần Thơ"
+              : "Nền tảng tìm phòng trọ minh bạch Cần Thơ"}
+          </span>
         </div>
         <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4">
-          Tìm phòng trọ
-          <br />
-          <span
-            style={{
-              background: "linear-gradient(90deg, #f97316, #fb923c)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            an toàn & thông minh
-          </span>
+          {selectedRole === "landlord" ? (
+            <>
+              Đồng hành cùng SmartStay
+              <br />
+              <span
+                style={{
+                  background: "linear-gradient(90deg, #f97316, #fb923c)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                Lấp đầy phòng trống nhanh chóng
+              </span>
+            </>
+          ) : (
+            <>
+              Tìm phòng trọ
+              <br />
+              <span
+                style={{
+                  background: "linear-gradient(90deg, #f97316, #fb923c)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                an toàn & thông minh
+              </span>
+            </>
+          )}
         </h1>
         <p className="text-slate-400 text-base leading-relaxed max-w-md">
-          Hàng trăm phòng trọ chất lượng dành riêng cho sinh viên Cần Thơ.
-          Minh bạch giá cả, an toàn tuyệt đối.
+          {selectedRole === "landlord"
+            ? "Tiếp cận trực tiếp hơn 10.000+ sinh viên ĐH FPT & ĐH Cần Thơ. Quản lý phòng trọ chuyên nghiệp, an toàn và tối ưu doanh thu."
+            : "Hàng trăm phòng trọ chất lượng dành riêng cho sinh viên Cần Thơ. Minh bạch giá cả, an toàn tuyệt đối."}
         </p>
       </div>
 
       {/* Bottom - Feature cards */}
       <div className="relative z-10 p-10 pt-0 grid gap-4">
-        {FEATURES.map(({ icon: Icon, title, desc }) => (
+        {(selectedRole === "landlord" ? LANDLORD_FEATURES : STUDENT_FEATURES).map(({ icon: Icon, title, desc }) => (
           <div
             key={title}
             className="flex items-start gap-4 p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
@@ -628,14 +718,14 @@ export default function Register() {
                 )}
               </div>
 
-              {/* GOOGLE SIGN IN (chỉ khả dụng nhanh cho Sinh viên) */}
-              {selectedRole === "student" && (
+              {/* GOOGLE SIGN IN (Hỗ trợ 1 chạm cho cả Sinh viên & Chủ trọ) */}
+              {selectedRole !== "transporter" && (
                 <>
                   <button
                     id="btn-google-register"
                     type="button"
                     disabled={googleLoading || loading}
-                    onClick={startGoogleOAuth}
+                    onClick={() => startGoogleOAuth(selectedRole)}
                     className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-card text-foreground font-medium text-xs transition-all hover:bg-accent/10 hover:border-orange-300 mb-5 disabled:opacity-60"
                   >
                     {googleLoading ? (
@@ -643,7 +733,7 @@ export default function Register() {
                     ) : (
                       <>
                         <GoogleIcon className="w-4 h-4" />
-                        Đăng ký nhanh với Google
+                        {selectedRole === "landlord" ? "Đăng ký nhanh với Google (Chủ trọ)" : "Đăng ký nhanh với Google"}
                       </>
                     )}
                   </button>
@@ -970,7 +1060,7 @@ export default function Register() {
             </div>
           )}
 
-          {/* ==================== BƯỚC 3: HỒ SƠ GIẤY TỜ CHỦ TRỌ (CHỜ DUYỆT) ==================== */}
+          {/* ==================== BƯỚC 3: HỒ SƠ GIẤY TỜ CHỦ TRỌ ==================== */}
           {currentStep === 3 && (
             <div className="animate-in fade-in duration-200">
               <div className="mb-5">
@@ -983,25 +1073,33 @@ export default function Register() {
                     <ArrowLeft className="w-3.5 h-3.5" />
                     Quay lại
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSkipVerification}
+                    className="text-xs font-bold text-orange-600 hover:text-orange-700 underline flex items-center gap-1"
+                  >
+                    <span>Bỏ qua bước này, để sau</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
                 </div>
 
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                   Hồ sơ xác minh Chủ trọ
                 </h2>
                 <p className="text-muted-foreground text-xs mt-1">
-                  Cung cấp giấy tờ để Ban Quản Trị SmartStay thẩm định và cấp quyền Chủ trọ
+                  Xác minh danh tính giúp phòng trọ của bạn nhận huy hiệu <strong>Safe Listing</strong> – tăng gấp 3 lần lượt liên hệ từ sinh viên
                 </p>
               </div>
 
               <form onSubmit={handleStep3Submit} className="space-y-3.5">
                 <div>
                   <Label className="text-xs font-bold text-slate-700">
-                    Số CCCD / CMND chủ sở hữu *
+                    Số CCCD / CMND chủ sở hữu
                   </Label>
                   <Input
                     type="text"
-                    required
-                    placeholder="12 chữ số (VD: 092095001234)"
+                    placeholder="12 chữ số (VD: 092095001234) - Có thể bổ sung sau"
                     value={idCardNumber}
                     onChange={(e) => setIdCardNumber(e.target.value)}
                     className="h-11 rounded-xl text-xs mt-1"
@@ -1036,7 +1134,7 @@ export default function Register() {
                   />
                 </div>
 
-                {/* Giấy tờ chứng minh theo Cấp độ 1 (CCCD 2 mặt + Hóa đơn / Giấy tờ cơ sở) */}
+                {/* Giấy tờ chứng minh (CCCD + Hóa đơn điện nước / Hợp đồng ủy quyền / GPKD) */}
                 <LandlordDocUploader
                   idCardFront={idCardFrontUrl}
                   setIdCardFront={setIdCardFrontUrl}
@@ -1061,79 +1159,136 @@ export default function Register() {
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-11 rounded-xl font-bold text-white text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-md shadow-orange-500/25 mt-4"
-                  style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang gửi hồ sơ...
-                    </>
-                  ) : (
-                    <>
-                      Gửi hồ sơ xét duyệt Chủ trọ
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                {/* Nút hành động kép: Nút phụ Bỏ qua xác minh + Nút chính Gửi hồ sơ */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={handleSkipVerification}
+                    disabled={loading}
+                    className="w-full sm:w-1/2 h-11 rounded-xl font-bold border border-slate-300 hover:border-slate-400 bg-white text-slate-700 hover:bg-slate-50 text-xs transition active:scale-[0.98] order-2 sm:order-1"
+                  >
+                    Bỏ qua xác minh, làm sau
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full sm:w-1/2 h-11 rounded-xl font-bold text-white text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-md shadow-orange-500/25 order-1 sm:order-2"
+                    style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang gửi hồ sơ...
+                      </>
+                    ) : (
+                      <>
+                        Gửi hồ sơ xét duyệt
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
             </div>
           )}
 
-          {/* ==================== BƯỚC 4: THÔNG BÁO CHỜ DUYỆT (PENDING) ==================== */}
+          {/* ==================== BƯỚC 4: THÔNG BÁO HOÀN TẤT ==================== */}
           {currentStep === 4 && (
             <div className="text-center py-4 animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 rounded-3xl bg-amber-100 border border-amber-200 flex items-center justify-center mx-auto mb-4 text-amber-600">
-                <Clock className="w-8 h-8 animate-pulse" />
-              </div>
+              {skippedVerification ? (
+                <>
+                  <div className="w-16 h-16 rounded-3xl bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto mb-4 text-emerald-600">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 mb-2">
-                TRẠNG THÁI: CHỜ DUYỆT (PENDING)
-              </div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 mb-2">
+                    TRẠNG THÁI: TÀI KHOẢN ĐÃ KÍCH HOẠT (CƠ BẢN)
+                  </div>
 
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Đã tiếp nhận hồ sơ Chủ trọ
-              </h2>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    Chào mừng bạn đến với Kênh Chủ Trọ SmartStay!
+                  </h2>
 
-              <p className="text-slate-600 text-xs mt-2 max-w-sm mx-auto leading-relaxed">
-                Cảm ơn <strong>{fullName}</strong>. Hồ sơ đăng ký cơ sở trọ <strong>"{propertyName}"</strong> đã được gửi tới Ban Quản Trị SmartStay để thẩm định giấy tờ.
-              </p>
-
-              {/* Box giải thích quan trọng theo yêu cầu người dùng */}
-              <div className="mt-5 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs space-y-2">
-                <div className="flex items-center gap-2 font-bold text-slate-900">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Xác thực Gmail hoàn tất ({email})</span>
-                </div>
-                <div className="flex items-center gap-2 font-bold text-slate-900">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span>Đã gửi giấy tờ CCCD & cơ sở nhà trọ</span>
-                </div>
-                <div className="flex items-start gap-2 pt-2 border-t border-slate-200 text-slate-600">
-                  <Info className="w-4 h-4 mt-0.5 text-orange-600 flex-shrink-0" />
-                  <p className="leading-relaxed">
-                    <strong>Sau khi Admin phê duyệt:</strong> Khi đăng nhập, bạn <strong>KHÔNG CẦN</strong> phải chọn lại vai trò "Chủ trọ" nữa vì hệ thống đã tự động nhận diện tài khoản của bạn là Chủ trọ chính thức!
+                  <p className="text-slate-600 text-xs mt-2 max-w-sm mx-auto leading-relaxed">
+                    Tài khoản của <strong>{fullName}</strong> đã sẵn sàng. Bạn có thể bắt đầu đăng tin và quản lý phòng trọ ngay bây giờ.
                   </p>
-                </div>
-              </div>
 
-              <div className="mt-6 flex flex-col gap-2.5">
-                <Link
-                  to="/login"
-                  className="w-full h-11 rounded-xl bg-orange-500 text-white font-bold text-xs flex items-center justify-center shadow-md hover:bg-orange-600 transition"
-                >
-                  Đăng nhập vào tài khoản
-                </Link>
-                <Link
-                  to="/"
-                  className="w-full h-11 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center hover:bg-slate-50 transition"
-                >
-                  Quay về trang chủ SmartStay
-                </Link>
-              </div>
+                  <div className="mt-5 p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-left text-xs space-y-2">
+                    <div className="flex items-start gap-2.5 text-amber-950 font-semibold leading-relaxed">
+                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Mẹo tăng 3x khách thuê:</strong> Bạn có thể bổ sung ảnh CCCD & Hóa đơn điện nước bất kỳ lúc nào tại mục <strong>Cài đặt</strong> để nhận huy hiệu <strong>Safe Listing</strong> và đưa tin lên Top 1 tìm kiếm.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex flex-col gap-2.5">
+                    <Link
+                      to="/chu-tro"
+                      className="w-full h-11 rounded-xl bg-orange-500 text-white font-bold text-xs flex items-center justify-center shadow-md hover:bg-orange-600 transition"
+                    >
+                      Vào Kênh Quản Trị Chủ Trọ ngay
+                    </Link>
+                    <Link
+                      to="/"
+                      className="w-full h-11 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center hover:bg-slate-50 transition"
+                    >
+                      Về trang chủ SmartStay
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-3xl bg-amber-100 border border-amber-200 flex items-center justify-center mx-auto mb-4 text-amber-600">
+                    <Clock className="w-8 h-8 animate-pulse" />
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 mb-2">
+                    TRẠNG THÁI: CHỜ DUYỆT (PENDING)
+                  </div>
+
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                    Đã tiếp nhận hồ sơ Chủ trọ
+                  </h2>
+
+                  <p className="text-slate-600 text-xs mt-2 max-w-sm mx-auto leading-relaxed">
+                    Cảm ơn <strong>{fullName}</strong>. Hồ sơ đăng ký cơ sở trọ <strong>"{propertyName}"</strong> đã được chuyển đến Ban Quản Trị SmartStay để thẩm định và cấp huy hiệu Safe Listing.
+                  </p>
+
+                  <div className="mt-5 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-slate-900">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      <span>Xác thực Gmail hoàn tất ({email})</span>
+                    </div>
+                    <div className="flex items-center gap-2 font-bold text-slate-900">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      <span>Đã gửi giấy tờ xác minh cơ sở trọ</span>
+                    </div>
+                    <div className="flex items-start gap-2 pt-2 border-t border-slate-200 text-slate-600">
+                      <Info className="w-4 h-4 mt-0.5 text-orange-600 flex-shrink-0" />
+                      <p className="leading-relaxed">
+                        Tài khoản của bạn sẽ tự động được kích hoạt quyền Chủ trọ uy tín ngay khi Admin phê duyệt.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex flex-col gap-2.5">
+                    <Link
+                      to="/login"
+                      className="w-full h-11 rounded-xl bg-orange-500 text-white font-bold text-xs flex items-center justify-center shadow-md hover:bg-orange-600 transition"
+                    >
+                      Đăng nhập vào tài khoản
+                    </Link>
+                    <Link
+                      to="/"
+                      className="w-full h-11 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center hover:bg-slate-50 transition"
+                    >
+                      Quay về trang chủ SmartStay
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

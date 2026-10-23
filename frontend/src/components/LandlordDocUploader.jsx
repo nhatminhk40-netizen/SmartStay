@@ -23,11 +23,20 @@ export const PROOF_DOCUMENT_TYPES = [
   {
     id: "UTILITY_BILL",
     name: "Hóa đơn tiền điện / nước tháng gần nhất",
-    badge: "Khuyên dùng - Chính xác nhất",
+    badge: "Khuyên dùng - Dễ nhất",
     badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
     icon: Zap,
-    description: "Tên trên hóa đơn trùng với tên CCCD và địa chỉ trọ. Kẻ lừa đảo ở ngoài không thể có hóa đơn điện lực tại địa chỉ này.",
-    exampleHint: "Hóa đơn EVN / Công ty Cấp nước Cần Thơ có mã khách hàng, tên chủ hộ và địa chỉ trùng khớp."
+    description: "Tên trên hóa đơn trùng với địa chỉ trọ hoặc CCCD. Sinh viên tin tưởng và dễ chốt cọc nhất với giấy tờ này.",
+    exampleHint: "Hóa đơn EVN / Công ty Cấp nước Cần Thơ có mã khách hàng, tên chủ hộ hoặc địa chỉ cơ sở trọ."
+  },
+  {
+    id: "AUTHORIZATION_CONTRACT",
+    name: "Hợp đồng thuê nhà nguyên căn / Ủy quyền quản lý",
+    badge: "Dành cho chủ thứ cấp / căn hộ mini",
+    badgeColor: "bg-purple-100 text-purple-800 border-purple-300",
+    icon: ScrollText,
+    description: "Dành cho người thuê lại nguyên căn nhà rồi ngăn phòng cho sinh viên thuê, có hợp đồng hoặc giấy ủy quyền quản lý.",
+    exampleHint: "Hợp đồng thuê nhà nguyên căn còn hiệu lực hoặc văn bản ủy quyền quản lý cơ sở trọ."
   },
   {
     id: "BUSINESS_LICENSE",
@@ -37,24 +46,6 @@ export const PROOF_DOCUMENT_TYPES = [
     icon: FileBadge,
     description: "Giấy chứng nhận đăng ký hộ kinh doanh nhà trọ hoặc danh sách đăng ký lưu trú / tạm trú với Công an khu vực.",
     exampleHint: "Bản chụp Giấy chứng nhận đăng ký kinh doanh hoặc văn bản xác nhận của Công an phường/xã."
-  },
-  {
-    id: "AUTHORIZATION_CONTRACT",
-    name: "Hợp đồng ủy quyền quản lý nhà trọ",
-    badge: "Dành cho chủ thứ cấp",
-    badgeColor: "bg-purple-100 text-purple-800 border-purple-300",
-    icon: ScrollText,
-    description: "Dành cho người thuê lại nguyên căn nhà rồi ngăn phòng cho thuê lại, có hợp đồng hoặc giấy ủy quyền hợp pháp từ chủ nhà.",
-    exampleHint: "Hợp đồng thuê nhà nguyên căn còn hiệu lực kèm điều khoản cho phép cho thuê lại."
-  },
-  {
-    id: "HOUSE_OWNERSHIP",
-    name: "Sổ hồng / Sổ đỏ / Quyền sở hữu nhà đất",
-    badge: "Chủ sở hữu chính",
-    badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
-    icon: Building,
-    description: "Giấy chứng nhận quyền sử dụng đất, quyền sở hữu nhà ở đứng tên chủ trọ tại địa chỉ nhà trọ.",
-    exampleHint: "Trang thông tin thửa đất, nhà ở và chủ sở hữu trên Giấy chứng nhận."
   }
 ];
 
@@ -367,15 +358,14 @@ export default function LandlordDocUploader({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-black text-slate-900 uppercase tracking-wide">
-                Cấp độ 1: Xác minh qua Giấy tờ & Hóa đơn
+                Bảo vệ uy tín Chủ trọ & Nhận huy hiệu Safe Listing
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                Chính xác cao nhất
+                Tăng 3x lượt liên hệ
               </span>
             </div>
             <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-              Nhằm ngăn chặn tin ảo và đối tượng lừa đảo cọc tiền phòng của sinh viên, Chủ trọ vui lòng tải lên 
-              <strong> ảnh CCCD 2 mặt</strong> và <strong>1 trong các giấy tờ chứng minh địa điểm trọ</strong> bên dưới.
+              Xác minh danh tính giúp phòng trọ của bạn nhận huy hiệu <strong>Safe Listing</strong> – sinh viên SmartStay ưu tiên tìm và đặt cọc phòng có huy hiệu này. Hồ sơ của bạn được mã hóa bảo mật tuyệt đối.
             </p>
           </div>
         </div>
@@ -392,7 +382,7 @@ export default function LandlordDocUploader({
               Ảnh chụp CCCD / CMND (2 mặt)
             </h4>
           </div>
-          <span className="text-[11px] font-bold text-rose-500">Bắt buộc</span>
+          <span className="text-[11px] font-bold text-orange-600">Khuyên dùng</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -407,12 +397,17 @@ export default function LandlordDocUploader({
 
           <SingleDropzone
             label="Mặt sau CCCD"
-            sublabel="Rõ vân tay & ngày cấp"
+            sublabel="Chỉ cần rõ ngày cấp (có thể che vân tay)"
             value={idCardBack}
             onChange={(file) => setIdCardBack(file.dataUrl)}
             onClear={() => setIdCardBack("")}
             required
           />
+        </div>
+
+        <div className="flex items-start gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <span>SmartStay cam kết bảo mật thông tin cá nhân. Bạn hoàn toàn có thể chèn hình mờ watermark <em>"Chỉ dùng xác minh SmartStay"</em> hoặc che số định danh cá nhân.</span>
         </div>
       </div>
 
@@ -427,7 +422,7 @@ export default function LandlordDocUploader({
               Giấy tờ chứng minh địa điểm nhà trọ
             </h4>
           </div>
-          <span className="text-[11px] font-bold text-orange-600">Chọn 1 trong 4 loại</span>
+          <span className="text-[11px] font-bold text-orange-600">Chọn 1 trong 3 loại thuận tiện nhất</span>
         </div>
 
         <p className="text-[11px] text-slate-500 -mt-2">

@@ -537,7 +537,7 @@ router.post('/register', async (req, res) => {
 
         const isLandlord = userRole === 'landlord';
         const isTransporter = userRole === 'transporter';
-        const verificationStatus = isLandlord ? 'PENDING' : 'APPROVED';
+        const verificationStatus = isLandlord ? (req.body.verificationStatus || 'PENDING') : 'APPROVED';
         const isPhoneVerified = phoneVerified !== false;
 
         const docs = isLandlord ? {
@@ -823,7 +823,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 // 5. Đăng nhập / Đăng ký nhanh qua Google OAuth
 router.post('/google', async (req, res) => {
     try {
-        const { email, fullName, googleId, avatar, campus } = req.body;
+        const { email, fullName, googleId, avatar, campus, role } = req.body;
 
         if (!email) {
             return res.status(400).json({ success: false, message: 'Thiếu thông tin email từ Google.' });
@@ -832,6 +832,7 @@ router.post('/google', async (req, res) => {
         const normalizedEmail = email.toLowerCase().trim();
         const detectedCampus = campus || (normalizedEmail.includes('fpt') ? 'FPT Can Tho' : 'ĐH Cần Thơ');
         const defaultName = fullName || normalizedEmail.split('@')[0];
+        const assignedRole = (role === 'landlord' || role === 'transporter') ? role : 'student';
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
@@ -857,8 +858,8 @@ router.post('/google', async (req, res) => {
                     authProvider: 'google',
                     googleId: googleId || `gg_${Date.now()}`,
                     avatar: avatar || '',
-                    role: 'student',
-                    verificationStatus: 'APPROVED',
+                    role: assignedRole,
+                    verificationStatus: assignedRole === 'landlord' ? 'UNVERIFIED' : 'APPROVED',
                     phoneVerified: false,
                     campus: detectedCampus
                 });
@@ -901,8 +902,8 @@ router.post('/google', async (req, res) => {
                 authProvider: 'google',
                 googleId: googleId || `gg_${Date.now()}`,
                 avatar: avatar || '',
-                role: 'student',
-                verificationStatus: 'APPROVED',
+                role: assignedRole,
+                verificationStatus: assignedRole === 'landlord' ? 'UNVERIFIED' : 'APPROVED',
                 phoneVerified: false,
                 campus: detectedCampus,
                 createdAt: new Date()

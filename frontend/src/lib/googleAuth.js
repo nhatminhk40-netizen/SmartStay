@@ -86,7 +86,7 @@ if (typeof window !== "undefined") {
  * Kích hoạt luồng đăng nhập Google OAuth 2.0 chính thức qua Google Identity Services (GIS).
  * Mở cửa sổ popup trực tiếp từ accounts.google.com
  */
-export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId }) {
+export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId, role }) {
   // 1. Đảm bảo Google SDK đã sẵn sàng
   if (typeof window === "undefined") return;
   if (!window.google?.accounts?.oauth2) {
@@ -158,20 +158,22 @@ export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId
               fullName: userInfo.name || userInfo.email.split("@")[0],
               googleId: userInfo.sub,
               avatar: userInfo.picture || "",
-              campus: userInfo.email.includes("fpt") ? "FPT Can Tho" : "ĐH Cần Thơ"
+              campus: userInfo.email.includes("fpt") ? "FPT Can Tho" : "ĐH Cần Thơ",
+              role: role || undefined
             });
             onSuccess?.(authResult);
           } catch (backendSyncErr) {
             // Nếu backend server chưa deploy lên Cloud hoặc đang offline, tự động tạo phiên đăng nhập trực tiếp từ tài khoản Google thật
+            const assignedRole = (role === "landlord" || role === "transporter") ? role : "student";
             const fallbackUser = {
               id: "gg_" + userInfo.sub,
               _id: "gg_" + userInfo.sub,
               fullName: userInfo.name || userInfo.email.split("@")[0],
               email: userInfo.email,
-              role: "student",
+              role: assignedRole,
               avatar: userInfo.picture || "",
               campus: userInfo.email.includes("fpt") ? "FPT Can Tho" : "ĐH Cần Thơ",
-              verificationStatus: "APPROVED",
+              verificationStatus: assignedRole === "landlord" ? "UNVERIFIED" : "APPROVED",
               phoneVerified: false
             };
             const fallbackToken = "jwt_google_" + Date.now();
