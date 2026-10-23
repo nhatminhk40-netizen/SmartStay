@@ -10,6 +10,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  esbuild: {
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+  },
+  build: {
+    sourcemap: false,
+  },
   server: {
     headers: {
       'X-Frame-Options': 'SAMEORIGIN',

@@ -35,7 +35,10 @@ export default function ProtectedRoute({
     }
 
     if (!isAuthenticated) {
-        return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname)}`} replace />;
+        const returnParam = location.pathname && location.pathname !== '/' 
+            ? `?returnTo=${encodeURIComponent(location.pathname)}` 
+            : '';
+        return <Navigate to={`/login${returnParam}`} replace />;
     }
 
     // Kiểm tra Role nếu có yêu cầu

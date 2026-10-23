@@ -1026,7 +1026,6 @@ export const base44 = {
       return data;
     },
     loginWithProvider: (provider, returnTo) => {
-      console.log(`Login via ${provider}, return to: ${returnTo}`);
     },
     sendOtp: async ({ email, phone, purpose = 'VERIFY_EMAIL' }) => {
       const res = await fetch(`${API_BASE}/auth/send-otp`, {
