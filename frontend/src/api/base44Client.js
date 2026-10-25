@@ -2,6 +2,114 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const FALLBACK_ROOMS = [
   {
+    id: 'room_1792911200000',
+    _id: 'room_1792911200000',
+    title: 'Phòng Trọ Thanh Sơn',
+    campus: 'ĐH FPT Cần Thơ',
+    address: '256c đường Vườn Mận phường Long Tuyền CT',
+    location: 'Ninh Kiều, Cần Thơ',
+    price: 2200000,
+    area_sqm: 25,
+    room_type: 'Phòng trọ khép kín',
+    contactPhone: '0907297338',
+    description: 'Dãy trọ Thanh Sơn thoáng mát, an ninh, giờ giấc tự do.',
+    images: [
+      'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+      'https://lh3.googleusercontent.com/d/16e67ubyEHyRX12-_SDcYFs7jLth3fpFA',
+      'https://lh3.googleusercontent.com/d/17_Y20bngboPHi57eMkUcDm7xtkKlLKwv',
+      'https://lh3.googleusercontent.com/d/1XHvuCrepg6y90WixkwEYIXiGm0_k26NY'
+    ],
+    image_url: 'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+    amenities: ['Máy lạnh', 'Gác lửng'],
+    electricityCostType: 'kinh_doanh',
+    waterCost: '10.000 khối',
+    hasSeparateMeter: true,
+    depositMonths: 1,
+    extraFees: { wifi: 0, trash: 0, parking: 0 },
+    listingType: 'safe',
+    isSafeBadge: true,
+    safe_badge: true,
+    verificationStatus: 'verified',
+    fireSafetyCertified: true,
+    isDemo: false,
+    isSurveyed: true,
+    is_surveyed: true,
+    seeking_roommate: false,
+    rating: 4.8
+  },
+  {
+    id: 'room_1792910996318',
+    _id: 'room_1792910996318',
+    title: 'Phòng Trọ Lê khải',
+    campus: 'ĐH FPT Cần Thơ',
+    address: 'Khu vực gần ĐH FPT Cần Thơ, Cần Thơ',
+    location: 'Ninh Kiều, Cần Thơ',
+    price: 1800000,
+    area_sqm: 25,
+    room_type: 'Phòng trọ khép kín',
+    contactPhone: '0907297338',
+    description: '',
+    images: [
+      'https://lh3.googleusercontent.com/d/1RscDS08IT5hjZKrOlqJyjeySppXuUzq0',
+      'https://lh3.googleusercontent.com/d/1oa_42uRBFDnPV324xoKK9o99Agi2X-O6',
+      'https://lh3.googleusercontent.com/d/1lZdIaZ0_em938DJ4hTinFEcMWO_Hl-Kb',
+      'https://lh3.googleusercontent.com/d/1NfaJ421eRJuQYPRKjpp_VK2DdTTGWcmO'
+    ],
+    image_url: 'https://lh3.googleusercontent.com/d/1RscDS08IT5hjZKrOlqJyjeySppXuUzq0',
+    amenities: ['Gác lửng'],
+    electricityCostType: 'kinh_doanh',
+    waterCost: '15.000 khối',
+    hasSeparateMeter: true,
+    depositMonths: 1,
+    extraFees: { wifi: 0, trash: 0, parking: 0 },
+    listingType: 'safe',
+    isSafeBadge: true,
+    safe_badge: true,
+    verificationStatus: 'verified',
+    fireSafetyCertified: true,
+    isDemo: false,
+    isSurveyed: true,
+    is_surveyed: true,
+    seeking_roommate: false,
+    rating: 4.8
+  },
+  {
+    id: 'room_1792909860402',
+    _id: 'room_1792909860402',
+    title: 'Phòng Trọ Thanh Sơn',
+    campus: 'ĐH FPT Cần Thơ',
+    address: '256c đường Vườn Mận phường Long Tuyền CT',
+    location: 'Ninh Kiều, Cần Thơ',
+    price: 2400000,
+    area_sqm: 30,
+    room_type: 'Phòng trọ khép kín',
+    contactPhone: '0907297338',
+    description: 'Có ban công thuận tiện cho việc phơi đồ',
+    images: [
+      'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+      'https://lh3.googleusercontent.com/d/1IEQ9ITgnXtrZ2jcrJm39k--NLqpReCNs',
+      'https://lh3.googleusercontent.com/d/1xt1PXWYvhhjLN3oFLEmMYgaTXVl-geHq',
+      'https://lh3.googleusercontent.com/d/1wINldbqxIIdVPfRMkv4NeYM6lNnZN93t'
+    ],
+    image_url: 'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+    amenities: ['Máy lạnh', 'Gác lửng'],
+    electricityCostType: 'kinh_doanh',
+    waterCost: '10.000 khối',
+    hasSeparateMeter: true,
+    depositMonths: 1,
+    extraFees: { wifi: 0, trash: 0, parking: 0 },
+    listingType: 'safe',
+    isSafeBadge: true,
+    safe_badge: true,
+    verificationStatus: 'verified',
+    fireSafetyCertified: true,
+    isDemo: false,
+    isSurveyed: true,
+    is_surveyed: true,
+    seeking_roommate: false,
+    rating: 4.8
+  },
+  {
     id: '6aad186f1f34d48876cf6301',
     _id: '6aad186f1f34d48876cf6301',
     title: 'Phòng trọ cao cấp gần ĐH FPT Cần Thơ (Gác lửng, full nội thất)',
@@ -130,6 +238,27 @@ const FALLBACK_ROOMS = [
   }
 ];
 
+const loadClientRooms = () => {
+  try {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('smartstay_client_rooms') : null;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+  return FALLBACK_ROOMS;
+};
+
+const saveClientRooms = (rooms) => {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('smartstay_client_rooms', JSON.stringify(rooms));
+    }
+  } catch (e) {}
+};
+
 export const base44 = {
   entities: {
     Room: {
@@ -161,12 +290,12 @@ export const base44 = {
               }));
             }
             window.__SMARTSTAY_IS_FALLBACK = true;
-            return FALLBACK_ROOMS;
+            return loadClientRooms();
           } catch (error) {
             console.warn('⚠️ Lỗi kết nối Backend API SmartStay, chuyển sang chế độ dữ liệu minh họa:', error.message);
             window.__SMARTSTAY_IS_FALLBACK = true;
             window.__SMARTSTAY_API_ONLINE = false;
-            return FALLBACK_ROOMS;
+            return loadClientRooms();
           }
         },
 
@@ -175,10 +304,12 @@ export const base44 = {
             const res = await fetch(`${API_BASE}/rooms/${id}`);
             const json = await res.json();
             if (json.data) return json.data;
-            return FALLBACK_ROOMS.find(r => r.id === id || r._id === id) || FALLBACK_ROOMS[0];
+            const currentList = loadClientRooms();
+            return currentList.find(r => r.id === id || r._id === id) || currentList[0];
           } catch (error) {
             console.warn('Lỗi fetch room details, sử dụng fallback:', error);
-            return FALLBACK_ROOMS.find(r => r.id === id || r._id === id) || FALLBACK_ROOMS[0];
+            const currentList = loadClientRooms();
+            return currentList.find(r => r.id === id || r._id === id) || currentList[0];
           }
         },
 
@@ -206,6 +337,9 @@ export const base44 = {
           ...data,
           createdAt: new Date()
         };
+        const currentRooms = loadClientRooms();
+        currentRooms.unshift(newR);
+        saveClientRooms(currentRooms);
         FALLBACK_ROOMS.unshift(newR);
         return newR;
       },
