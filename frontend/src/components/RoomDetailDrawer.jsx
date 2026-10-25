@@ -10,10 +10,11 @@ function trustColor(score) {
 }
 
 function getElecLabel(type) {
-  if (type === 'nha_nuoc') return 'Điện giá nhà nước (minh bạch)';
+  if (!type || type === 'nha_nuoc' || String(type).includes('nhà nước')) return 'Điện giá nhà nước (minh bạch)';
   if (type === 'kinh_doanh') return 'Điện giá kinh doanh (~3.500 - 4.000đ/kWh)';
   if (type === 'gia_co_dinh') return 'Điện khoán cố định';
-  return 'Theo thỏa thuận chủ trọ';
+  if (!isNaN(type)) return `${Number(type).toLocaleString('vi-VN')} đ / kWh`;
+  return String(type);
 }
 
 function formatPrice(p) {

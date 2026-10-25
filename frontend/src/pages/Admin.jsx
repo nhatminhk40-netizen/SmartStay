@@ -2039,19 +2039,20 @@ export default function Admin() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Giá tiền điện *
-                      </label>
-                      <select
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Giá tiền điện (VNĐ/kWh) *
+                        </label>
+                        <span className="text-[10px] text-slate-400">0 = Giá nhà nước</span>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="VD: 3500 hoặc 4000 (hoặc Theo giá nhà nước)"
                         value={roomForm.electricityCostType}
                         onChange={(e) => setRoomForm({ ...roomForm, electricityCostType: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-lg text-sm font-bold border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        className="w-full px-3.5 py-2.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
                         style={{ borderColor: "#f4ebd9" }}
-                      >
-                        <option value="nha_nuoc">Theo giá nhà nước (Bậc thang điện lực)</option>
-                        <option value="kinh_doanh">Giá kinh doanh (~3.500 - 4.000đ/kWh)</option>
-                        <option value="gia_co_dinh">Giá cố định (~3.000 - 3.500đ/kWh)</option>
-                      </select>
+                      />
                     </div>
 
                     <div>

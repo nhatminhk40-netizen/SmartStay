@@ -1108,7 +1108,7 @@ app.put('/api/rooms/:id', protect, async (req, res) => {
         const { id } = req.params;
 
         let targetRoom = null;
-        if (isDbConnected) {
+        if (isDbConnected && mongoose.Types.ObjectId.isValid(id)) {
             targetRoom = await Room.findById(id);
         } else {
             targetRoom = fallbackRooms.find((r) => String(r._id) === id || String(r.id) === id);
@@ -1161,7 +1161,7 @@ app.delete('/api/rooms/:id', protect, async (req, res) => {
         const { id } = req.params;
 
         let targetRoom = null;
-        if (isDbConnected) {
+        if (isDbConnected && mongoose.Types.ObjectId.isValid(id)) {
             targetRoom = await Room.findById(id);
         } else {
             targetRoom = fallbackRooms.find((r) => String(r._id) === id || String(r.id) === id);

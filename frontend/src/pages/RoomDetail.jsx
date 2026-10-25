@@ -446,7 +446,7 @@ export default function RoomDetail() {
                                         <Zap className="w-3.5 h-3.5 text-amber-500" /> Tiền điện (dự tính ~80 kWh):
                                     </span>
                                     <span className="font-medium text-foreground">
-                                        ~{estElectric.toLocaleString('vi-VN')} đ ({room.electricityCostType === 'nha_nuoc' ? 'Giá nhà nước' : 'Kinh doanh / Cố định'})
+                                        ~{estElectric.toLocaleString('vi-VN')} đ ({!room.electricityCostType || room.electricityCostType === 'nha_nuoc' || String(room.electricityCostType).includes('nhà nước') ? 'Giá nhà nước' : room.electricityCostType})
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs py-1 text-muted-foreground">
@@ -1054,7 +1054,7 @@ export default function RoomDetail() {
                             <div>
                                 <h4 className="font-bold text-slate-900 mb-1">ĐIỀU 2: TIỀN THUÊ VÀ CHI PHÍ ĐIỆN NƯỚC MINH BẠCH</h4>
                                 <p>• Giá thuê cố định: <strong>{basePrice.toLocaleString('vi-VN')} VNĐ/tháng</strong> (Không được tự ý tăng giá trong suốt thời hạn hợp đồng).</p>
-                                <p>• Tiền điện: Thu theo chỉ số công tơ riêng ({room.electricityCostType === 'nha_nuoc' ? 'Giá theo biểu giá nhà nước' : 'Đơn giá cố định thỏa thuận'}).</p>
+                                <p>• Tiền điện: Thu theo chỉ số công tơ riêng ({!room.electricityCostType || room.electricityCostType === 'nha_nuoc' || String(room.electricityCostType).includes('nhà nước') ? 'Giá theo biểu giá nhà nước' : room.electricityCostType}).</p>
                                 <p>• Tiền nước: {room.waterCost || 'Theo giá quy định nhà nước'}.</p>
                             </div>
 

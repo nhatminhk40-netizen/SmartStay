@@ -398,6 +398,7 @@ export default function Register() {
     setGoogleLoading(true);
     triggerGoogleSignIn({
       role: roleToAssign,
+      action: "register",
       onPromptClientId: () => {
         setGoogleLoading(false);
         setShowClientIdDialog(true);
@@ -674,32 +675,25 @@ export default function Register() {
                     </div>
                   </button>
 
-                  {/* Option 3: Dịch vụ vận tải */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole("transporter")}
-                    className={cn(
-                      "p-3 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between",
-                      selectedRole === "transporter"
-                        ? "border-orange-500 bg-orange-50/50 shadow-sm"
-                        : "border-slate-200 hover:border-slate-300 bg-card"
-                    )}
+                  {/* Option 3: Dịch vụ vận tải (Tạm khóa - Đang phát triển) */}
+                  <div
+                    className="p-3 rounded-2xl border-2 border-slate-200 bg-slate-50/70 text-left relative flex flex-col justify-between opacity-70 cursor-not-allowed select-none transition-all"
+                    title="Tính năng đăng ký Dịch vụ vận tải đang trong quá trình phát triển"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="w-8 h-8 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
+                      <div className="w-8 h-8 rounded-xl bg-slate-200/80 flex items-center justify-center text-slate-500">
                         <Truck className="w-4 h-4" />
                       </div>
-                      {selectedRole === "transporter" && (
-                        <span className="w-4 h-4 rounded-full bg-orange-500 text-white flex items-center justify-center text-[9px]">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </span>
-                      )}
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-[9px] font-bold">
+                        <Lock className="w-2.5 h-2.5" />
+                        Đang phát triển
+                      </span>
                     </div>
                     <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900">Dịch vụ vận tải</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">Chở đồ, dọn trọ SV</div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-600">Dịch vụ vận tải</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">Chở đồ, dọn trọ SV</div>
                     </div>
-                  </button>
+                  </div>
                 </div>
 
                 {selectedRole === "landlord" && (

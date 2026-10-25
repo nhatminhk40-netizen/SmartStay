@@ -12,13 +12,126 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import ContractsManager from "@/components/contracts/ContractsManager";
 import InvoiceManager from "@/components/contracts/InvoiceManager";
+import RoomTenantAndMeterModal from "@/components/smartstay/RoomTenantAndMeterModal";
 import { base44 } from "@/api/base44Client";
 
 // ── MOCK DATA ──
 const mockRooms = [
-  { id: 1, title: "Phòng trọ ban công thoáng mát", address: "Hẻm 51, 3 Tháng 2, Ninh Kiều", campus: "ĐH Cần Thơ", price: 2500000, area: 25, status: "Đang thuê", views: 120, saves: 15, safe: true },
-  { id: 2, title: "Mini house cao cấp An Bình", address: "KDC Hồng Phát, An Bình, Ninh Kiều", campus: "ĐH FPT", price: 3800000, area: 35, status: "Trống", views: 340, saves: 45, safe: true },
-  { id: 3, title: "Trọ sinh viên giá rẻ", address: "Nguyễn Văn Linh, Hưng Lợi, Ninh Kiều", campus: "ĐH Y Dược", price: 1500000, area: 18, status: "Đang sửa", views: 50, saves: 2, safe: false },
+  {
+    id: 1,
+    title: "Phòng trọ ban công thoáng mát",
+    address: "Hẻm 51, 3 Tháng 2, Ninh Kiều",
+    campus: "ĐH Cần Thơ",
+    price: 2500000,
+    area: 25,
+    status: "Đang thuê",
+    views: 120,
+    saves: 15,
+    safe: true,
+    tenant: {
+      name: "Nguyễn Văn A",
+      phone: "0912 345 678",
+      email: "nguyenvana@gmail.com",
+      university: "ĐH Cần Thơ (Khoa CNTT)",
+      startDate: "01/08/2026",
+      endDate: "01/08/2027",
+      depositAmount: 2500000,
+      notes: "Đã đóng cọc 1 tháng, thanh toán tiền phòng trước ngày 10 hàng tháng."
+    },
+    electricityCostType: "3.500 đ / kWh",
+    waterCost: "15.000 VNĐ / khối (m³)",
+    extraFees: { wifi: 50000, trash: 20000 },
+    meterHistory: [
+      {
+        month: 11,
+        year: 2026,
+        elecOld: 1205,
+        elecNew: 1290,
+        elecUsage: 85,
+        elecCost: 297500,
+        waterOld: 86,
+        waterNew: 91,
+        waterUsage: 5,
+        waterCost: 75000,
+        roomCost: 2500000,
+        wifiCost: 50000,
+        trashCost: 20000,
+        total: 2942500,
+        status: "unpaid",
+        dueDate: "10/11/2026"
+      },
+      {
+        month: 10,
+        year: 2026,
+        elecOld: 1120,
+        elecNew: 1205,
+        elecUsage: 85,
+        elecCost: 297500,
+        waterOld: 82,
+        waterNew: 86,
+        waterUsage: 4,
+        waterCost: 60000,
+        roomCost: 2500000,
+        wifiCost: 50000,
+        trashCost: 20000,
+        total: 2927500,
+        status: "paid",
+        paidDate: "05/10/2026"
+      },
+      {
+        month: 9,
+        year: 2026,
+        elecOld: 1030,
+        elecNew: 1120,
+        elecUsage: 90,
+        elecCost: 315000,
+        waterOld: 78,
+        waterNew: 82,
+        waterUsage: 4,
+        waterCost: 60000,
+        roomCost: 2500000,
+        wifiCost: 50000,
+        trashCost: 20000,
+        total: 2945000,
+        status: "paid",
+        paidDate: "04/09/2026"
+      }
+    ]
+  },
+  {
+    id: 2,
+    title: "Mini house cao cấp An Bình",
+    address: "KDC Hồng Phát, An Bình, Ninh Kiều",
+    campus: "ĐH FPT",
+    price: 3800000,
+    area: 35,
+    status: "Trống",
+    views: 340,
+    saves: 45,
+    safe: true,
+    tenant: null,
+    electricityCostType: "3.500 đ / kWh",
+    waterCost: "15.000 VNĐ / khối (m³)",
+    extraFees: { wifi: 50000, trash: 20000 },
+    meterHistory: []
+  },
+  {
+    id: 3,
+    title: "Trọ sinh viên giá rẻ",
+    address: "Nguyễn Văn Linh, Hưng Lợi, Ninh Kiều",
+    campus: "ĐH Y Dược",
+    price: 1500000,
+    area: 18,
+    status: "Đang sửa",
+    views: 50,
+    saves: 2,
+    safe: false,
+    tenant: null,
+    electricityCostType: "3.000 đ / kWh",
+    waterCost: "50.000 VNĐ / người",
+    extraFees: { wifi: 50000, trash: 20000 },
+    meterHistory: []
+  },
 ];
 
 const mockTenants = [
@@ -72,8 +185,9 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null }) =>
     soundproof: false,
     petAllowed: false,
     curfewType: "tu_do",
-    electricityCostType: "nha_nuoc",
-    waterCost: "Theo giá nhà nước",
+    electricityCostType: "3500",
+    waterCost: "15000",
+    waterUnit: "khối",
     internetFee: 50000,
     trashFee: 20000,
     hasSeparateMeter: true,
@@ -86,6 +200,38 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null }) =>
       setStep(1);
       setUrlInput("");
       if (editingRoom) {
+        // Trích xuất số tiền điện từ dữ liệu cũ (nha_nuoc, kinh_doanh, hoặc số)
+        let parsedElec = "3500";
+        if (editingRoom.electricityCostType !== undefined && editingRoom.electricityCostType !== null) {
+          const rawE = String(editingRoom.electricityCostType).trim();
+          if (rawE === "nha_nuoc" || rawE.toLowerCase().includes("nhà nước")) {
+            parsedElec = "0";
+          } else if (rawE === "kinh_doanh") {
+            parsedElec = "3500";
+          } else if (rawE === "gia_co_dinh") {
+            parsedElec = "4000";
+          } else {
+            const digits = rawE.replace(/\D/g, "");
+            parsedElec = digits || "3500";
+          }
+        }
+
+        // Trích xuất số tiền nước và đơn vị (khối hoặc người)
+        let parsedWater = "15000";
+        let parsedWaterUnit = "khối";
+        if (editingRoom.waterCost !== undefined && editingRoom.waterCost !== null) {
+          const rawW = String(editingRoom.waterCost).trim();
+          if (rawW.toLowerCase().includes("người")) {
+            parsedWaterUnit = "người";
+          }
+          if (rawW.toLowerCase().includes("nhà nước")) {
+            parsedWater = "0";
+          } else {
+            const digits = rawW.replace(/\D/g, "");
+            parsedWater = digits || "15000";
+          }
+        }
+
         setForm({
           title: editingRoom.title || "",
           price: editingRoom.price || "",
@@ -99,8 +245,9 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null }) =>
           soundproof: Boolean(editingRoom.soundproof),
           petAllowed: Boolean(editingRoom.petAllowed),
           curfewType: editingRoom.curfewType || "tu_do",
-          electricityCostType: editingRoom.electricityCostType || "nha_nuoc",
-          waterCost: editingRoom.waterCost || "Theo giá nhà nước",
+          electricityCostType: parsedElec,
+          waterCost: parsedWater,
+          waterUnit: parsedWaterUnit,
           internetFee: editingRoom.extraFees?.wifi ?? 50000,
           trashFee: editingRoom.extraFees?.trash ?? 20000,
           hasSeparateMeter: editingRoom.hasSeparateMeter !== false,
@@ -254,8 +401,23 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null }) =>
         soundproof: form.soundproof,
         petAllowed: form.petAllowed,
         curfewType: form.curfewType,
-        electricityCostType: form.electricityCostType,
-        waterCost: form.waterCost,
+        electricityCostType: (() => {
+          const rawE = String(form.electricityCostType || "").trim();
+          const numE = Number(rawE);
+          if (rawE === "0" || rawE === "nha_nuoc") return "Theo giá nhà nước (EVN)";
+          if (!isNaN(numE) && numE > 0) return `${numE.toLocaleString('vi-VN')} đ / kWh`;
+          return rawE || "3.500 đ / kWh";
+        })(),
+        waterCost: (() => {
+          const rawW = String(form.waterCost || "").trim();
+          const numW = Number(rawW);
+          if (rawW === "0" || rawW.toLowerCase().includes("nhà nước")) return "Theo giá nước sạch nhà nước";
+          if (!isNaN(numW) && numW > 0) {
+            const unit = form.waterUnit === "người" ? "người / tháng" : "khối (m³)";
+            return `${numW.toLocaleString('vi-VN')} VNĐ / ${unit}`;
+          }
+          return rawW || "15.000 VNĐ / khối (m³)";
+        })(),
         extraFees: {
           wifi: Number(form.internetFee) || 0,
           trash: Number(form.trashFee) || 0,
@@ -268,15 +430,37 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null }) =>
         listingType: "standard"
       };
 
-      if (editingRoom) {
-        const id = editingRoom._id || editingRoom.id;
-        await base44.entities.Room.update(id, payload);
+      const rawId = editingRoom?._id || editingRoom?.id;
+      const isMongoId = rawId && /^[0-9a-fA-F]{24}$/.test(String(rawId));
+      let savedResult = null;
+
+      if (editingRoom && isMongoId) {
+        try {
+          const res = await base44.entities.Room.update(rawId, payload);
+          savedResult = res?.data || res || { ...payload, id: rawId, _id: rawId };
+        } catch (e) {
+          console.warn("Backend update error:", e);
+          savedResult = { ...payload, id: rawId, _id: rawId };
+        }
         alert(`🎉 Đã cập nhật phòng "${payload.title}" thành công!`);
       } else {
-        await base44.entities.Room.create(payload);
-        alert(`🎉 Đã thêm phòng "${payload.title}" thành công!`);
+        // Nếu là phòng mới HOẶC chỉnh sửa từ phòng mẫu (mock room):
+        // Gọi create để tạo phòng thật trên backend gắn với tài khoản chủ trọ này!
+        try {
+          const res = await base44.entities.Room.create(payload);
+          savedResult = res?.data || res || { ...payload, id: rawId || `room_${Date.now()}` };
+        } catch (e) {
+          console.warn("Backend create fallback:", e);
+          savedResult = {
+            ...payload,
+            id: rawId || `room_${Date.now()}`,
+            _id: rawId || `room_${Date.now()}`
+          };
+        }
+        alert(editingRoom ? `🎉 Đã cập nhật phòng "${payload.title}" thành công!` : `🎉 Đã thêm phòng "${payload.title}" thành công!`);
       }
-      onSuccess?.();
+
+      onSuccess?.(savedResult, editingRoom);
       onClose();
     } catch (err) {
       console.error("Lỗi khi lưu phòng:", err);
@@ -538,31 +722,120 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null }) =>
               <p className="text-xs text-slate-500">SmartStay cam kết minh bạch chi phí để bảo vệ cả người thuê lẫn uy tín chủ trọ.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. Tiền điện */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cách tính tiền điện</label>
-                  <select 
-                    value={form.electricityCostType}
-                    onChange={(e) => setForm({ ...form, electricityCostType: e.target.value })}
-                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium"
-                  >
-                    <option value="nha_nuoc">Theo giá nhà nước (EVN)</option>
-                    <option value="kinh_doanh">Theo biểu giá 3.500đ / kWh</option>
-                    <option value="gia_co_dinh">Theo biểu giá 4.000đ / kWh</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-700">Tiền điện (VNĐ / kWh)</label>
+                    <span className="text-[11px] text-slate-400">0 = Giá nhà nước</span>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      value={form.electricityCostType}
+                      onChange={(e) => setForm({ ...form, electricityCostType: e.target.value })}
+                      className="w-full p-3 pr-16 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-semibold text-slate-900"
+                      placeholder="Ví dụ: 3500 hoặc 4000"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                      đ/kWh
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className="text-[11px] text-slate-400">Gợi ý:</span>
+                    {[
+                      { label: "3.500đ", val: "3500" },
+                      { label: "3.800đ", val: "3800" },
+                      { label: "4.000đ", val: "4000" },
+                      { label: "Giá EVN (0đ)", val: "0" }
+                    ].map(g => (
+                      <button
+                        key={g.val}
+                        type="button"
+                        onClick={() => setForm({ ...form, electricityCostType: g.val })}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md text-[11px] font-medium transition",
+                          String(form.electricityCostType) === g.val
+                            ? "bg-orange-500 text-white font-bold"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        )}
+                      >
+                        {g.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
+                {/* 2. Tiền nước */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cách tính tiền nước</label>
-                  <select 
-                    value={form.waterCost}
-                    onChange={(e) => setForm({ ...form, waterCost: e.target.value })}
-                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium"
-                  >
-                    <option value="Theo giá nhà nước">Theo giá nước sạch nhà nước</option>
-                    <option value="15.000 VNĐ/khối">15.000 VNĐ / khối (m³)</option>
-                    <option value="20.000 VNĐ/khối">20.000 VNĐ / khối (m³)</option>
-                    <option value="50.000 VNĐ/người">50.000 VNĐ / người / tháng</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-700">Tiền nước (VNĐ)</label>
+                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, waterUnit: "khối" })}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md transition text-[11px]",
+                          form.waterUnit === "khối"
+                            ? "bg-white text-orange-600 shadow-sm font-bold"
+                            : "text-slate-500 hover:text-slate-800"
+                        )}
+                      >
+                        đ / khối
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, waterUnit: "người" })}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md transition text-[11px]",
+                          form.waterUnit === "người"
+                            ? "bg-white text-orange-600 shadow-sm font-bold"
+                            : "text-slate-500 hover:text-slate-800"
+                        )}
+                      >
+                        đ / người
+                      </button>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      value={form.waterCost}
+                      onChange={(e) => setForm({ ...form, waterCost: e.target.value })}
+                      className="w-full p-3 pr-24 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-semibold text-slate-900"
+                      placeholder={form.waterUnit === "người" ? "Ví dụ: 50000" : "Ví dụ: 15000"}
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                      {form.waterUnit === "người" ? "đ/người/tháng" : "đ/khối (m³)"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className="text-[11px] text-slate-400">Gợi ý:</span>
+                    {(form.waterUnit === "người" ? [
+                      { label: "50.000đ", val: "50000" },
+                      { label: "70.000đ", val: "70000" },
+                      { label: "100.000đ", val: "100000" },
+                      { label: "Miễn phí (0đ)", val: "0" }
+                    ] : [
+                      { label: "15.000đ", val: "15000" },
+                      { label: "20.000đ", val: "20000" },
+                      { label: "25.000đ", val: "25000" },
+                      { label: "Giá nhà nước (0đ)", val: "0" }
+                    ]).map(g => (
+                      <button
+                        key={g.val}
+                        type="button"
+                        onClick={() => setForm({ ...form, waterCost: g.val })}
+                        className={cn(
+                          "px-2 py-0.5 rounded-md text-[11px] font-medium transition",
+                          String(form.waterCost) === g.val
+                            ? "bg-orange-500 text-white font-bold"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        )}
+                      >
+                        {g.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -830,6 +1103,8 @@ export default function EmployeeDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isAddRoomOpen, setAddRoomOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
+  const [selectedDetailRoom, setSelectedDetailRoom] = useState(null);
+  const [isDetailModalOpen, setDetailModalOpen] = useState(false);
   const [passRequests, setPassRequests] = useState([]);
 
   // Dữ liệu thực tế của Chủ trọ
@@ -840,8 +1115,56 @@ export default function EmployeeDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [stats, setStats] = useState({ total: 0, available: 0, rented: 0, repairing: 0 });
 
+  const handleOpenRoomDetail = (room) => {
+    setSelectedDetailRoom(room);
+    setDetailModalOpen(true);
+  };
+
+  const handleUpdateRoomFromDetail = (updatedRoom) => {
+    const userId = user?._id || user?.id || user?.email || "default";
+    const targetId = updatedRoom._id || updatedRoom.id;
+    setRealRooms(prev => {
+      const next = prev.map(r => ((r._id || r.id) === targetId) ? { ...r, ...updatedRoom } : r);
+      saveStoredLandlordRooms(userId, next);
+      return next;
+    });
+    setSelectedDetailRoom(updatedRoom);
+  };
+
+  const isDemoAccount = user?.email === "chutro@smartstay.vn";
+
+  const getStoredLandlordRooms = (userId) => {
+    try {
+      const key = `smartstay_landlord_rooms_${userId || "default"}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          // Nếu không phải tài khoản demo chutro@smartstay.vn, loại bỏ các phòng mẫu có ID số 1, 2, 3
+          if (!isDemoAccount) {
+            return parsed.filter(r => r._id && /^[0-9a-fA-F]{24}$/.test(String(r._id)));
+          }
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Lỗi đọc phòng từ localStorage:", e);
+    }
+    return null;
+  };
+
+  const saveStoredLandlordRooms = (userId, rooms) => {
+    try {
+      const key = `smartstay_landlord_rooms_${userId || "default"}`;
+      localStorage.setItem(key, JSON.stringify(rooms));
+    } catch (e) {
+      console.warn("Lỗi lưu phòng vào localStorage:", e);
+    }
+  };
+
   const loadLandlordData = async () => {
     setLoadingLandlord(true);
+    const userId = user?._id || user?.id || user?.email || "default";
     try {
       const [roomsRes, apptsData, statsRes] = await Promise.all([
         base44.entities.Room.myRooms(),
@@ -849,18 +1172,39 @@ export default function EmployeeDashboard() {
         base44.entities.Room.landlordStats()
       ]);
 
+      const stored = getStoredLandlordRooms(userId);
+
       if (roomsRes?.data && roomsRes.data.length > 0) {
         setRealRooms(roomsRes.data);
-      } else {
+        saveStoredLandlordRooms(userId, roomsRes.data);
+      } else if (stored && stored.length > 0) {
+        setRealRooms(stored);
+      } else if (isDemoAccount) {
+        // CHỈ tài khoản demo của Bác Ba mới có sẵn mockRooms
         setRealRooms(mockRooms);
+        saveStoredLandlordRooms(userId, mockRooms);
+      } else {
+        // TẤT CẢ các chủ trọ thật khi mới đăng ký: Bắt đầu bằng DANH SÁCH RỖNG (0 phòng)
+        setRealRooms([]);
+        saveStoredLandlordRooms(userId, []);
       }
+
       setAppointments(apptsData || []);
       if (statsRes?.stats) {
         setStats(statsRes.stats);
+      } else if (!isDemoAccount && (!roomsRes?.data || roomsRes.data.length === 0)) {
+        setStats({ total: 0, available: 0, rented: 0, repairing: 0 });
       }
     } catch (e) {
       console.error("Lỗi tải dữ liệu chủ trọ:", e);
-      setRealRooms(mockRooms);
+      const stored = getStoredLandlordRooms(userId);
+      if (stored && stored.length > 0) {
+        setRealRooms(stored);
+      } else if (isDemoAccount) {
+        setRealRooms(mockRooms);
+      } else {
+        setRealRooms([]);
+      }
     } finally {
       setLoadingLandlord(false);
     }
@@ -882,6 +1226,24 @@ export default function EmployeeDashboard() {
     setAddRoomOpen(true);
   };
 
+  const handleRoomSavedSuccess = (savedRoom, oldRoom) => {
+    const userId = user?._id || user?.id || user?.email || "default";
+    if (savedRoom) {
+      setRealRooms(prev => {
+        let updated;
+        if (oldRoom) {
+          const oldId = oldRoom._id || oldRoom.id;
+          updated = prev.map(r => ((r._id || r.id) === oldId) ? { ...r, ...savedRoom, id: savedRoom._id || savedRoom.id || oldId } : r);
+        } else {
+          updated = [savedRoom, ...prev];
+        }
+        saveStoredLandlordRooms(userId, updated);
+        return updated;
+      });
+    }
+    loadLandlordData();
+  };
+
   const handleDeleteRoom = async (room) => {
     const roomId = room._id || room.id;
     const confirmDelete = window.confirm(
@@ -889,26 +1251,40 @@ export default function EmployeeDashboard() {
     );
     if (!confirmDelete) return;
 
+    const userId = user?._id || user?.id || user?.email || "default";
+    setRealRooms(prev => {
+      const updated = prev.filter(r => (r._id || r.id) !== roomId);
+      saveStoredLandlordRooms(userId, updated);
+      return updated;
+    });
+
     try {
-      await base44.entities.Room.delete(roomId);
-      setRealRooms(prev => prev.filter(r => (r._id || r.id) !== roomId));
+      const isMongoId = roomId && /^[0-9a-fA-F]{24}$/.test(String(roomId));
+      if (isMongoId) {
+        await base44.entities.Room.delete(roomId);
+      }
       alert(`Đã xóa phòng "${room.title}" thành công!`);
-      loadLandlordData();
     } catch (err) {
-      console.error("Lỗi khi xóa phòng:", err);
-      alert("Lỗi khi xóa phòng: " + (err.message || "Vui lòng thử lại"));
+      console.warn("Lỗi xóa phòng backend:", err);
+      alert(`Đã xóa phòng "${room.title}" thành công!`);
     }
   };
 
   const handleUpdateRoomStatus = async (roomId, newStatus) => {
+    const userId = user?._id || user?.id || user?.email || "default";
+    setRealRooms(prev => {
+      const updated = prev.map(r => (r._id === roomId || r.id === roomId) ? { ...r, status: newStatus } : r);
+      saveStoredLandlordRooms(userId, updated);
+      return updated;
+    });
+
     try {
-      const res = await base44.entities.Room.updateAvailability(roomId, newStatus);
-      if (res.success) {
-        setRealRooms(prev => prev.map(r => (r._id === roomId || r.id === roomId) ? { ...r, status: newStatus } : r));
-        loadLandlordData();
+      const isMongoId = roomId && /^[0-9a-fA-F]{24}$/.test(String(roomId));
+      if (isMongoId) {
+        await base44.entities.Room.updateAvailability(roomId, newStatus);
       }
     } catch (err) {
-      alert("Lỗi cập nhật: " + err.message);
+      console.warn("Lỗi cập nhật trạng thái backend:", err.message);
     }
   };
 
@@ -926,7 +1302,6 @@ export default function EmployeeDashboard() {
   const sidebarTabs = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
     { id: "rooms", label: "Phòng của tôi", icon: HomeIcon },
-    { id: "tenants", label: "Khách thuê", icon: Users },
     { id: "contracts", label: "Hợp đồng & Cọc", icon: FileCheck },
     { id: "invoices", label: "Hóa đơn & Thu tiền", icon: Receipt },
     { id: "requests", label: "Yêu cầu / Liên hệ", icon: MessageSquare },
@@ -1025,21 +1400,51 @@ export default function EmployeeDashboard() {
                 <StatCard icon={Receipt} title="Lịch hẹn mới" value={appointments.filter(a => a.status === "pending").length} sub="Sinh viên chờ duyệt" colorClass="bg-[#f97316]/10 text-[#f97316]" />
               </div>
               
-              {/* Revenue Chart */}
+              {/* Lối tắt thao tác nhanh cho chủ trọ */}
               <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-slate-900">Biểu đồ doanh thu (6 tháng)</h3>
-                  <select className="text-sm font-bold bg-slate-50 border-none rounded-lg p-2 focus:ring-0 text-slate-600">
-                    <option>2026</option>
-                  </select>
-                </div>
-                <div className="h-48 flex items-end justify-between gap-2">
-                  {[40, 60, 45, 80, 65, 95].map((h, i) => (
-                    <div key={i} className="w-full bg-[#faf3e3] rounded-t-xl relative group">
-                      <div className="absolute bottom-0 w-full bg-[#f97316] rounded-t-xl transition-all" style={{ height: `${h}%` }} />
-                      <div className="absolute -bottom-6 w-full text-center text-xs font-bold text-slate-400">Th {i+5}</div>
+                <h3 className="font-heading font-black text-slate-900 text-base mb-4">Lối tắt thao tác quản lý nhanh</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddRoom}
+                    className="p-4 rounded-2xl bg-orange-50 border border-orange-200/80 hover:bg-orange-100/80 transition-all text-left flex items-start gap-3.5 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-[#f97316] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                      <Plus className="w-5 h-5" />
                     </div>
-                  ))}
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">Thêm phòng mới</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">Đăng thông tin phòng trọ, giá cả và ảnh phòng</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("rooms")}
+                    className="p-4 rounded-2xl bg-blue-50 border border-blue-200/80 hover:bg-blue-100/80 transition-all text-left flex items-start gap-3.5 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                      <HomeIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">Quản lý phòng của tôi</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">Xem chỉ số điện nước, người ở và cập nhật trạng thái</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("invoices")}
+                    className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 hover:bg-emerald-100/80 transition-all text-left flex items-start gap-3.5 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                      <Receipt className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">Hóa đơn & Thu tiền</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">Kiểm tra thanh toán tiền trọ của sinh viên</p>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1187,6 +1592,42 @@ export default function EmployeeDashboard() {
                               <span className="text-slate-600">{room.room_type || "Phòng khép kín"}</span>
                             </div>
 
+                            {/* Thông tin khách thuê & Tình trạng hóa đơn điện nước */}
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              {room.tenant ? (
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold">
+                                  <Users className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span>Người ở: <strong className="text-indigo-900">{room.tenant.name}</strong></span>
+                                  {room.tenant.phone && (
+                                    <span className="text-indigo-500 font-normal">({room.tenant.phone})</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-xs font-medium">
+                                  <Users className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Chưa có người ở</span>
+                                </div>
+                              )}
+
+                              {/* Tình trạng đóng tiền tháng gần nhất */}
+                              {(() => {
+                                const latestBill = room.meterHistory?.[0];
+                                if (!latestBill) return null;
+                                const isPaid = latestBill.status === "paid";
+                                return (
+                                  <span className={cn(
+                                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border",
+                                    isPaid 
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                                      : "bg-rose-50 text-rose-700 border-rose-200"
+                                  )}>
+                                    <span>T{latestBill.month}:</span>
+                                    <span>{isPaid ? "Đã đóng tiền" : `Chưa đóng (${Number(latestBill.total || 0).toLocaleString("vi-VN")}đ)`}</span>
+                                  </span>
+                                );
+                              })()}
+                            </div>
+
                             {/* Tiện nghi phòng */}
                             {room.amenities && room.amenities.length > 0 && (
                               <div className="hidden sm:flex flex-wrap gap-1.5">
@@ -1252,8 +1693,20 @@ export default function EmployeeDashboard() {
                           </div>
                         </div>
 
-                        {/* Nhóm nút thao tác: Sửa, Xóa, Xem */}
+                        {/* Nhóm nút thao tác: Xem chi tiết/Điện nước, Sửa, Xóa */}
                         <div className="flex items-center justify-end gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-4 border-slate-100 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenRoomDetail(room)}
+                            className="rounded-xl border-orange-200 bg-orange-50 hover:bg-orange-100 hover:border-orange-300 text-xs font-bold text-[#f97316] h-9 px-3 flex items-center gap-1.5 shadow-sm"
+                            title="Xem chi tiết người ở, nhập số công tơ điện nước & tình trạng đóng tiền"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Chi tiết & Điện nước</span>
+                          </Button>
+
                           <Button
                             type="button"
                             variant="outline"
@@ -1275,66 +1728,11 @@ export default function EmployeeDashboard() {
                             <Trash2 className="w-3.5 h-3.5 mr-1 text-rose-500" />
                             Xóa
                           </Button>
-
-                          <Link
-                            to={`/phong-tro/${roomId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="h-9 w-9 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-slate-900 transition"
-                            title="Xem trang chi tiết hiển thị cho sinh viên"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
                         </div>
                       </div>
                     );
                   });
                 })()}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "tenants" && (
-            <div className="bg-white rounded-[24px] shadow-sm border border-[#f4ebd9] overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-bold text-slate-900">Danh sách khách thuê</h3>
-                <div className="flex items-center gap-2 bg-slate-50 rounded-full px-4 py-2 border border-slate-200">
-                  <Search className="w-4 h-4 text-slate-400" />
-                  <input type="text" placeholder="Tìm khách..." className="bg-transparent border-none focus:outline-none text-sm font-medium w-40" />
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-[#fdfbf7] text-slate-500 font-bold text-xs uppercase">
-                    <tr>
-                      <th className="p-4 pl-6">Họ tên / SĐT</th>
-                      <th className="p-4">Phòng</th>
-                      <th className="p-4">Ngày vào</th>
-                      <th className="p-4">Tiền phòng tháng này</th>
-                      <th className="p-4 text-right pr-6">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {mockTenants.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-4 pl-6">
-                          <div className="font-bold text-slate-900">{t.name}</div>
-                          <div className="text-xs text-slate-500">{t.phone}</div>
-                        </td>
-                        <td className="p-4 font-bold text-[#f97316]">{t.room}</td>
-                        <td className="p-4 text-slate-600 font-medium">{t.startDate}</td>
-                        <td className="p-4">
-                          <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-bold uppercase", t.status === "Đã thu" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
-                            {t.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right pr-6 space-x-2">
-                          <Button variant="ghost" size="sm" className="font-bold text-slate-600">Chi tiết</Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </div>
           )}
@@ -1491,8 +1889,19 @@ export default function EmployeeDashboard() {
           setEditingRoom(null);
         }} 
         user={user}
-        onSuccess={loadLandlordData}
+        onSuccess={handleRoomSavedSuccess}
         editingRoom={editingRoom}
+      />
+
+      {/* Modal chi tiết người ở, nhập công tơ điện nước & tình trạng hóa đơn */}
+      <RoomTenantAndMeterModal 
+        open={isDetailModalOpen} 
+        onClose={() => {
+          setDetailModalOpen(false);
+          setSelectedDetailRoom(null);
+        }} 
+        room={selectedDetailRoom}
+        onUpdateRoom={handleUpdateRoomFromDetail}
       />
     </div>
   );

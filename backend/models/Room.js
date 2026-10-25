@@ -17,8 +17,7 @@ const roomSchema = new mongoose.Schema({
     // Bảng kiểm kê chi phí minh bạch
     electricityCostType: {
         type: String,
-        enum: ['nha_nuoc', 'kinh_doanh', 'gia_co_dinh'],
-        default: 'nha_nuoc'
+        default: '3.500 đ / kWh'
     },
     waterCost: { type: String, default: 'Theo giá nhà nước' },
     hasSeparateMeter: { type: Boolean, default: true }, // Đồng hồ riêng

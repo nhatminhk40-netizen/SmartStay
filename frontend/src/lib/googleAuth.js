@@ -86,7 +86,7 @@ if (typeof window !== "undefined") {
  * Kích hoạt luồng đăng nhập Google OAuth 2.0 chính thức qua Google Identity Services (GIS).
  * Mở cửa sổ popup trực tiếp từ accounts.google.com
  */
-export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId, role }) {
+export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId, role, action = "login" }) {
   // 1. Đảm bảo Google SDK đã sẵn sàng
   if (typeof window === "undefined") return;
   if (!window.google?.accounts?.oauth2) {
@@ -138,7 +138,6 @@ export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId
           let userInfo = null;
 
           // 4. Lấy thông tin tài khoản Google
-          // Cách 1: Query param trực tiếp (Simple GET request, không header Authorization, tránh bị chặn CORS preflight hoặc lỗi fetch)
           if (accessToken) {
             try {
               const qRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${encodeURIComponent(accessToken)}`);
@@ -150,7 +149,6 @@ export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId
             }
           }
 
-          // Cách 2: Header Authorization thông thường nếu cách 1 chưa có dữ liệu
           if (!userInfo?.email && accessToken) {
             try {
               const hRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
@@ -175,62 +173,20 @@ export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId
               googleId: userInfo?.sub,
               avatar: userInfo?.picture || "",
               campus: userInfo?.email?.includes("fpt") ? "FPT Can Tho" : "ĐH Cần Thơ",
-              role: role || undefined
+              role: role || undefined,
+              action: action || "login"
             });
             onSuccess?.(authResult);
             return;
           } catch (backendSyncErr) {
             console.warn("Backend loginWithGoogle error:", backendSyncErr);
-
-            // Nếu backend server offline hoặc gặp sự cố, tự động khởi tạo phiên dự phòng dựa trên dữ liệu Google đã có
-            const assignedRole = (role === "landlord" || role === "transporter") ? role : "student";
-            const userEmail = userInfo?.email || (assignedRole === "landlord" ? "chutro.google@smartstay.vn" : "user.google@smartstay.vn");
-            const userName = userInfo?.name || (userInfo?.email ? userInfo.email.split("@")[0] : (assignedRole === "landlord" ? "Chủ trọ Google" : "Sinh viên Google"));
-            const userSub = userInfo?.sub || String(Date.now());
-
-            const fallbackUser = {
-              id: "gg_" + userSub,
-              _id: "gg_" + userSub,
-              fullName: userName,
-              email: userEmail,
-              role: assignedRole,
-              avatar: userInfo?.picture || "",
-              campus: userEmail.includes("fpt") ? "FPT Can Tho" : "ĐH Cần Thơ",
-              verificationStatus: assignedRole === "landlord" ? "UNVERIFIED" : "APPROVED",
-              phoneVerified: false
-            };
-            const fallbackToken = "jwt_google_" + Date.now();
-            localStorage.setItem("smartstay_token", fallbackToken);
-            localStorage.setItem("smartstay_user", JSON.stringify(fallbackUser));
-            onSuccess?.({
-              success: true,
-              access_token: fallbackToken,
-              user: fallbackUser
-            });
+            // Báo lỗi trực tiếp cho người dùng nếu backend từ chối (ví dụ: email đã đăng ký vai trò khác)
+            onError?.(backendSyncErr);
+            return;
           }
         } catch (globalErr) {
           console.error("Unhandled Google Auth processing error:", globalErr);
-          // Ngay cả khi xảy ra lỗi bất ngờ ngoài dự kiến, tạo phiên đăng nhập để người dùng không bị kẹt
-          const assignedRole = (role === "landlord" || role === "transporter") ? role : "student";
-          const fallbackUser = {
-            id: "gg_" + Date.now(),
-            _id: "gg_" + Date.now(),
-            fullName: assignedRole === "landlord" ? "Chủ nhà trọ (Google)" : "Sinh viên (Google)",
-            email: assignedRole === "landlord" ? "chutro.google@smartstay.vn" : "sinhvien.google@smartstay.vn",
-            role: assignedRole,
-            avatar: "",
-            campus: "FPT Can Tho",
-            verificationStatus: assignedRole === "landlord" ? "UNVERIFIED" : "APPROVED",
-            phoneVerified: false
-          };
-          const fallbackToken = "jwt_google_" + Date.now();
-          localStorage.setItem("smartstay_token", fallbackToken);
-          localStorage.setItem("smartstay_user", JSON.stringify(fallbackUser));
-          onSuccess?.({
-            success: true,
-            access_token: fallbackToken,
-            user: fallbackUser
-          });
+          onError?.(globalErr);
         }
       }
     });

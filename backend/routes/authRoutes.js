@@ -568,7 +568,11 @@ router.post('/register', async (req, res) => {
         if (req.app.locals.isDbConnected) {
             const existingUser = await User.findOne({ email: normalizedEmail });
             if (existingUser) {
-                return res.status(400).json({ success: false, message: 'Email này đã được sử dụng.' });
+                const roleName = existingUser.role === 'landlord' ? 'Chủ nhà trọ' : (existingUser.role === 'student' ? 'Người thuê / Sinh viên' : (existingUser.role === 'transporter' ? 'Dịch vụ vận tải' : existingUser.role));
+                return res.status(409).json({ 
+                    success: false, 
+                    message: `Email này (${normalizedEmail}) đã được đăng ký tài khoản với vai trò "${roleName}". Mỗi email chỉ được sử dụng cho 1 vai trò duy nhất. Vui lòng chuyển sang trang Đăng nhập hoặc sử dụng email khác!` 
+                });
             }
 
             const newUser = await User.create({
@@ -823,7 +827,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 // 5. Đăng nhập / Đăng ký nhanh qua Google OAuth
 router.post('/google', async (req, res) => {
     try {
-        let { email, fullName, googleId, avatar, campus, role, access_token } = req.body;
+        let { email, fullName, googleId, avatar, campus, role, action, access_token } = req.body;
 
         // Nếu client không gửi được email (do Adblock / CORS ở trình duyệt) nhưng có access_token:
         // Server Node.js chủ động gọi trực tiếp máy chủ Google OAuth để lấy email và hồ sơ thật
@@ -852,12 +856,33 @@ router.post('/google', async (req, res) => {
         const detectedCampus = campus || (normalizedEmail.includes('fpt') ? 'FPT Can Tho' : 'ĐH Cần Thơ');
         const defaultName = fullName || normalizedEmail.split('@')[0];
         const assignedRole = (role === 'landlord' || role === 'transporter') ? role : 'student';
+        const isRegisterAction = action === 'register';
+
+        const getRoleDisplayName = (r) => {
+            if (r === 'landlord') return 'Chủ nhà trọ';
+            if (r === 'student') return 'Người thuê / Sinh viên';
+            if (r === 'transporter') return 'Dịch vụ vận tải';
+            if (r === 'employee') return 'Nhân viên vận hành';
+            if (r === 'admin') return 'Quản trị viên';
+            return r || 'người dùng';
+        };
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
             let user = await User.findOne({ email: normalizedEmail });
 
             if (user) {
+                // NẾU NGƯỜI DÙNG ĐANG Ở MÀN HÌNH ĐĂNG KÝ (Register):
+                // Tuyệt đối không cho phép đăng ký đè lên email đã tồn tại, đặc biệt là khác vai trò!
+                if (isRegisterAction) {
+                    const existingRoleName = getRoleDisplayName(user.role);
+                    return res.status(409).json({
+                        success: false,
+                        message: `Email này (${normalizedEmail}) đã được đăng ký tài khoản với vai trò "${existingRoleName}". Mỗi email chỉ được sử dụng cho 1 vai trò duy nhất. Vui lòng chuyển sang trang Đăng nhập hoặc sử dụng email khác!`
+                    });
+                }
+
+                // Luồng Đăng nhập bình thường: Giữ nguyên vai trò gốc của tài khoản
                 let hasChange = false;
                 if (!user.googleId && googleId) {
                     user.googleId = googleId;
@@ -867,15 +892,19 @@ router.post('/google', async (req, res) => {
                     user.avatar = avatar;
                     hasChange = true;
                 }
-                if (assignedRole === 'landlord' && user.role === 'student') {
-                    user.role = 'landlord';
-                    if (!user.verificationStatus) user.verificationStatus = 'UNVERIFIED';
-                    hasChange = true;
-                }
                 if (hasChange) {
                     await user.save();
                 }
             } else {
+                // Tài khoản chưa tồn tại nhưng đang ở trang Login
+                if (action === 'login') {
+                    return res.status(404).json({
+                        success: false,
+                        message: `Tài khoản Google (${normalizedEmail}) chưa được đăng ký trong hệ thống SmartStay. Vui lòng bấm "Đăng ký miễn phí" để tạo tài khoản trước!`
+                    });
+                }
+
+                // Tạo tài khoản mới theo đúng vai trò được chọn
                 user = await User.create({
                     fullName: defaultName,
                     email: normalizedEmail,
@@ -898,7 +927,7 @@ router.post('/google', async (req, res) => {
 
             return res.status(200).json({
                 success: true,
-                message: 'Đăng nhập Google thành công!',
+                message: isRegisterAction ? 'Đăng ký tài khoản qua Google thành công!' : 'Đăng nhập Google thành công!',
                 access_token: token,
                 user: {
                     id: user._id,
@@ -919,7 +948,22 @@ router.post('/google', async (req, res) => {
         let fallbackUsers = getFallbackUsers(req.app);
 
         let user = fallbackUsers.find(u => u.email === normalizedEmail);
-        if (!user) {
+        if (user) {
+            if (isRegisterAction) {
+                const existingRoleName = getRoleDisplayName(user.role);
+                return res.status(409).json({
+                    success: false,
+                    message: `Email này (${normalizedEmail}) đã được đăng ký tài khoản với vai trò "${existingRoleName}". Mỗi email chỉ được sử dụng cho 1 vai trò duy nhất. Vui lòng chuyển sang trang Đăng nhập hoặc sử dụng email khác!`
+                });
+            }
+        } else {
+            if (action === 'login') {
+                return res.status(404).json({
+                    success: false,
+                    message: `Tài khoản Google (${normalizedEmail}) chưa được đăng ký trong hệ thống SmartStay. Vui lòng bấm "Đăng ký miễn phí" để tạo tài khoản trước!`
+                });
+            }
+
             user = {
                 _id: `usr_gg_${Date.now()}`,
                 id: `usr_gg_${Date.now()}`,
@@ -936,10 +980,6 @@ router.post('/google', async (req, res) => {
             };
             fallbackUsers.push(user);
             saveFallbackUsers(fallbackUsers);
-        } else if (assignedRole === 'landlord' && user.role === 'student') {
-            user.role = 'landlord';
-            if (!user.verificationStatus) user.verificationStatus = 'UNVERIFIED';
-            saveFallbackUsers(fallbackUsers);
         }
 
         const token = generateToken({
@@ -951,7 +991,7 @@ router.post('/google', async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: 'Đăng nhập Google thành công (Fallback)!',
+            message: isRegisterAction ? 'Đăng ký tài khoản qua Google thành công!' : 'Đăng nhập Google thành công!',
             access_token: token,
             user: {
                 id: user._id,
