@@ -97,7 +97,7 @@ export default function Roommates() {
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Hồ sơ của người dùng hiện tại & Tương tác Lưu / Ẩn / Báo cáo
-    const [myProfile, setMyProfile] = useState(() => roommateApi.getMyProfile(user));
+    const [myProfile, setMyProfile] = useState(() => roommateApi.getMyProfile());
     const [savedIds, setSavedIds] = useState(() => roommateApi.getSavedIds());
     const [hiddenIds, setHiddenIds] = useState(() => roommateApi.getHiddenIds());
     const [reportingProfile, setReportingProfile] = useState(null);
@@ -111,7 +111,9 @@ export default function Roommates() {
     const urlGender = searchParams.get("gender") || "all";
     const urlBudget = searchParams.get("budget") || "all";
     const urlType = searchParams.get("type") || "all";
-    const urlSort = searchParams.get("sort") || (roommateApi.getMyProfile(user) ? "compat" : "newest");
+    const hasProfile = Boolean(roommateApi.getMyProfile());
+    const rawSort = searchParams.get("sort");
+    const urlSort = (rawSort === "compat" && !hasProfile) ? "newest" : (rawSort || (hasProfile ? "compat" : "newest"));
     const urlStrictList = (searchParams.get("strict") || "").split(",").filter(Boolean);
 
     // Sắp xếp danh sách
@@ -708,6 +710,28 @@ export default function Roommates() {
                                 load();
                             }}
                         />
+                    </div>
+                )}
+
+                {/* Banner gợi ý tạo hồ sơ khi chưa có */}
+                {!myProfile && (
+                    <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                                <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-800">Bạn chưa tạo hồ sơ thói quen ở ghép</h4>
+                                <p className="text-[11px] text-slate-600 mt-0.5">Tạo hồ sơ trong 1 phút để hệ thống tự động tính điểm tương thích (%) theo đúng thói quen thật của bạn.</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handlePromptCreateProfile}
+                            className="px-4 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:bg-accent/90 shadow-2xs transition active:scale-95 shrink-0 cursor-pointer"
+                        >
+                            + Tạo hồ sơ tính độ hợp
+                        </button>
                     </div>
                 )}
 

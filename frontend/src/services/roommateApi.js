@@ -125,24 +125,12 @@ export const roommateApi = {
   },
 
   /**
-   * Lấy hồ sơ người ở ghép của tôi
+   * Lấy hồ sơ người ở ghép của tôi (Chỉ trả về khi người dùng đã thực sự tạo/lưu hồ sơ)
    */
-  getMyProfile: (currentUser = null) => {
+  getMyProfile: () => {
     const saved = getJson(STORAGE_KEYS.MY_PROFILE, null);
-    if (saved) return saved;
-
-    // Nếu người dùng đã đăng nhập và có thông tin cơ bản
-    if (currentUser) {
-      return {
-        name: currentUser.fullName || currentUser.name || 'Hồ sơ của tôi',
-        gender: currentUser.gender || 'Nam',
-        campus: currentUser.campus || 'ĐH Cần Thơ',
-        budget: 2.2,
-        sleepSchedule: 'early_bird',
-        smokingDrinking: 'none',
-        hasPet: false,
-        habits: 'Không hút thuốc, Ngủ sớm'
-      };
+    if (saved && (saved.budget || saved.sleepSchedule || saved.habits || saved.lifestyle)) {
+      return saved;
     }
     return null;
   },
