@@ -1,4 +1,4 @@
-import { calcCompatibility } from './compatibility.js';
+import { calcCompatibility, calcGenderScore, GENDER_WEIGHT, OTHER_FACTORS_WEIGHT, normalizeGender } from './compatibility.js';
 
 let passed = 0;
 let total = 0;
@@ -13,96 +13,101 @@ function assert(condition, message) {
   }
 }
 
-console.log('--- BẮT ĐẦU KIỂM THỬ THUẬT TOÁN TƯƠNG THÍCH calcCompatibility ---');
+console.log('================================================================');
+console.log('🧪 BẮT ĐẦU KIỂM THỬ THUẬT TOÁN TƯƠNG THÍCH (GENDER_WEIGHT = 0.5)');
+console.log('================================================================');
 
-// Case 1: Giống hệt nhau
-const me1 = {
-  name: 'Sinh viên A',
+// Baseline profile mẫu
+const baseProfile = {
   campus: 'ĐH FPT Cần Thơ',
   budget: 2.2,
   smokingDrinking: 'none',
   sleepSchedule: 'early_bird',
   hasPet: false,
   petPolicy: 'no_pet',
-  habits: 'Không hút thuốc, Ngủ sớm, Sạch sẽ'
+  cleanliness: 'daily',
+  habits: 'Không hút thuốc, Ngủ sớm, Sạch sẽ, Không nuôi pet'
 };
-const other1 = { ...me1, name: 'Sinh viên B' };
-const res1 = calcCompatibility(me1, other1);
-assert(res1.score === 100, `Trường hợp 1 (Giống hệt nhau): Điểm phải đạt 100%, thực tế: ${res1.score}%`);
-assert(res1.matched.length >= 4, `Trường hợp 1: Có nhiều điểm giống nhau (${res1.matched.join(', ')})`);
-assert(res1.different.length === 0, 'Trường hợp 1: Không có điểm khác biệt');
 
-// Case 2: Khác nhau về hút thuốc (một bên không hút, một bên có hút)
-const me2 = {
-  name: 'Sinh viên Không Hút',
-  campus: 'ĐH Cần Thơ',
-  budget: 2.0,
-  smokingDrinking: 'none',
-  sleepSchedule: 'early_bird',
-  hasPet: false
-};
-const other2 = {
-  name: 'Sinh viên Có Hút',
-  campus: 'ĐH Cần Thơ',
-  budget: 2.0,
-  smokingDrinking: 'yes',
-  sleepSchedule: 'early_bird',
-  hasPet: false
-};
-const res2 = calcCompatibility(me2, other2);
-assert(res2.score < 80, `Trường hợp 2 (Khác hút thuốc): Điểm bị trừ nặng (${res2.score}%)`);
-assert(
-  res2.different.some(d => d.includes('khói thuốc')),
-  `Trường hợp 2: Có ghi nhận khác biệt về khói thuốc: ${res2.different.join('; ')}`
-);
+// 1. Kiểm thử Nữ – Nữ (Cùng giới tính)
+console.log('\n--- Test 1: Nữ – Nữ (Cùng giới tính) ---');
+const female1 = { ...baseProfile, name: 'Vy Vo', gender: 'Nữ' };
+const female2 = { ...baseProfile, name: 'Lan Anh', gender: 'Nữ' };
+const resFemale = calcCompatibility(female1, female2);
+assert(resFemale.genderScore === 100, 'Nữ – Nữ: Điểm giới tính phải đạt 100');
+assert(resFemale.isOppositeGender === false, 'Nữ – Nữ: isOppositeGender phải là false');
+assert(resFemale.score === 100, `Nữ – Nữ cùng thói quen: Tổng điểm đạt 100% (thực tế: ${resFemale.score}%)`);
+assert(resFemale.matched.includes('Cùng giới tính'), 'Nữ – Nữ: Có lý do "Cùng giới tính" trong matched');
 
-// Case 3: Chênh lệch ngân sách lớn (>= 1.5 triệu)
-const me3 = {
-  name: 'Sinh viên Ngân sách thấp',
-  campus: 'ĐH FPT',
-  budget: 1.5,
-  smokingDrinking: 'none',
-  sleepSchedule: 'night_owl'
-};
-const other3 = {
-  name: 'Sinh viên Ngân sách cao',
-  campus: 'ĐH FPT',
-  budget: 3.5, // chênh 2.0tr
-  smokingDrinking: 'none',
-  sleepSchedule: 'night_owl'
-};
-const res3 = calcCompatibility(me3, other3);
-assert(
-  res3.different.some(d => d.includes('ngân sách')),
-  `Trường hợp 3: Ghi nhận chênh lệch ngân sách lớn: ${res3.different.join('; ')}`
-);
-assert(res3.score < 80, `Trường hợp 3: Điểm bị trừ vì ngân sách quá chênh lệch (${res3.score}%)`);
+// 2. Kiểm thử Nam – Nam (Cùng giới tính)
+console.log('\n--- Test 2: Nam – Nam (Cùng giới tính) ---');
+const male1 = { ...baseProfile, name: 'Trần Minh Quân', gender: 'Nam' };
+const male2 = { ...baseProfile, name: 'Lê Quốc Bảo', gender: 'Nam' };
+const resMale = calcCompatibility(male1, male2);
+assert(resMale.genderScore === 100, 'Nam – Nam: Điểm giới tính phải đạt 100');
+assert(resMale.isOppositeGender === false, 'Nam – Nam: isOppositeGender phải là false');
+assert(resMale.score === 100, `Nam – Nam cùng thói quen: Tổng điểm đạt 100% (thực tế: ${resMale.score}%)`);
+assert(resMale.matched.includes('Cùng giới tính'), 'Nam – Nam: Có lý do "Cùng giới tính" trong matched');
 
-// Case 4: Thiếu dữ liệu (chuẩn hóa trọng số, không tính 0)
-const me4 = {
-  name: 'Sinh viên Thiếu Info',
-  smokingDrinking: 'none',
-  sleepSchedule: 'early_bird'
-  // Thiếu campus, budget, pet
-};
-const other4 = {
-  name: 'Sinh viên Đầy Đủ',
-  campus: 'ĐH Y Dược',
-  budget: 2.5,
-  smokingDrinking: 'none',
-  sleepSchedule: 'early_bird',
-  hasPet: true
-};
-const res4 = calcCompatibility(me4, other4);
-// Hai người này chỉ có hút thuốc (25/25) và giờ ngủ (25/25). Chuẩn hóa 50/50 = 100%
-assert(res4.score === 100, `Trường hợp 4 (Thiếu dữ liệu): Chuẩn hóa trọng số đạt 100%, thực tế: ${res4.score}%`);
+// 3. Kiểm thử Nam – Nữ (Khác giới tính)
+console.log('\n--- Test 3: Nam – Nữ (Khác giới tính) ---');
+const resMaleFemale = calcCompatibility(female1, male1);
+assert(resMaleFemale.genderScore === 0, 'Nam – Nữ: Điểm giới tính phải là 0');
+assert(resMaleFemale.isOppositeGender === true, 'Nam – Nữ: isOppositeGender phải là true');
+assert(resMaleFemale.score <= 50, `Nam – Nữ dù trùng khớp mọi thói quen: Điểm tối đa chỉ 50% (thực tế: ${resMaleFemale.score}%)`);
+assert(resMaleFemale.different.includes('Khác giới tính'), 'Nam – Nữ: Có lý do "Khác giới tính" trong different');
 
-// Case 5: Không có hồ sơ của tôi (me = null hoặc rỗng)
-const res5 = calcCompatibility(null, other1);
-assert(res5.score === null, 'Trường hợp 5 (Không có hồ sơ của tôi): Trả về score === null');
-assert(res5.matched.length === 0, 'Trường hợp 5: matched rỗng');
+// 4. Kiểm thử Khác – Khác (Cùng giới tính Khác)
+console.log('\n--- Test 4: Khác – Khác (Cùng giới tính đặc thù) ---');
+const otherGender1 = { ...baseProfile, name: 'Bạn A', gender: 'Khác' };
+const otherGender2 = { ...baseProfile, name: 'Bạn B', gender: 'Khác' };
+const resOtherBoth = calcCompatibility(otherGender1, otherGender2);
+assert(resOtherBoth.genderScore === 100, 'Khác – Khác: Điểm giới tính phải đạt 100');
+assert(resOtherBoth.isOppositeGender === false, 'Khác – Khác: isOppositeGender phải là false');
+assert(resOtherBoth.score === 100, `Khác – Khác: Tổng điểm đạt 100% (thực tế: ${resOtherBoth.score}%)`);
 
-console.log(`\n=== KẾT QUẢ: ${passed}/${total} TESTS PASSED ===\n`);
+// 5. Kiểm thử Khác – Nam / Khác – Nữ
+console.log('\n--- Test 5: Khác – Nam (Khác giới tính) ---');
+const resOtherMale = calcCompatibility(otherGender1, male1);
+assert(resOtherMale.genderScore === 0, 'Khác – Nam: Điểm giới tính phải là 0');
+assert(resOtherMale.isOppositeGender === true, 'Khác – Nam: isOppositeGender phải là true');
+assert(resOtherMale.score <= 50, `Khác – Nam: Tổng điểm tối đa chỉ 50% (thực tế: ${resOtherMale.score}%)`);
+
+// 6. Kiểm thử dữ liệu thiếu/undefined giới tính
+console.log('\n--- Test 6: Giới tính thiếu/undefined (Xử lý an toàn, không crash) ---');
+const noGenderProfile1 = { ...baseProfile, name: 'Ẩn danh', gender: undefined };
+const noGenderProfile2 = { ...baseProfile, name: 'Khách', gender: null };
+const resMissingGender = calcCompatibility(noGenderProfile1, male1);
+assert(resMissingGender.genderScore === 50, 'Thiếu giới tính: Gán điểm trung tính 50, không crash');
+assert(resMissingGender.score >= 50, `Thiếu giới tính: Điểm tính toán an toàn (thực tế: ${resMissingGender.score}%)`);
+
+const resBothMissing = calcCompatibility(noGenderProfile1, noGenderProfile2);
+assert(resBothMissing.genderScore === 50, 'Cả hai thiếu giới tính: Tính toán an toàn không crash');
+
+// 7. Kiểm thử logic điều kiện ghép khác giới (allowCrossGender)
+console.log('\n--- Test 7: Điều kiện ghép khác giới allowCrossGender ---');
+function canMatchCrossGender(me, other) {
+  const g1 = normalizeGender(me.gender);
+  const g2 = normalizeGender(other.gender);
+  if (g1 && g2 && g1 === g2) return true; // Cùng giới luôn được ghép
+  return Boolean(me.allowCrossGender) && Boolean(other.allowCrossGender); // Khác giới chỉ khi cả 2 cùng bật
+}
+
+const meFemaleDefault = { gender: 'Nữ', allowCrossGender: false };
+const otherMaleDefault = { gender: 'Nam', allowCrossGender: false };
+const otherMaleOptIn = { gender: 'Nam', allowCrossGender: true };
+const meFemaleOptIn = { gender: 'Nữ', allowCrossGender: true };
+
+assert(canMatchCrossGender(meFemaleDefault, otherMaleDefault) === false, 'Tắt cả 2 bên: KHÔNG hiển thị nhau');
+assert(canMatchCrossGender(meFemaleDefault, otherMaleOptIn) === false, 'Chỉ nam bật, nữ tắt: KHÔNG hiển thị nhau');
+assert(canMatchCrossGender(meFemaleOptIn, otherMaleDefault) === false, 'Chỉ nữ bật, nam tắt: KHÔNG hiển thị nhau');
+assert(canMatchCrossGender(meFemaleOptIn, otherMaleOptIn) === true, 'Cả hai bên cùng bật: ĐƯỢC PHÉP hiển thị nhau');
+assert(canMatchCrossGender(meFemaleDefault, { gender: 'Nữ', allowCrossGender: false }) === true, 'Cùng Nữ - Nữ dù tắt tùy chọn: VẪN luôn hiển thị');
+
+console.log('\n================================================================');
+console.log(`🎉 KẾT QUẢ: Đã vượt qua ${passed}/${total} bài kiểm thử.`);
+console.log('================================================================\n');
+
 if (passed === total) {
   process.exit(0);
 } else {

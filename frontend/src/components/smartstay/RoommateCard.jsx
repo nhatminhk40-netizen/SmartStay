@@ -188,6 +188,14 @@ export default function RoommateCard({
                                         {genderLabel}
                                     </span>
                                 )}
+                                {(compat?.isOppositeGender || item.isOppositeGender) && (
+                                    <span
+                                        className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-50 text-purple-700 border border-purple-200"
+                                        title="Hiển thị do cả hai bên đều bật tùy chọn Cho phép ghép khác giới"
+                                    >
+                                        Khác giới
+                                    </span>
+                                )}
                             </div>
 
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">

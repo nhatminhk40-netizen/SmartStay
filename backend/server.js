@@ -13,6 +13,7 @@ require('dotenv').config();
 const Room = require('./models/Room');
 const Review = require('./models/Review');
 const RoommateSurvey = require('./models/RoommateSurvey');
+const { calcCompatibility, normalizeGender } = require('./utils/compatibility');
 const Report = require('./models/Report');
 const Appointment = require('./models/Appointment');
 const User = require('./models/User');
@@ -1280,6 +1281,7 @@ app.post('/api/surveys', async (req, res) => {
     try {
         const surveyData = {
             ...req.body,
+            allowCrossGender: req.body.allowCrossGender === true || req.body.allowCrossGender === 'true',
             isPrivate: req.body.isPrivate || false,
             allowShareContact: req.body.allowShareContact || false,
             isDemo: false
@@ -1303,7 +1305,7 @@ app.post('/api/surveys', async (req, res) => {
     }
 });
 
-// 2. Thuật toán tìm người tương thích (5 tiêu chí x 20%) - Luôn che thông tin liên hệ ứng viên
+// 2. Thuật toán tìm người tương thích chuẩn SSOT (50% giới tính + 50% thói quen)
 app.get('/api/surveys/matches/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -1324,30 +1326,32 @@ app.get('/api/surveys/matches/:id', async (req, res) => {
             otherSurveys = fallbackSurveys.filter((s) => String(s._id) !== String(mySurvey?._id) && !s.isPrivate);
         }
 
-        const criteria = ['sleepSchedule', 'cleanliness', 'smokingDrinking', 'guestPolicy', 'budgetRange'];
+        const myGenderNorm = normalizeGender(mySurvey.gender);
+        const myAllowCross = Boolean(mySurvey.allowCrossGender);
 
-        const matchedResults = otherSurveys.map((candidate) => {
-            let matchScore = 0;
-            let matchedDetails = [];
+        // Lọc cứng: cùng giới tính HOẶC cả 2 bên cùng bật cho phép ghép khác giới
+        const eligibleCandidates = otherSurveys.filter((candidate) => {
+            const cGenderNorm = normalizeGender(candidate.gender);
+            if (cGenderNorm && myGenderNorm === cGenderNorm) return true;
+            return myAllowCross && Boolean(candidate.allowCrossGender);
+        });
 
-            criteria.forEach((item) => {
-                if (candidate[item] === mySurvey[item]) {
-                    matchScore += 20;
-                    matchedDetails.push(item);
-                }
-            });
-
+        const matchedResults = eligibleCandidates.map((candidate) => {
+            const compat = calcCompatibility(mySurvey, candidate);
             return {
                 candidateId: candidate._id || candidate.id,
                 name: candidate.name,
                 gender: candidate.gender,
-                // Bảo vệ quyền riêng tư: Luôn mask số liên hệ Zalo
                 contactZalo: maskContact(candidate.contactZalo),
                 isContactProtected: true,
                 campus: candidate.campus,
-                matchPercentage: `${matchScore}%`,
-                rawScore: matchScore,
-                matchedCriteriaCount: matchedDetails.length,
+                matchPercentage: `${compat.score}%`,
+                rawScore: compat.score,
+                matched: compat.matched,
+                different: compat.different,
+                isOppositeGender: compat.isOppositeGender,
+                allowCrossGender: Boolean(candidate.allowCrossGender),
+                compatibility: compat,
                 criteria: {
                     sleepSchedule: candidate.sleepSchedule,
                     cleanliness: candidate.cleanliness,
@@ -1371,7 +1375,7 @@ app.get('/api/surveys/matches/:id', async (req, res) => {
     }
 });
 
-// 3. Lấy toàn bộ danh sách khảo sát (Che số liên lạc công khai & lọc bỏ hồ sơ ẩn)
+// 3. Lấy toàn bộ danh sách khảo sát (Lọc cứng phía server theo giới tính & tính tương thích chuẩn)
 app.get('/api/surveys', async (req, res) => {
     try {
         let surveys = [];
@@ -1381,30 +1385,76 @@ app.get('/api/surveys', async (req, res) => {
             surveys = fallbackSurveys.filter((s) => !s.isPrivate);
         }
 
-        // Bảo vệ thông tin liên hệ sinh viên: che SĐT/Zalo và bổ sung thói quen/thú cưng
-        const safeSurveys = surveys.map((s) => ({
-            _id: s._id || s.id,
-            id: s._id || s.id,
-            name: s.name,
-            gender: s.gender || 'Nam',
-            age: s.age || 20,
-            contactZalo: maskContact(s.contactZalo),
-            rawContact: s.contactZalo || '',
-            isContactProtected: true,
-            campus: s.campus || 'ĐH Cần Thơ',
-            sleepSchedule: s.sleepSchedule || 'flexible',
-            cleanliness: s.cleanliness || 'daily',
-            smokingDrinking: s.smokingDrinking || 'none',
-            hasPet: Boolean(s.hasPet || s.petPolicy === 'has_cat' || s.petPolicy === 'has_dog' || s.petPolicy === 'pet_friendly'),
-            petPolicy: s.petPolicy || (s.hasPet ? 'pet_friendly' : 'no_pet'),
-            guestPolicy: s.guestPolicy || 'ask_first',
-            budget: s.budget || (s.budgetRange === 'high' ? 3.2 : (s.budgetRange === 'low' ? 1.5 : 2.2)),
-            budgetRange: s.budgetRange || 'medium',
-            habits: s.habits || '',
-            description: s.description || s.bio || '',
-            isDemo: Boolean(s.isDemo),
-            createdAt: s.createdAt
-        }));
+        // Thông tin người xem (viewer) để áp dụng thuật toán SSOT và lọc phía Server
+        let viewer = null;
+        let viewerId = req.query.viewerId || null;
+        let viewerGender = req.query.viewerGender || null;
+        let viewerAllowCross = req.query.allowCrossGender === 'true' || req.query.allowCrossGender === true;
+
+        if (viewerId) {
+            if (isDbConnected) {
+                viewer = await RoommateSurvey.findById(viewerId);
+            }
+            if (!viewer) {
+                viewer = fallbackSurveys.find((s) => String(s._id) === String(viewerId) || String(s.id) === String(viewerId));
+            }
+            if (viewer) {
+                viewerGender = viewer.gender;
+                viewerAllowCross = viewer.allowCrossGender === true;
+            }
+        }
+
+        const vGenderNorm = normalizeGender(viewerGender);
+
+        // Bảo vệ thông tin liên hệ sinh viên: che SĐT/Zalo và tính toán tương thích chuẩn
+        let safeSurveys = surveys.map((s) => {
+            const rawItem = {
+                _id: s._id || s.id,
+                id: s._id || s.id,
+                name: s.name,
+                gender: s.gender || 'Nam',
+                age: s.age || 20,
+                contactZalo: maskContact(s.contactZalo),
+                rawContact: s.contactZalo || '',
+                isContactProtected: true,
+                campus: s.campus || 'ĐH Cần Thơ',
+                sleepSchedule: s.sleepSchedule || 'flexible',
+                cleanliness: s.cleanliness || 'daily',
+                smokingDrinking: s.smokingDrinking || 'none',
+                hasPet: Boolean(s.hasPet || s.petPolicy === 'has_cat' || s.petPolicy === 'has_dog' || s.petPolicy === 'pet_friendly'),
+                petPolicy: s.petPolicy || (s.hasPet ? 'pet_friendly' : 'no_pet'),
+                guestPolicy: s.guestPolicy || 'ask_first',
+                budget: s.budget || (s.budgetRange === 'high' ? 3.2 : (s.budgetRange === 'low' ? 1.5 : 2.2)),
+                budgetRange: s.budgetRange || 'medium',
+                habits: s.habits || '',
+                description: s.description || s.bio || '',
+                allowCrossGender: Boolean(s.allowCrossGender),
+                isDemo: Boolean(s.isDemo),
+                createdAt: s.createdAt
+            };
+
+            if (viewer || vGenderNorm) {
+                const compatViewer = viewer || { gender: viewerGender, allowCrossGender: viewerAllowCross };
+                rawItem.compatibility = calcCompatibility(compatViewer, rawItem);
+            }
+
+            return rawItem;
+        });
+
+        // ==================== LỌC CỨNG Ở PHÍA SERVER ====================
+        // Nếu xác định được giới tính người xem:
+        // - Cùng giới tính: luôn được hiển thị
+        // - Khác giới tính: CHỈ hiển thị khi CẢ HAI BÊN đều bật allowCrossGender
+        if (vGenderNorm) {
+            safeSurveys = safeSurveys.filter((candidate) => {
+                const cGenderNorm = normalizeGender(candidate.gender);
+                if (cGenderNorm && vGenderNorm === cGenderNorm) {
+                    return true;
+                }
+                const bothAllowCross = Boolean(viewerAllowCross) && Boolean(candidate.allowCrossGender);
+                return bothAllowCross;
+            });
+        }
 
         res.status(200).json({ success: true, count: safeSurveys.length, data: safeSurveys });
     } catch (error) {

@@ -81,6 +81,7 @@ export default function RoommatePostWizard({ onClose, onSubmit, initialUser, ini
                 avatarUrl: initialData.avatarUrl || "",
                 contact: initialData.contact || initialData.rawContact || initialUser?.phone || "",
                 allowZalo: initialData.allowZalo !== undefined ? initialData.allowZalo : true,
+                allowCrossGender: Boolean(initialData.allowCrossGender),
                 lifestyle: {
                     smoking: initialData.lifestyle?.smoking || (initialData.smokingDrinking === "none" ? "no" : (initialData.smokingDrinking === "smoker_friendly" ? "yes" : "tolerate")),
                     sleep: initialData.lifestyle?.sleep || (initialData.sleepSchedule === "early_bird" ? "early" : (initialData.sleepSchedule === "night_owl" ? "night" : "normal")),
@@ -108,6 +109,7 @@ export default function RoommatePostWizard({ onClose, onSubmit, initialUser, ini
             avatarUrl: "",
             contact: initialUser?.phone || "",
             allowZalo: true,
+            allowCrossGender: false,
             lifestyle: {
                 smoking: "no",
                 sleep: "early",
@@ -234,6 +236,7 @@ export default function RoommatePostWizard({ onClose, onSubmit, initialUser, ini
             rawContact: formData.contact.trim(),
             allowZalo: formData.allowZalo,
             allowShareContact: formData.allowZalo,
+            allowCrossGender: Boolean(formData.allowCrossGender),
             lifestyle: formData.lifestyle,
             smokingDrinking: smoking === "no" ? "none" : (smoking === "yes" ? "smoker_friendly" : "sometimes"),
             sleepSchedule: sleep === "early" ? "early_bird" : (sleep === "night" ? "night_owl" : "flexible"),
@@ -396,6 +399,27 @@ export default function RoommatePostWizard({ onClose, onSubmit, initialUser, ini
                                 className="w-4 h-4 rounded text-accent accent-accent"
                             />
                             <span>Cho phép người xem mở Zalo nhắn tin trực tiếp</span>
+                        </label>
+                    </div>
+
+                    {/* Tùy chọn Cho phép ghép khác giới (mặc định tắt) */}
+                    <div className="md:col-span-2 p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80">
+                        <label className="flex items-start gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={Boolean(formData.allowCrossGender)}
+                                onChange={(e) => setFormData({ ...formData, allowCrossGender: e.target.checked })}
+                                className="w-4 h-4 rounded text-accent accent-accent mt-0.5"
+                            />
+                            <div>
+                                <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>👫 Cho phép ghép khác giới (Nam & Nữ)</span>
+                                    <span className="text-[10px] font-normal px-2 py-0.2 rounded-full bg-slate-200/80 text-slate-700">Mặc định TẮT</span>
+                                </span>
+                                <p className="text-[11px] text-slate-600 font-normal mt-1 leading-relaxed">
+                                    Để bảo đảm sự an tâm và quyền riêng tư, hệ thống chỉ hiển thị và kết nối bạn với các bạn khác giới khi <strong>cả hai bên</strong> cùng bật tùy chọn này. Nếu tắt, bạn sẽ chỉ thấy các bạn cùng giới tính.
+                                </p>
+                            </div>
                         </label>
                     </div>
 

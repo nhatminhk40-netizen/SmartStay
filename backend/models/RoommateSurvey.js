@@ -17,6 +17,7 @@ const roommateSurveySchema = new mongoose.Schema({
     userEmail: { type: String, default: '' },
     isPrivate: { type: Boolean, default: false }, // Cho phép người dùng ẩn hồ sơ của mình
     allowShareContact: { type: Boolean, default: false }, // Chỉ chia sẻ liên hệ khi có yêu cầu ghép bạn được chấp thuận
+    allowCrossGender: { type: Boolean, default: false }, // Cho phép ghép khác giới (Mặc định false)
     isDemo: { type: Boolean, default: false },
 
     // 5 Tiêu chí khảo sát tìm bạn cùng phòng

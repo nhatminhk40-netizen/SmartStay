@@ -628,7 +628,13 @@ export const base44 = {
     Roommate: {
       filter: async (query = {}, options = {}) => {
         try {
-          const res = await fetch(`${API_BASE}/surveys`);
+          const params = new URLSearchParams();
+          if (query.viewerId) params.set('viewerId', query.viewerId);
+          if (query.viewerGender) params.set('viewerGender', query.viewerGender);
+          if (query.allowCrossGender !== undefined) params.set('allowCrossGender', String(query.allowCrossGender));
+
+          const url = params.toString() ? `${API_BASE}/surveys?${params.toString()}` : `${API_BASE}/surveys`;
+          const res = await fetch(url);
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
             const mapped = json.data.map(s => ({
@@ -650,6 +656,8 @@ export const base44 = {
               contact: s.contactZalo || '0901***567',
               rawContact: s.rawContact || s.contactZalo || '',
               avatarUrl: s.avatarUrl || s.avatar || null,
+              allowCrossGender: Boolean(s.allowCrossGender),
+              compatibility: s.compatibility || null,
               verified: Boolean(s.verified)
             }));
             return { items: mapped, count: mapped.length };
@@ -669,6 +677,7 @@ export const base44 = {
               contactZalo: data.contact || '0901234567',
               campus: data.campus || 'ĐH Cần Thơ',
               gender: data.gender || 'Nam',
+              allowCrossGender: Boolean(data.allowCrossGender),
               budgetRange: data.budget > 2.5 ? 'high' : (data.budget < 1.8 ? 'low' : 'medium'),
               sleepSchedule: 'flexible',
               cleanliness: 'daily',

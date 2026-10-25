@@ -39,7 +39,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { formatGender } from "@/utils/genderLabel";
-import { calcCompatibility } from "@/utils/compatibility";
+import { calcCompatibility, normalizeGender } from "@/utils/compatibility";
 import { roommateApi } from "@/services/roommateApi";
 
 const campuses = ["ĐH Cần Thơ", "ĐH Y Dược", "ĐH Nam Cần Thơ", "ĐH FPT"];
@@ -196,8 +196,13 @@ export default function Roommates() {
         setLoading(true);
         setLoadError(false);
         try {
+            const currentProfile = roommateApi.getMyProfile();
             const res = await base44.entities.Roommate.filter(
-                {},
+                {
+                    viewerId: currentProfile?.id || currentProfile?._id || undefined,
+                    viewerGender: currentProfile?.gender || undefined,
+                    allowCrossGender: currentProfile?.allowCrossGender !== undefined ? currentProfile.allowCrossGender : false
+                },
                 { sort: "-created_date", limit: 50 }
             );
             setItems(res.items || []);
@@ -212,7 +217,7 @@ export default function Roommates() {
 
     useEffect(() => {
         load();
-    }, []);
+    }, [myProfile?.gender, myProfile?.allowCrossGender]);
 
     // Lắng nghe sự kiện cập nhật hồ sơ cá nhân và danh sách lưu
     useEffect(() => {
@@ -284,19 +289,39 @@ export default function Roommates() {
         return false;
     };
 
-    // 1. Tính toán điểm tương thích cho từng người ở ghép
+    // 1. Tính toán điểm tương thích cho từng người ở ghép (ưu tiên compatibility từ backend SSOT)
     const itemsWithCompat = useMemo(() => {
-        return items.map((it) => ({
-            ...it,
-            compat: calcCompatibility(myProfile, it)
-        }));
+        return items.map((it) => {
+            const compat = (it.compatibility && typeof it.compatibility.score === 'number')
+                ? it.compatibility
+                : calcCompatibility(myProfile, it);
+            return {
+                ...it,
+                compat
+            };
+        });
     }, [items, myProfile]);
 
-    // 2. Lọc bỏ các hồ sơ đã bị ẩn hoặc là chính mình
+    // 2. Lọc bỏ các hồ sơ đã bị ẩn, là chính mình, hoặc khác giới khi chưa có sự đồng ý của cả 2 bên
     const visibleItems = useMemo(() => {
-        return itemsWithCompat.filter(
-            (it) => !hiddenIds.includes(String(it.id || it._id)) && !isOwnProfile(it)
-        );
+        return itemsWithCompat.filter((it) => {
+            if (hiddenIds.includes(String(it.id || it._id))) return false;
+            if (isOwnProfile(it)) return false;
+
+            // Kiểm tra ràng buộc giới tính nếu người dùng hiện tại đã có hồ sơ
+            if (myProfile?.gender) {
+                const myGenderNorm = normalizeGender(myProfile.gender);
+                const otherGenderNorm = normalizeGender(it.gender);
+
+                // Nếu khác giới tính: chỉ hiển thị khi CẢ HAI BÊN đều bật allowCrossGender
+                if (myGenderNorm && otherGenderNorm && myGenderNorm !== otherGenderNorm) {
+                    const bothAllow = Boolean(myProfile.allowCrossGender) && Boolean(it.allowCrossGender);
+                    if (!bothAllow) return false;
+                }
+            }
+
+            return true;
+        });
     }, [itemsWithCompat, hiddenIds, myProfile, user]);
 
     // 3. Lọc danh sách theo thanh tùy chỉnh nâng cao (hỗ trợ Bắt buộc vs Ưu tiên)
@@ -787,6 +812,13 @@ export default function Roommates() {
                                         <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
                                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                             Hồ sơ của bạn (Đang tìm bạn)
+                                        </span>
+                                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                            myProfile.allowCrossGender
+                                                ? "bg-purple-50 text-purple-800 border-purple-200"
+                                                : "bg-blue-50 text-blue-800 border-blue-200"
+                                        }`}>
+                                            {myProfile.allowCrossGender ? "👫 Cho phép ghép khác giới" : "🛡️ Chỉ ghép cùng giới"}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
