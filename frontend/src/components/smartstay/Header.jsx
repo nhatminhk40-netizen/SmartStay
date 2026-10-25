@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { label: "Khám phá", path: "/" },
   { label: "Ghép bạn", path: "/ghep-ban" },
-  { label: "Chuyển trọ", path: "/chuyen-tro" },
+  { label: "Chuyển trọ", path: "/chuyen-tro", badge: "Đang phát triển" },
   { label: "Pass phòng", path: "/pass-phong" },
 ];
 
@@ -219,13 +219,23 @@ export default function Header() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "px-4 py-1.5 rounded-full text-sm font-bold transition-all",
+                    "px-4 py-1.5 rounded-full text-sm font-bold transition-all flex items-center gap-1.5",
                     active
                       ? "bg-foreground text-background shadow-md"
                       : "text-muted-foreground hover:bg-slate-100 hover:text-foreground"
                   )}
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span
+                      className={cn(
+                        "text-[9px] font-extrabold px-1.5 py-0.2 rounded-full tracking-tight whitespace-nowrap",
+                        active ? "bg-amber-400 text-slate-950" : "bg-amber-100 text-amber-800 border border-amber-200"
+                      )}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -306,21 +316,26 @@ export default function Header() {
                       </div>
                     </button>
 
-                    {/* Đặt xe chuyển trọ */}
+                    {/* Đặt xe chuyển trọ (Tạm khóa - Đang phát triển) */}
                     <button
                       type="button"
                       onClick={() => {
                         setOpenPostMenu(false);
                         navigate("/chuyen-tro");
                       }}
-                      className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-amber-50 text-left transition-colors group"
+                      className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-amber-50 text-left transition-colors group opacity-85"
                     >
                       <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                         <Truck className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-800">Đặt xe chuyển trọ sinh viên</p>
-                        <p className="text-[11px] text-slate-500 leading-tight">Xe ba gác & xe tải giá sinh viên theo km</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-xs font-bold text-slate-800">Đặt xe chuyển trọ sinh viên</p>
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                            Đang phát triển
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-tight mt-0.5">Xe ba gác & xe tải giá sinh viên theo km (Tạm khóa)</p>
                       </div>
                     </button>
                   </div>

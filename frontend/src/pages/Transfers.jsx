@@ -21,7 +21,8 @@ import {
   ArrowLeftRight,
   Route,
   Star,
-  UserCheck
+  UserCheck,
+  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -380,69 +381,57 @@ export default function Transfers() {
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
-    setErrorMsg("");
-
-    const pickAddr = pickupLocation.address || pickupLocation.name;
-    const dropAddr = dropoffLocation.address || dropoffLocation.name;
-
-    if (!phone || !pickAddr || !dropAddr) {
-      setErrorMsg("Vui lòng điền đầy đủ số điện thoại, điểm đón và điểm đến.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const addonNames = selectedAddons
-        .map((id) => ADDON_SERVICES.find((a) => a.id === id)?.name)
-        .filter(Boolean)
-        .join(", ");
-
-      const payload = {
-        customerName: customerName || (user?.fullName || "Sinh viên Cần Thơ"),
-        phone,
-        vehicleType: activeVehicle.name,
-        distanceKm: distance,
-        servicePackage: addonNames || "Cơ bản",
-        pickupAddress: pickAddr,
-        dropoffAddress: dropAddr,
-        moveDate: moveDate || "Hôm nay (sớm nhất)",
-        notes: notes || "Không có ghi chú thêm",
-        estimatedPrice: finalTotal,
-      };
-
-      const res = await base44.entities.Logistics.create(payload);
-      if (res && res.data) {
-        setBookingSuccess(res.data);
-      } else {
-        setBookingSuccess({
-          id: `logistics_${Date.now()}`,
-          ...payload,
-        });
-      }
-
-      setNotes("");
-      loadRequests();
-    } catch (err) {
-      setErrorMsg(err.message || "Không thể gửi yêu cầu đặt xe. Vui lòng thử lại!");
-    } finally {
-      setSubmitting(false);
-    }
+    alert("Dịch vụ Chuyển trọ sinh viên hiện đang trong quá trình phát triển và tạm khóa nhận đơn mới. Quý bạn sinh viên vui lòng quay lại sau nhé!");
   };
 
   return (
     <>
       <PageHero
         icon={Truck}
-        title="Dịch vụ Chuyển trọ Sinh viên"
-        subtitle="Hệ thống xe ba gác & xe tải sinh viên Cần Thơ — Bản đồ đường bộ tự động vẽ tuyến đường & đo cước minh bạch 100%."
-        actionLabel="Đặt xe ngay"
+        title="Dịch vụ Chuyển trọ Sinh viên (Tạm khóa)"
+        subtitle="Hệ thống xe ba gác & xe tải sinh viên Cần Thơ — Tính năng đang trong quá trình phát triển và hoàn thiện mạng lưới tài xế đối tác."
+        actionLabel="🔒 Đang phát triển"
         onAction={() => {
-          const el = document.getElementById("booking-section");
-          el?.scrollIntoView({ behavior: "smooth" });
+          alert("Dịch vụ Chuyển trọ sinh viên hiện đang trong quá trình phát triển và hoàn thiện. SmartStay sẽ sớm mở lại trong thời gian tới!");
         }}
       />
 
       <section className="max-w-7xl mx-auto px-6 py-10 space-y-12">
+        {/* BANNER TẠM KHÓA - TÍNH NĂNG ĐANG PHÁT TRIỂN */}
+        <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 rounded-3xl p-6 sm:p-8 text-center shadow-sm relative overflow-hidden">
+          <div className="max-w-2xl mx-auto space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center mx-auto shadow-md">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-200/90 text-amber-900 text-xs font-extrabold uppercase tracking-wide">
+              <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+              Tạm khóa · Tính năng đang phát triển
+            </div>
+            <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-slate-900">
+              Dịch vụ Chuyển trọ Sinh viên đang được phát triển
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Hệ thống kết nối đội xe ba gác & xe tải sinh viên đang trong giai đoạn mở rộng mạng lưới tài xế đối tác tại các quận Ninh Kiều, Cái Răng, Bình Thủy và chuẩn hóa bảo hiểm đồ đạc. Tính năng đặt chuyến sẽ sớm mở lại trong bản cập nhật tới!
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+              <Button
+                type="button"
+                onClick={() => (window.location.href = "/")}
+                className="rounded-2xl bg-accent hover:bg-accent/90 text-white font-bold text-xs shadow-md"
+              >
+                Khám phá phòng trọ ➔
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => (window.location.href = "/ghep-ban")}
+                className="rounded-2xl border-slate-300 text-slate-700 font-bold text-xs"
+              >
+                Tìm bạn ở ghép ➔
+              </Button>
+            </div>
+          </div>
+        </div>
         {/* BANNER HƯỚNG DẪN DÀNH RIÊNG CHO TÀI XẾ */}
         {user?.role === "transporter" && (
           <div className="bg-gradient-to-r from-teal-900 to-slate-900 text-white rounded-3xl p-5 shadow-lg border border-teal-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -940,25 +929,16 @@ export default function Transfers() {
                 </div>
 
                 <Button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full h-12 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm shadow-md transition-all mt-2"
+                  type="button"
+                  onClick={() => alert("Dịch vụ Chuyển trọ sinh viên hiện đang trong quá trình phát triển và tạm khóa nhận đơn mới. Quý bạn sinh viên vui lòng quay lại sau nhé!")}
+                  className="w-full h-12 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm shadow-none cursor-not-allowed mt-2 flex items-center justify-center gap-2"
                 >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Đang kết nối tài xế...
-                    </>
-                  ) : (
-                    <>
-                      <Truck className="w-4 h-4 mr-2" />
-                      Xác nhận Đặt xe ({distance} km đường bộ)
-                    </>
-                  )}
+                  <Lock className="w-4 h-4 text-slate-500" />
+                  <span>Tính năng đang phát triển (Tạm khóa nhận đơn)</span>
                 </Button>
 
                 <p className="text-[11px] text-center text-muted-foreground mt-2">
-                  🔒 Cước thanh toán trực tiếp cho tài xế theo đúng số km đo trên bản đồ.
+                  🔒 Tính năng đang trong giai đoạn hoàn thiện mạng lưới tài xế đối tác.
                 </p>
               </form>
             </div>
