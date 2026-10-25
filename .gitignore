@@ -36,3 +36,6 @@ coverage/
 
 # Temporary test images
 test*.jpg
+
+# Tool outputs
+repomix*.xml

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="smartstay-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7A1A" />
+      <stop offset="100%" stop-color="#E04F00" />
+    </linearGradient>
+  </defs>
+  <!-- Background squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#smartstay-grad)" />
+  <rect x="8" y="8" width="496" height="496" rx="120" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="8" />
+
+  <!-- House Silhouette -->
+  <!-- Main white house structure -->
+  <path d="M256 96 L98 230 C90 237 95 250 106 250 H142 V388 C142 401 153 412 166 412 H346 C359 412 370 401 370 388 V250 H406 C417 250 422 237 414 230 L256 96 Z" fill="#FFFFFF" />
+  
+  <!-- Modern doorway / arch -->
+  <path d="M216 412 V304 C216 282 234 264 256 264 C278 264 296 282 296 304 V412 H216 Z" fill="#E04F00" />
+  
+  <!-- Smart stay golden accent spark / badge -->
+  <circle cx="350" cy="164" r="26" fill="#FBBF24" stroke="#FFFFFF" stroke-width="8" />
+  <path d="M350 152 L353 161 L362 164 L353 167 L350 176 L347 167 L338 164 L347 161 Z" fill="#7C2D12" />
+</svg>
