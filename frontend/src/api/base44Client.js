@@ -140,58 +140,63 @@ export const base44 = {
           if (json.success && Array.isArray(json.data) && json.data.length > 0) {
             window.__SMARTSTAY_IS_FALLBACK = Boolean(json.isFallbackMode);
             window.__SMARTSTAY_API_ONLINE = true;
-            return json.data.map(room => ({
-              ...room,
-              id: room._id || room.id,
-              location: room.location || room.address || 'Cần Thơ',
-              image_url: room.image_url || (room.images && room.images[0]) || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267',
-              safe_badge: false,
-              isSafeBadge: false,
-              has_pass: room.has_pass || room.listingType === 'pass' || false,
-              pass_months_left: room.pass_months_left || room.remaining_duration || 0,
-              area_sqm: room.area_sqm || 20,
-              room_type: room.room_type || 'Phòng trọ',
-              amenities: room.amenities || [],
-              isDemo: Boolean(room.isDemo || json.isFallbackMode)
-            }));
+              return json.data.map(room => ({
+                ...room,
+                id: room._id || room.id,
+                location: room.location || room.address || 'Cần Thơ',
+                image_url: room.image_url || (room.images && room.images[0]) || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267',
+                safe_badge: Boolean(room.safe_badge || room.isSafeBadge),
+                isSafeBadge: Boolean(room.safe_badge || room.isSafeBadge),
+                has_pass: room.has_pass || room.listingType === 'pass' || false,
+                pass_months_left: room.pass_months_left || room.remaining_duration || 0,
+                area_sqm: room.area_sqm || 20,
+                room_type: room.room_type || 'Phòng trọ',
+                amenities: room.amenities || [],
+                electricityCostType: room.electricityCostType || 'nha_nuoc',
+                waterCost: room.waterCost || 'Theo giá nhà nước',
+                hasSeparateMeter: room.hasSeparateMeter !== undefined ? Boolean(room.hasSeparateMeter) : true,
+                depositMonths: room.depositMonths !== undefined ? Number(room.depositMonths) : 1,
+                extraFees: room.extraFees || { wifi: 0, trash: 0, parking: 0 },
+                isDemo: room.isDemo === false || room.isSurveyed === true ? false : Boolean(room.isDemo)
+              }));
+            }
+            window.__SMARTSTAY_IS_FALLBACK = true;
+            return FALLBACK_ROOMS;
+          } catch (error) {
+            console.warn('⚠️ Lỗi kết nối Backend API SmartStay, chuyển sang chế độ dữ liệu minh họa:', error.message);
+            window.__SMARTSTAY_IS_FALLBACK = true;
+            window.__SMARTSTAY_API_ONLINE = false;
+            return FALLBACK_ROOMS;
           }
-          window.__SMARTSTAY_IS_FALLBACK = true;
-          return FALLBACK_ROOMS;
-        } catch (error) {
-          console.warn('⚠️ Lỗi kết nối Backend API SmartStay, chuyển sang chế độ dữ liệu minh họa:', error.message);
-          window.__SMARTSTAY_IS_FALLBACK = true;
-          window.__SMARTSTAY_API_ONLINE = false;
-          return FALLBACK_ROOMS;
-        }
-      },
+        },
 
-      get: async (id) => {
-        try {
-          const res = await fetch(`${API_BASE}/rooms/${id}`);
-          const json = await res.json();
-          if (json.data) return json.data;
-          return FALLBACK_ROOMS.find(r => r.id === id || r._id === id) || FALLBACK_ROOMS[0];
-        } catch (error) {
-          console.warn('Lỗi fetch room details, sử dụng fallback:', error);
-          return FALLBACK_ROOMS.find(r => r.id === id || r._id === id) || FALLBACK_ROOMS[0];
-        }
-      },
-
-      create: async (data) => {
-        try {
-          const token = localStorage.getItem('smartstay_token');
-          const headers = { 'Content-Type': 'application/json' };
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-          const res = await fetch(`${API_BASE}/rooms`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(data)
-          });
-          const json = await res.json();
-          if (json.data) {
-            FALLBACK_ROOMS.unshift({ ...json.data, id: json.data._id || json.data.id });
-            return json.data;
+        get: async (id) => {
+          try {
+            const res = await fetch(`${API_BASE}/rooms/${id}`);
+            const json = await res.json();
+            if (json.data) return json.data;
+            return FALLBACK_ROOMS.find(r => r.id === id || r._id === id) || FALLBACK_ROOMS[0];
+          } catch (error) {
+            console.warn('Lỗi fetch room details, sử dụng fallback:', error);
+            return FALLBACK_ROOMS.find(r => r.id === id || r._id === id) || FALLBACK_ROOMS[0];
           }
+        },
+
+        create: async (data) => {
+          try {
+            const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${API_BASE}/rooms`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(data)
+            });
+            const json = await res.json();
+            if (json.data) {
+              FALLBACK_ROOMS.unshift({ ...json.data, id: json.data._id || json.data.id });
+              return json.data;
+            }
         } catch (e) {
           console.warn('Create room API fallback:', e);
         }

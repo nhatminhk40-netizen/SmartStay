@@ -388,23 +388,31 @@ export default function RoomDetail() {
 
                     {/* Image Gallery */}
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="md:col-span-3 rounded-2xl overflow-hidden h-[320px] md:h-[400px] bg-slate-100 border border-border">
+                        <div className="md:col-span-3 rounded-2xl overflow-hidden h-[320px] md:h-[400px] bg-slate-100 border border-border relative group">
                             <img
                                 src={images[activeImage]}
                                 alt={room.title}
                                 className="w-full h-full object-cover transition-all duration-300"
                             />
+                            {images.length > 1 && (
+                                <div className="absolute bottom-3 right-3 bg-slate-900/70 backdrop-blur text-white text-xs px-2.5 py-1 rounded-full font-bold shadow">
+                                    {activeImage + 1} / {images.length}
+                                </div>
+                            )}
                         </div>
-                        <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-visible">
+                        <div className="flex md:flex-col gap-2.5 overflow-x-auto md:overflow-y-auto max-h-[400px] pr-1">
                             {images.map((img, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => setActiveImage(idx)}
-                                    className={`relative rounded-xl overflow-hidden h-20 md:h-[90px] w-24 md:w-full flex-shrink-0 border-2 transition-all ${
-                                        activeImage === idx ? "border-accent shadow-md ring-2 ring-accent/20 scale-[0.98]" : "border-transparent opacity-75 hover:opacity-100"
+                                    className={`relative rounded-xl overflow-hidden h-16 md:h-[72px] w-20 md:w-full flex-shrink-0 border-2 transition-all ${
+                                        activeImage === idx ? "border-accent shadow-md ring-2 ring-accent/20 scale-[0.98]" : "border-transparent opacity-70 hover:opacity-100"
                                     }`}
                                 >
-                                    <img src={img} alt="thumbnail" className="w-full h-full object-cover" />
+                                    <img src={img} alt={`thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                                    <span className="absolute bottom-1 right-1 text-[9px] font-bold text-white bg-black/60 px-1 py-0.2 rounded">
+                                        {idx + 1}
+                                    </span>
                                 </button>
                             ))}
                         </div>

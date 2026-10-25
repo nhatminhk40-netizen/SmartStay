@@ -12,7 +12,7 @@ export default function Home() {
 
     const [campus, setCampus] = useState("Tất cả khu vực");
     const [price, setPrice] = useState(6);
-    const [selectedAmenities, setSelectedAmenities] = useState(["Máy lạnh"]);
+    const [selectedAmenities, setSelectedAmenities] = useState([]);
     const [soundproof, setSoundproof] = useState(false);
     const [findRoommate, setFindRoommate] = useState(false);
     const [fireSafetyOnly, setFireSafetyOnly] = useState(false);
@@ -46,7 +46,11 @@ export default function Home() {
 
     const filteredRooms = useMemo(() => {
         return rooms.filter((r) => {
-            if (campus !== "Tất cả khu vực" && r.campus !== campus) return false;
+            if (campus !== "Tất cả khu vực") {
+                const c1 = campus.toLowerCase().replace(/đh\s+|đại học\s+/i, '').trim();
+                const c2 = (r.campus || '').toLowerCase().replace(/đh\s+|đại học\s+/i, '').trim();
+                if (r.campus !== campus && !c1.includes(c2) && !c2.includes(c1)) return false;
+            }
 
             // Tính giá lọc: nếu ở chế độ tổng chi phí, cộng thêm ước tính điện nước ~320k
             const estTotalCost = (r.price || 0) + 320000 + (r.extraFees?.wifi || 0) + (r.extraFees?.trash || 0);

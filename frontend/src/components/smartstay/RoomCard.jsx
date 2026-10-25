@@ -9,24 +9,27 @@ export default function RoomCard({ room }) {
     return (
         <div className="bg-white rounded-2xl overflow-hidden border-2 border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between">
             <div>
-                <Link to={`/phong/${roomId}`} className="block relative h-44 overflow-hidden">
-                    <Image
+                <Link to={`/phong/${roomId}`} className="block relative h-44 overflow-hidden bg-slate-100">
+                    <img
                         src={room.image_url || (room.images && room.images[0]) || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600"}
                         alt={room.title}
-                        className="w-full h-full group-hover:scale-105 transition duration-500"
-                        fittingType="fill"
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                        loading="lazy"
+                        onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80";
+                        }}
                     />
                     <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                        {room.isDemo && (
+                        {room.isDemo ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[10px] font-bold backdrop-blur shadow-sm">
                                 <Info className="w-3 h-3" />
                                 Minh họa
                             </span>
-                        )}
-                        {room.safe_badge && !room.isDemo && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-700/90 text-white text-[10px] font-bold backdrop-blur shadow-sm">
-                                <BadgeCheck className="w-3 h-3 text-emerald-300" />
-                                Verified
+                        ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600/95 text-white text-[10px] font-bold backdrop-blur shadow-sm">
+                                <BadgeCheck className="w-3 h-3 text-emerald-200" />
+                                {room.safe_badge ? "Đã xác minh" : "Đã khảo sát"}
                             </span>
                         )}
                         {room.has_pass && (

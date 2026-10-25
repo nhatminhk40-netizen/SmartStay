@@ -6,6 +6,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const Room = require('./models/Room');
@@ -175,7 +177,7 @@ app.use('/api/bills', billRoutes);
 
 
 // Bộ dữ liệu dự phòng (Fallback Data) - Ghi rõ nhãn "Dữ liệu minh họa" để bảo vệ tính trung thực
-let fallbackRooms = [
+const defaultFallbackRooms = [
     {
         _id: '6aad186f1f34d48876cf6301',
         id: '6aad186f1f34d48876cf6301',
@@ -305,6 +307,33 @@ let fallbackRooms = [
         createdAt: new Date()
     }
 ];
+
+const FALLBACK_ROOMS_FILE = path.join(__dirname, 'fallback_rooms.json');
+
+const loadFallbackRooms = () => {
+    try {
+        if (fs.existsSync(FALLBACK_ROOMS_FILE)) {
+            const data = fs.readFileSync(FALLBACK_ROOMS_FILE, 'utf8');
+            const parsed = JSON.parse(data);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        }
+    } catch (err) {
+        console.error('Error loading fallback_rooms.json:', err.message);
+    }
+    return defaultFallbackRooms;
+};
+
+const saveFallbackRooms = (rooms) => {
+    try {
+        fs.writeFileSync(FALLBACK_ROOMS_FILE, JSON.stringify(rooms, null, 2), 'utf8');
+    } catch (err) {
+        console.error('Error saving fallback_rooms.json:', err.message);
+    }
+};
+
+let fallbackRooms = loadFallbackRooms();
 app.locals.fallbackRooms = fallbackRooms;
 
 let fallbackReviews = [
@@ -810,6 +839,7 @@ app.post('/api/rooms/pass/:id/confirm', protect, async (req, res) => {
         const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
         fallbackRooms[idx].pass_status = status;
         fallbackRooms[idx].landlordNote = note || '';
+        saveFallbackRooms(fallbackRooms);
         res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt thành công', data: fallbackRooms[idx] });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
@@ -844,18 +874,27 @@ app.post('/api/rooms', protect, async (req, res) => {
         }
 
         if (!data.address || !data.address.trim()) {
-            return res.status(400).json({ success: false, message: 'Địa chỉ cụ thể của phòng trọ là bắt buộc.' });
+            data.address = data.campus ? `Khu vực gần ${data.campus}, Cần Thơ` : 'Ninh Kiều, Cần Thơ';
+        }
+        if (!data.image_url) {
+            data.image_url = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+        }
+        if (!data.images || data.images.length === 0) {
+            data.images = [data.image_url];
         }
 
         // Tự động sử dụng số điện thoại đã xác minh của chủ trọ
-        data.contactPhone = req.user.phone || data.contactPhone || '0901234567';
+        data.contactPhone = req.user?.phone || data.contactPhone || '0901234567';
 
-        // Bảo mật: Không cho phép client tự gán Safe Badge khi chưa kiểm duyệt
-        data.isSafeBadge = false;
-        data.safe_badge = false;
-        data.verificationStatus = 'unverified';
-        data.owner = req.user._id || req.user.id;
-        data.ownerEmail = req.user.email || '';
+        // Bảo mật & Huy hiệu
+        const isAdmin = req.user?.role === 'admin' || req.user?.role === 'employee';
+        data.isSafeBadge = isAdmin ? Boolean(req.body.isSafeBadge || req.body.safe_badge) : Boolean(req.body.isSafeBadge);
+        data.safe_badge = isAdmin ? Boolean(req.body.safe_badge || req.body.isSafeBadge) : Boolean(req.body.safe_badge);
+        data.isDemo = req.body.isDemo !== undefined ? req.body.isDemo : false;
+        data.isSurveyed = req.body.isSurveyed !== undefined ? req.body.isSurveyed : true;
+        data.verificationStatus = data.safe_badge || data.isSurveyed ? 'verified' : (req.body.verificationStatus || 'unverified');
+        data.owner = req.user?._id || req.user?.id;
+        data.ownerEmail = req.user?.email || '';
         data.lastAvailabilityConfirmedAt = new Date();
 
         if (isDbConnected) {
@@ -870,6 +909,7 @@ app.post('/api/rooms', protect, async (req, res) => {
             createdAt: new Date()
         };
         fallbackRooms.unshift(newRoom);
+        saveFallbackRooms(fallbackRooms);
         res.status(201).json({ success: true, data: newRoom });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
@@ -905,6 +945,7 @@ app.post('/api/rooms/pass', protect, async (req, res) => {
             createdAt: new Date()
         };
         fallbackRooms.unshift(passRoom);
+        saveFallbackRooms(fallbackRooms);
         res.status(201).json({ success: true, message: 'Đăng tin Pass phòng thành công!', data: passRoom });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
@@ -934,11 +975,16 @@ app.put('/api/rooms/:id', protect, async (req, res) => {
 
         const updateData = { ...req.body };
         // Chỉ admin mới có quyền can thiệp trạng thái Safe Badge và Verification
-        if (req.user.role !== 'admin') {
+        if (req.user.role !== 'admin' && req.user.role !== 'employee') {
             delete updateData.isSafeBadge;
             delete updateData.safe_badge;
             delete updateData.verificationStatus;
             delete updateData.verificationEvidence;
+        } else {
+            if (updateData.isSurveyed !== undefined) {
+                updateData.isDemo = !updateData.isSurveyed;
+                if (updateData.isSurveyed) updateData.verificationStatus = 'verified';
+            }
         }
 
         if (updateData.images && updateData.images.length > 0 && !updateData.image_url) {
@@ -952,6 +998,7 @@ app.put('/api/rooms/:id', protect, async (req, res) => {
 
         const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
         fallbackRooms[idx] = { ...fallbackRooms[idx], ...updateData, updatedAt: new Date() };
+        saveFallbackRooms(fallbackRooms);
         res.status(200).json({ success: true, message: 'Cập nhật phòng thành công (Fallback)', data: fallbackRooms[idx] });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
@@ -985,6 +1032,7 @@ app.delete('/api/rooms/:id', protect, async (req, res) => {
 
         const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
         const [removed] = fallbackRooms.splice(idx, 1);
+        saveFallbackRooms(fallbackRooms);
         res.status(200).json({ success: true, message: 'Xóa phòng thành công (Fallback)', data: removed });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });
@@ -1934,6 +1982,7 @@ app.post('/api/safe-listing/admin/verify/:id', protect, authorize('admin'), asyn
         const idx = fallbackRooms.findIndex((r) => String(r._id) === id || String(r.id) === id);
         if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trong bộ nhớ' });
         fallbackRooms[idx] = { ...fallbackRooms[idx], ...updateData };
+        saveFallbackRooms(fallbackRooms);
         res.status(200).json({ success: true, message: 'Duyệt cấp Huy hiệu An toàn thành công!', data: fallbackRooms[idx] });
     } catch (error) {
         res.status(400).json({ success: false, error: error.message });

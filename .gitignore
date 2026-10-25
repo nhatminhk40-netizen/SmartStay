@@ -33,3 +33,6 @@ Thumbs.db
 dist/
 build/
 coverage/
+
+# Temporary test images
+test*.jpg

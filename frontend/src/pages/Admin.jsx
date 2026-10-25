@@ -89,6 +89,18 @@ const ROOM_TYPES = [
   "Ký túc xá cao cấp",
 ];
 
+// Tự động chuẩn hoá URL ảnh (hỗ trợ chuyển link chia sẻ Google Drive sang link ảnh xem trực tiếp)
+const convertGoogleDriveUrl = (url) => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=))([a-zA-Z0-9_-]+)/;
+  const match = trimmed.match(driveRegex);
+  if (match && match[1]) {
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return trimmed;
+};
+
 export default function Admin() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -366,6 +378,15 @@ export default function Admin() {
     has_pass: false,
     pass_months_left: 3,
     seeking_roommate: false,
+    // Chi phí điện, nước, cọc & phụ phí
+    electricityCostType: "nha_nuoc",
+    waterCost: "Theo giá nhà nước",
+    hasSeparateMeter: true,
+    depositMonths: 1,
+    extraFees_wifi: 0,
+    extraFees_trash: 0,
+    extraFees_parking: 0,
+    is_surveyed: true,
   };
   const [roomForm, setRoomForm] = useState(initialRoomForm);
 
@@ -400,6 +421,14 @@ export default function Admin() {
       has_pass: Boolean(room.has_pass || room.listingType === "pass"),
       pass_months_left: room.pass_months_left || room.remaining_duration || 3,
       seeking_roommate: Boolean(room.seeking_roommate),
+      electricityCostType: room.electricityCostType || "nha_nuoc",
+      waterCost: room.waterCost || "Theo giá nhà nước",
+      hasSeparateMeter: room.hasSeparateMeter !== undefined ? Boolean(room.hasSeparateMeter) : true,
+      depositMonths: room.depositMonths !== undefined ? Number(room.depositMonths) : 1,
+      extraFees_wifi: room.extraFees?.wifi || 0,
+      extraFees_trash: room.extraFees?.trash || 0,
+      extraFees_parking: room.extraFees?.parking || 0,
+      is_surveyed: room.isDemo === false || room.isSurveyed === true ? true : false,
     });
     setIsRoomModalOpen(true);
   };
@@ -417,17 +446,34 @@ export default function Admin() {
       const imgArray = roomForm.imagesText
         .split(/[\n,]+/)
         .map((s) => s.trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .map(convertGoogleDriveUrl)
+        .slice(0, 10); // Hỗ trợ tối đa 10 ảnh
+      const fallbackAddress = roomForm.address?.trim() || `Khu vực gần ${roomForm.campus || 'ĐH FPT Cần Thơ'}, Cần Thơ`;
+      const defaultImg = roomForm.image_url || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
       const payload = {
         ...roomForm,
-        images: imgArray.length > 0 ? imgArray : [roomForm.image_url],
-        image_url: imgArray[0] || roomForm.image_url,
-        price: Number(roomForm.price),
-        area_sqm: Number(roomForm.area_sqm),
-        rating: Number(roomForm.rating),
-        pass_months_left: Number(roomForm.pass_months_left),
+        address: fallbackAddress,
+        images: imgArray.length > 0 ? imgArray : [defaultImg],
+        image_url: imgArray[0] || defaultImg,
+        price: Number(roomForm.price) || 2000000,
+        area_sqm: Number(roomForm.area_sqm) || 20,
+        rating: Number(roomForm.rating) || 5,
+        pass_months_left: Number(roomForm.pass_months_left) || 0,
         isSafeBadge: roomForm.safe_badge,
-        listingType: roomForm.has_pass ? "pass" : roomForm.safe_badge ? "safe" : "standard"
+        listingType: roomForm.has_pass ? "pass" : roomForm.safe_badge ? "safe" : "standard",
+        electricityCostType: roomForm.electricityCostType || "nha_nuoc",
+        waterCost: roomForm.waterCost || "Theo giá nhà nước",
+        hasSeparateMeter: Boolean(roomForm.hasSeparateMeter),
+        depositMonths: Number(roomForm.depositMonths) || 1,
+        extraFees: {
+          wifi: Number(roomForm.extraFees_wifi) || 0,
+          trash: Number(roomForm.extraFees_trash) || 0,
+          parking: Number(roomForm.extraFees_parking) || 0
+        },
+        isDemo: !roomForm.is_surveyed,
+        isSurveyed: Boolean(roomForm.is_surveyed),
+        verificationStatus: roomForm.is_surveyed ? 'verified' : (roomForm.safe_badge ? 'verified' : 'unverified')
       };
 
       if (editingRoom) {
@@ -1896,132 +1942,264 @@ export default function Admin() {
               <button onClick={() => setIsRoomModalOpen(false)} className="text-sm font-bold text-slate-500 hover:text-slate-900">Đóng ✕</button>
             </div>
 
-            <form onSubmit={handleSaveRoom} className="p-8 overflow-y-auto flex-1 space-y-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tiêu đề phòng <span className="text-rose-500">*</span></label>
-                <input type="text" required placeholder="Phòng trọ sinh viên..." value={roomForm.title} onChange={(e) => setRoomForm({ ...roomForm, title: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
-                  style={{ borderColor: "#f4ebd9" }}
-                />
-              </div>
+            <form onSubmit={handleSaveRoom} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-8 overflow-y-auto flex-1 space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tiêu đề phòng <span className="text-rose-500">*</span></label>
+                  <input type="text" required placeholder="Phòng trọ sinh viên..." value={roomForm.title} onChange={(e) => setRoomForm({ ...roomForm, title: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                    style={{ borderColor: "#f4ebd9" }}
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {[
-                  { label: "Trường / Khu vực *", type: "select", key: "campus", options: campuses.filter(c => c !== "Tất cả khu vực") },
-                  { label: "Loại phòng", type: "select", key: "room_type", options: ROOM_TYPES },
-                ].map(({ label, key, options }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-                    <select value={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg text-sm font-bold border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
-                      style={{ borderColor: "#f4ebd9" }}
-                    >
-                      {options.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {[
-                  { label: "Giá (VNĐ/tháng) *", key: "price", type: "number", step: "50000" },
-                  { label: "Diện tích (m²)", key: "area_sqm", type: "number" },
-                  { label: "Rating (1–5)", key: "rating", type: "number", step: "0.1", min: "1", max: "5" },
-                ].map(({ label, key, type, step, min, max }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-                    <input type={type} step={step} min={min} max={max} value={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
-                      style={{ borderColor: "#f4ebd9" }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {[
-                  { label: "Địa chỉ chi tiết", key: "address" },
-                  { label: "Số điện thoại liên hệ", key: "contactPhone" },
-                ].map(({ label, key }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-                    <input type="text" value={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
-                      style={{ borderColor: "#f4ebd9" }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-6 rounded-xl border space-y-4" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Huy hiệu hiển thị</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm font-bold text-slate-700">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {[
-                    { key: "safe_badge", label: "SAFE" },
-                    { key: "is_boosted", label: "TOP (Lên đầu)" },
-                    { key: "seeking_roommate", label: "GHÉP BẠN" },
-                    { key: "has_pass", label: "PASS PHÒNG" },
-                  ].map(({ key, label }) => (
-                    <label key={key} className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.checked })} className="w-4 h-4 rounded" style={{ accentColor: "#f97316" }} />
-                      {label}
-                    </label>
+                    { label: "Trường / Khu vực *", type: "select", key: "campus", options: campuses.filter(c => c !== "Tất cả khu vực") },
+                    { label: "Loại phòng", type: "select", key: "room_type", options: ROOM_TYPES },
+                  ].map(({ label, key, options }) => (
+                    <div key={key}>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
+                      <select value={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.value })}
+                        className="w-full px-4 py-3 rounded-lg text-sm font-bold border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      >
+                        {options.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
                   ))}
                 </div>
-                {roomForm.has_pass && (
-                  <div className="flex items-center gap-3 pt-2">
-                    <span className="text-sm font-bold text-slate-700">Tháng cọc còn lại:</span>
-                    <input type="number" min="1" max="12" value={roomForm.pass_months_left} onChange={(e) => setRoomForm({ ...roomForm, pass_months_left: e.target.value })}
-                      className="w-24 px-3 py-2 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
-                      style={{ borderColor: "#f4ebd9" }}
-                    />
-                  </div>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tiện nghi có sẵn</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {amenities.map((a) => {
-                    const id = a.id || a.label;
-                    const checked = roomForm.amenities.includes(id);
-                    return (
-                      <label key={id} className="flex items-center gap-2 p-3 rounded-lg cursor-pointer border transition-colors" style={{ background: checked ? "#f97316" : "#ffffff", borderColor: checked ? "#f97316" : "#f4ebd9", color: checked ? "#ffffff" : "#334155" }}>
-                        <input type="checkbox" className="hidden" checked={checked} onChange={(e) => {
-                          if (e.target.checked) setRoomForm({ ...roomForm, amenities: [...roomForm.amenities, id] });
-                          else setRoomForm({ ...roomForm, amenities: roomForm.amenities.filter(item => item !== id) });
-                        }} />
-                        <span className="text-xs font-bold truncate">{a.label}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {[
+                    { label: "Giá (VNĐ/tháng) *", key: "price", type: "number", step: "50000" },
+                    { label: "Diện tích (m²)", key: "area_sqm", type: "number" },
+                    { label: "Rating (1–5)", key: "rating", type: "number", step: "0.1", min: "1", max: "5" },
+                  ].map(({ label, key, type, step, min, max }) => (
+                    <div key={key}>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
+                      <input type={type} step={step} min={min} max={max} value={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.value })}
+                        className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {[
+                    { label: "Địa chỉ chi tiết", key: "address" },
+                    { label: "Số điện thoại liên hệ", key: "contactPhone" },
+                  ].map(({ label, key }) => (
+                    <div key={key}>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
+                      <input type="text" value={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.value })}
+                        className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-6 rounded-xl border space-y-4" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
+                  <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Huy hiệu hiển thị</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm font-bold text-slate-700">
+                    {[
+                      { key: "safe_badge", label: "SAFE" },
+                      { key: "is_boosted", label: "TOP (Lên đầu)" },
+                      { key: "seeking_roommate", label: "GHÉP BẠN" },
+                      { key: "has_pass", label: "PASS PHÒNG" },
+                    ].map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={roomForm[key]} onChange={(e) => setRoomForm({ ...roomForm, [key]: e.target.checked })} className="w-4 h-4 rounded" style={{ accentColor: "#f97316" }} />
+                        {label}
                       </label>
-                    );
-                  })}
+                    ))}
+                  </div>
+                  {roomForm.has_pass && (
+                    <div className="flex items-center gap-3 pt-2">
+                      <span className="text-sm font-bold text-slate-700">Tháng cọc còn lại:</span>
+                      <input type="number" min="1" max="12" value={roomForm.pass_months_left} onChange={(e) => setRoomForm({ ...roomForm, pass_months_left: e.target.value })}
+                        className="w-24 px-3 py-2 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* ── BẢNG KIỂM KÊ TIỀN ĐIỆN, NƯỚC & DỊCH VỤ ── */}
+                <div className="p-6 rounded-xl border space-y-4" style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      ⚡ Chi phí điện, nước & Dịch vụ (Minh bạch)
+                    </span>
+                    <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
+                      Hiển thị rõ ràng cho người thuê
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Giá tiền điện *
+                      </label>
+                      <select
+                        value={roomForm.electricityCostType}
+                        onChange={(e) => setRoomForm({ ...roomForm, electricityCostType: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-lg text-sm font-bold border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      >
+                        <option value="nha_nuoc">Theo giá nhà nước (Bậc thang điện lực)</option>
+                        <option value="kinh_doanh">Giá kinh doanh (~3.500 - 4.000đ/kWh)</option>
+                        <option value="gia_co_dinh">Giá cố định (~3.000 - 3.500đ/kWh)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Giá tiền nước *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="VD: Theo giá nhà nước / 15.000đ/khối / 50.000đ/người"
+                        value={roomForm.waterCost}
+                        onChange={(e) => setRoomForm({ ...roomForm, waterCost: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Wifi (VNĐ/tháng)
+                      </label>
+                      <input
+                        type="number"
+                        step="10000"
+                        placeholder="0 = Miễn phí"
+                        value={roomForm.extraFees_wifi}
+                        onChange={(e) => setRoomForm({ ...roomForm, extraFees_wifi: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Rác (VNĐ/tháng)
+                      </label>
+                      <input
+                        type="number"
+                        step="5000"
+                        placeholder="0 = Miễn phí"
+                        value={roomForm.extraFees_trash}
+                        onChange={(e) => setRoomForm({ ...roomForm, extraFees_trash: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Giữ xe (VNĐ/tháng)
+                      </label>
+                      <input
+                        type="number"
+                        step="10000"
+                        placeholder="0 = Miễn phí"
+                        value={roomForm.extraFees_parking}
+                        onChange={(e) => setRoomForm({ ...roomForm, extraFees_parking: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
+                        style={{ borderColor: "#f4ebd9" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center gap-6 text-sm font-bold text-slate-700">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={roomForm.hasSeparateMeter}
+                        onChange={(e) => setRoomForm({ ...roomForm, hasSeparateMeter: e.target.checked })}
+                        className="w-4 h-4 rounded"
+                        style={{ accentColor: "#f97316" }}
+                      />
+                      <span>Đồng hồ điện & nước riêng</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-300">
+                      <input
+                        type="checkbox"
+                        checked={roomForm.is_surveyed}
+                        onChange={(e) => setRoomForm({ ...roomForm, is_surveyed: e.target.checked })}
+                        className="w-4 h-4 rounded"
+                        style={{ accentColor: "#059669" }}
+                      />
+                      <span>✓ Đã đi thăm dò / khảo sát thực tế (Bỏ mác Minh họa)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tiện nghi có sẵn</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {amenities.map((a) => {
+                      const id = a.id || a.label;
+                      const checked = roomForm.amenities.includes(id);
+                      return (
+                        <label key={id} className="flex items-center gap-2 p-3 rounded-lg cursor-pointer border transition-colors" style={{ background: checked ? "#f97316" : "#ffffff", borderColor: checked ? "#f97316" : "#f4ebd9", color: checked ? "#ffffff" : "#334155" }}>
+                          <input type="checkbox" className="hidden" checked={checked} onChange={(e) => {
+                            if (e.target.checked) setRoomForm({ ...roomForm, amenities: [...roomForm.amenities, id] });
+                            else setRoomForm({ ...roomForm, amenities: roomForm.amenities.filter(item => item !== id) });
+                          }} />
+                          <span className="text-xs font-bold truncate">{a.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Hình ảnh (URL, tối đa 10 ảnh, mỗi dòng 1 link)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-[#f97316] bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                        Đã nhập: {roomForm.imagesText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length}/10 ảnh
+                      </span>
+                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        ✓ Tự động nhận diện Google Drive
+                      </span>
+                    </div>
+                  </div>
+                  <textarea rows={5} value={roomForm.imagesText} onChange={(e) => setRoomForm({ ...roomForm, imagesText: e.target.value })}
+                    placeholder={`https://drive.google.com/file/d/xxxx/view?usp=sharing\nhttps://drive.google.com/file/d/yyyy/view?usp=sharing\n... (tối đa 10 ảnh, mỗi link 1 dòng)`}
+                    className="w-full px-4 py-3 rounded-lg text-sm font-mono border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 resize-none bg-white placeholder:text-slate-400 placeholder:font-sans"
+                    style={{ borderColor: "#f4ebd9" }}
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                    💡 <strong>Cách dùng:</strong> Bạn có thể dán <strong>tối đa 10 link ảnh</strong> để mô tả chi tiết phòng (mỗi link 1 dòng). Link đầu tiên sẽ làm ảnh bìa. Với link Google Drive, chỉ cần bật quyền <em>"Bất kỳ ai có đường liên kết đều có thể xem"</em> là hệ thống sẽ tự hiển thị sắc nét.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mô tả phòng</label>
+                  <textarea rows={4} value={roomForm.description} onChange={(e) => setRoomForm({ ...roomForm, description: e.target.value })}
+                    className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 resize-none bg-white"
+                    style={{ borderColor: "#f4ebd9" }}
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Hình ảnh (URL, mỗi dòng 1 link)</label>
-                <textarea rows={3} value={roomForm.imagesText} onChange={(e) => setRoomForm({ ...roomForm, imagesText: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-mono border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 resize-none bg-white"
-                  style={{ borderColor: "#f4ebd9" }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mô tả phòng</label>
-                <textarea rows={4} value={roomForm.description} onChange={(e) => setRoomForm({ ...roomForm, description: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 resize-none bg-white"
-                  style={{ borderColor: "#f4ebd9" }}
-                />
+              <div className="px-8 py-5 border-t flex items-center justify-end gap-3" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
+                <button type="button" onClick={() => setIsRoomModalOpen(false)} className="px-5 py-2.5 rounded-lg font-bold text-slate-600 hover:text-slate-900 transition-colors">
+                  Hủy
+                </button>
+                <button type="submit" disabled={isSavingRoom} className="px-6 py-2.5 rounded-lg text-white font-bold shadow-md disabled:opacity-50 hover:opacity-90 transition-opacity" style={{ background: "#f97316" }}>
+                  {isSavingRoom ? "Đang lưu..." : (editingRoom ? "Cập nhật phòng" : "Tạo phòng mới")}
+                </button>
               </div>
             </form>
-            <div className="px-8 py-5 border-t flex items-center justify-end gap-3" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-              <button type="button" onClick={() => setIsRoomModalOpen(false)} className="px-5 py-2.5 rounded-lg font-bold text-slate-600 hover:text-slate-900 transition-colors">
-                Hủy
-              </button>
-              <button type="submit" disabled={isSavingRoom} className="px-6 py-2.5 rounded-lg text-white font-bold shadow-md disabled:opacity-50" style={{ background: "#f97316" }}>
-                {isSavingRoom ? "Đang lưu..." : (editingRoom ? "Cập nhật phòng" : "Tạo phòng mới")}
-              </button>
-            </div>
           </div>
         </div>
       )}
