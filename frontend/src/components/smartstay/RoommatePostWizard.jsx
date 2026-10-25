@@ -65,41 +65,64 @@ const BIO_SAMPLES = [
     "Sinh viên ĐH Cần Thơ, có nuôi 1 bé mèo ngoan và sạch sẽ, thích tự nấu ăn cuối tuần, tìm bạn yêu pet để ở ghép lâu dài."
 ];
 
-export default function RoommatePostWizard({ onClose, onSubmit, initialUser }) {
+export default function RoommatePostWizard({ onClose, onSubmit, initialUser, initialData }) {
     const [step, setStep] = useState(1);
     const [submitting, setSubmitting] = useState(false);
 
     // Dữ liệu Form chuẩn hóa
-    const [formData, setFormData] = useState({
-        // Bước 1: Cơ bản
-        name: initialUser?.fullName || initialUser?.name || "",
-        age: 20,
-        gender: "Nam",
-        campus: "ĐH Cần Thơ",
-        area: "Ninh Kiều, Cần Thơ",
-        avatarUrl: "",
-        contact: initialUser?.phone || "",
-        allowZalo: true,
-
-        // Bước 2: Lối sống (Enum chuẩn)
-        lifestyle: {
-            smoking: "no", // 'no' | 'tolerate' | 'yes'
-            sleep: "early", // 'early' | 'normal' | 'night'
-            tidiness: 4, // 1 - 5
-            cooking: true, // boolean
-            guests: "sometimes", // 'rare' | 'sometimes' | 'often'
-            pet: "no", // 'no' | 'tolerate' | 'has'
-            noise: 2 // 1 - 5
-        },
-
-        // Bước 3: Ngân sách & Phòng
-        type: "need_room", // 'has_room' | 'need_room'
-        budget: 2.2, // triệu/tháng
-        roomAddress: "",
-
-        // Bước 4: Giới thiệu & Sở thích
-        bio: "",
-        interests: ["Học code", "Tự nấu ăn"]
+    const [formData, setFormData] = useState(() => {
+        if (initialData) {
+            return {
+                name: initialData.name || initialUser?.fullName || initialUser?.name || "",
+                age: initialData.age || 20,
+                gender: initialData.gender || "Nam",
+                campus: initialData.campus || "ĐH Cần Thơ",
+                area: initialData.area || "Ninh Kiều, Cần Thơ",
+                avatarUrl: initialData.avatarUrl || "",
+                contact: initialData.contact || initialData.rawContact || initialUser?.phone || "",
+                allowZalo: initialData.allowZalo !== undefined ? initialData.allowZalo : true,
+                lifestyle: {
+                    smoking: initialData.lifestyle?.smoking || (initialData.smokingDrinking === "none" ? "no" : (initialData.smokingDrinking === "smoker_friendly" ? "yes" : "tolerate")),
+                    sleep: initialData.lifestyle?.sleep || (initialData.sleepSchedule === "early_bird" ? "early" : (initialData.sleepSchedule === "night_owl" ? "night" : "normal")),
+                    tidiness: initialData.lifestyle?.tidiness || 4,
+                    cooking: initialData.lifestyle?.cooking !== undefined ? initialData.lifestyle.cooking : true,
+                    guests: initialData.lifestyle?.guests || "sometimes",
+                    pet: initialData.lifestyle?.pet || (initialData.hasPet ? "has" : "no"),
+                    noise: initialData.lifestyle?.noise || 2
+                },
+                type: initialData.type || (initialData.hasRoom ? "has_room" : "need_room"),
+                budget: initialData.budget || 2.2,
+                roomAddress: initialData.roomAddress || "",
+                bio: initialData.bio || initialData.description || "",
+                interests: Array.isArray(initialData.interests) && initialData.interests.length > 0
+                    ? initialData.interests
+                    : ["Học code", "Tự nấu ăn"]
+            };
+        }
+        return {
+            name: initialUser?.fullName || initialUser?.name || "",
+            age: 20,
+            gender: "Nam",
+            campus: "ĐH Cần Thơ",
+            area: "Ninh Kiều, Cần Thơ",
+            avatarUrl: "",
+            contact: initialUser?.phone || "",
+            allowZalo: true,
+            lifestyle: {
+                smoking: "no",
+                sleep: "early",
+                tidiness: 4,
+                cooking: true,
+                guests: "sometimes",
+                pet: "no",
+                noise: 2
+            },
+            type: "need_room",
+            budget: 2.2,
+            roomAddress: "",
+            bio: "",
+            interests: ["Học code", "Tự nấu ăn"]
+        };
     });
 
     const [errorMsg, setErrorMsg] = useState("");

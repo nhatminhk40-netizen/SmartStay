@@ -249,6 +249,41 @@ export default function Roommates() {
         setPage(1);
     };
 
+    // Kiểm tra xem hồ sơ có phải là của chính người dùng hay không (để không tự ghép với bản thân)
+    const isOwnProfile = (it) => {
+        if (!it) return false;
+        // 1. So khớp với hồ sơ lưu trong myProfile
+        if (myProfile) {
+            const pId = String(myProfile.id || myProfile._id || "");
+            const itId = String(it.id || it._id || "");
+            if (pId && itId && pId === itId) return true;
+
+            if (myProfile.name && it.name && it.name.trim().toLowerCase() === myProfile.name.trim().toLowerCase()) {
+                return true;
+            }
+            if (myProfile.contact && (it.contact === myProfile.contact || it.rawContact === myProfile.contact)) {
+                return true;
+            }
+        }
+        // 2. So khớp với tài khoản đăng nhập (user)
+        if (user) {
+            const uid = String(user._id || user.id || "");
+            if (uid && (String(it.owner || "") === uid || String(it.userId || "") === uid || String(it.user || "") === uid)) {
+                return true;
+            }
+            if (user.phone && (it.contact === user.phone || it.rawContact === user.phone)) {
+                return true;
+            }
+            if (user.fullName && it.name && it.name.trim().toLowerCase() === user.fullName.trim().toLowerCase()) {
+                return true;
+            }
+            if (user.name && it.name && it.name.trim().toLowerCase() === user.name.trim().toLowerCase()) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     // 1. Tính toán điểm tương thích cho từng người ở ghép
     const itemsWithCompat = useMemo(() => {
         return items.map((it) => ({
@@ -257,10 +292,12 @@ export default function Roommates() {
         }));
     }, [items, myProfile]);
 
-    // 2. Lọc bỏ các hồ sơ đã bị ẩn
+    // 2. Lọc bỏ các hồ sơ đã bị ẩn hoặc là chính mình
     const visibleItems = useMemo(() => {
-        return itemsWithCompat.filter((it) => !hiddenIds.includes(String(it.id || it._id)));
-    }, [itemsWithCompat, hiddenIds]);
+        return itemsWithCompat.filter(
+            (it) => !hiddenIds.includes(String(it.id || it._id)) && !isOwnProfile(it)
+        );
+    }, [itemsWithCompat, hiddenIds, myProfile, user]);
 
     // 3. Lọc danh sách theo thanh tùy chỉnh nâng cao (hỗ trợ Bắt buộc vs Ưu tiên)
     const filteredItems = useMemo(() => {
@@ -692,18 +729,32 @@ export default function Roommates() {
                     <div ref={formSectionRef}>
                         <RoommatePostWizard
                             initialUser={user}
+                            initialData={myProfile}
                             onClose={() => setShowForm(false)}
                             onSubmit={async (newProfileData) => {
-                                await base44.entities.Roommate.create(newProfileData);
+                                const profileToSave = {
+                                    ...newProfileData,
+                                    id: myProfile?.id || myProfile?._id || `profile_${Date.now()}`
+                                };
+
+                                try {
+                                    const res = await base44.entities.Roommate.create(profileToSave);
+                                    if (res?.data?._id || res?.data?.id) {
+                                        profileToSave.id = res.data._id || res.data.id;
+                                        profileToSave._id = res.data._id || res.data.id;
+                                    }
+                                } catch (err) {
+                                    console.warn("Lỗi đồng bộ hồ sơ lên server:", err);
+                                }
 
                                 // Lưu vào hồ sơ của tôi để tự động tính độ tương thích
-                                roommateApi.saveMyProfile(newProfileData);
-                                setMyProfile(newProfileData);
+                                roommateApi.saveMyProfile(profileToSave);
+                                setMyProfile(profileToSave);
                                 setSortBy("compat");
 
                                 toast({
-                                    title: "Đã đăng hồ sơ thành công!",
-                                    description: "Hồ sơ của bạn đã được kích hoạt tính độ tương thích trên toàn hệ thống."
+                                    title: "Đã lưu hồ sơ thành công!",
+                                    description: "Hồ sơ của bạn đã được cập nhật và hệ thống đã tính độ hòa hợp với các bạn khác."
                                 });
 
                                 setShowForm(false);
@@ -713,8 +764,102 @@ export default function Roommates() {
                     </div>
                 )}
 
-                {/* Banner gợi ý tạo hồ sơ khi chưa có */}
-                {!myProfile && (
+                {/* Thẻ hiển thị hồ sơ cá nhân của người dùng */}
+                {myProfile ? (
+                    <div className="mb-8 p-5 md:p-6 rounded-3xl bg-gradient-to-r from-orange-50/80 via-amber-50/50 to-white border-2 border-orange-200/90 shadow-sm relative overflow-hidden">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-orange-200/60">
+                            <div className="flex items-start sm:items-center gap-4">
+                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 text-white font-extrabold text-xl flex items-center justify-center shadow-sm shrink-0 overflow-hidden">
+                                    {myProfile.avatarUrl ? (
+                                        <img src={myProfile.avatarUrl} alt={myProfile.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        (myProfile.name || "Tôi").slice(0, 2).toUpperCase()
+                                    )}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="font-heading font-extrabold text-foreground text-lg">
+                                            {myProfile.name}
+                                        </h3>
+                                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-200">
+                                            {formatGender(myProfile.gender) || "Sinh viên"} • {myProfile.age || 20} tuổi
+                                        </span>
+                                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            Hồ sơ của bạn (Đang tìm bạn)
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+                                        <span className="flex items-center gap-1">
+                                            <MapPin className="w-3.5 h-3.5 text-orange-500" />
+                                            {myProfile.campus || "Cần Thơ"}
+                                        </span>
+                                        <span>•</span>
+                                        <span className="flex items-center gap-1 font-semibold text-foreground">
+                                            <Wallet className="w-3.5 h-3.5 text-amber-500" />
+                                            Ngân sách: ~{myProfile.budget || 2} tr/tháng
+                                        </span>
+                                        <span>•</span>
+                                        <span className="text-slate-600">
+                                            {myProfile.type === "has_room" ? "🏠 Đã có phòng" : "🔍 Cần tìm phòng"}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Nút tác vụ nhanh: Chỉnh sửa & Gỡ bài */}
+                            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowForm(true)}
+                                    className="rounded-xl border-orange-300 text-orange-700 hover:bg-orange-100 hover:text-orange-900 font-bold text-xs shadow-2xs"
+                                >
+                                    ✏️ Chỉnh sửa hồ sơ
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (window.confirm("Bạn có chắc chắn muốn gỡ hồ sơ tìm bạn ở ghép không? Hệ thống sẽ ngừng tính độ tương thích với các bạn sinh viên khác.")) {
+                                            roommateApi.saveMyProfile(null);
+                                            setMyProfile(null);
+                                            toast({
+                                                title: "Đã gỡ hồ sơ",
+                                                description: "Hồ sơ của bạn đã được ẩn khỏi danh sách tìm bạn ở ghép."
+                                            });
+                                        }
+                                    }}
+                                    className="rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-medium text-xs"
+                                >
+                                    Gỡ hồ sơ
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Thông tin thói quen & Mô tả vắn tắt */}
+                        <div className="pt-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-slate-700">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-500 text-[11px] uppercase tracking-wider">Thói quen của bạn:</span>
+                                {myProfile.habits ? (
+                                    myProfile.habits.split(",").slice(0, 4).map((h, idx) => (
+                                        <span key={idx} className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-[11px] font-medium shadow-2xs">
+                                            {h.trim()}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-slate-400 italic">Chưa cập nhật thói quen chi tiết</span>
+                                )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 italic max-w-md truncate">
+                                "{myProfile.description || "Đang tìm bạn ở ghép văn minh, cùng chí hướng."}"
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    /* Banner gợi ý tạo hồ sơ khi chưa có */
                     <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
