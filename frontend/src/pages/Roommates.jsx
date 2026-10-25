@@ -800,8 +800,8 @@ export default function Roommates() {
                                             Ngân sách: ~{myProfile.budget || 2} tr/tháng
                                         </span>
                                         <span>•</span>
-                                        <span className="text-slate-600">
-                                            {myProfile.type === "has_room" ? "🏠 Đã có phòng" : "🔍 Cần tìm phòng"}
+                                        <span className="font-medium text-slate-700 bg-orange-100/70 px-2 py-0.5 rounded-md">
+                                            {myProfile.type === "has_room" ? "Đã có phòng" : "Cần tìm phòng"}
                                         </span>
                                     </div>
                                 </div>
@@ -918,7 +918,6 @@ export default function Roommates() {
                                         : "text-slate-600 hover:text-emerald-700"
                                 }`}
                             >
-                                <Search className="w-3.5 h-3.5" />
                                 <span>Chưa có phòng, tìm bạn thuê chung</span>
                             </button>
                         </div>
