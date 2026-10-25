@@ -128,15 +128,140 @@ const maskContact = (contact) => {
     return `${start}***${end}`;
 };
 
+// Dữ liệu 3 phòng khảo sát thực tế để tự động đồng bộ vào MongoDB Atlas khi kết nối
+const surveyedRoomsData = [
+    {
+        title: 'Phòng Trọ Thanh Sơn',
+        campus: 'ĐH FPT Cần Thơ',
+        address: '256c đường Vườn Mận phường Long Tuyền CT',
+        location: 'Ninh Kiều, Cần Thơ',
+        price: 2200000,
+        area_sqm: 25,
+        room_type: 'Phòng trọ khép kín',
+        contactPhone: '0907297338',
+        description: 'Dãy trọ Thanh Sơn thoáng mát, an ninh, giờ giấc tự do.',
+        rating: 4.8,
+        image_url: 'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+        images: [
+            'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+            'https://lh3.googleusercontent.com/d/16e67ubyEHyRX12-_SDcYFs7jLth3fpFA',
+            'https://lh3.googleusercontent.com/d/17_Y20bngboPHi57eMkUcDm7xtkKlLKwv',
+            'https://lh3.googleusercontent.com/d/1XHvuCrepg6y90WixkwEYIXiGm0_k26NY'
+        ],
+        amenities: ['Máy lạnh', 'Gác lửng'],
+        safe_badge: true,
+        isSafeBadge: true,
+        is_boosted: true,
+        has_pass: false,
+        pass_months_left: 3,
+        seeking_roommate: false,
+        electricityCostType: 'kinh_doanh',
+        waterCost: '10.000 khối',
+        hasSeparateMeter: true,
+        depositMonths: 1,
+        extraFees: { wifi: 0, trash: 0, parking: 0 },
+        isDemo: false,
+        verificationStatus: 'verified',
+        listingType: 'safe',
+        fireSafetyCertified: true
+    },
+    {
+        title: 'Phòng Trọ Lê khải',
+        campus: 'ĐH FPT Cần Thơ',
+        address: 'Khu vực gần ĐH FPT Cần Thơ, Cần Thơ',
+        location: 'Ninh Kiều, Cần Thơ',
+        price: 1800000,
+        area_sqm: 25,
+        room_type: 'Phòng trọ khép kín',
+        contactPhone: '0907297338',
+        description: 'Phòng sạch sẽ, an ninh tốt, gần trường.',
+        rating: 4.8,
+        image_url: 'https://lh3.googleusercontent.com/d/1RscDS08IT5hjZKrOlqJyjeySppXuUzq0',
+        images: [
+            'https://lh3.googleusercontent.com/d/1RscDS08IT5hjZKrOlqJyjeySppXuUzq0',
+            'https://lh3.googleusercontent.com/d/1oa_42uRBFDnPV324xoKK9o99Agi2X-O6',
+            'https://lh3.googleusercontent.com/d/1lZdIaZ0_em938DJ4hTinFEcMWO_Hl-Kb',
+            'https://lh3.googleusercontent.com/d/1NfaJ421eRJuQYPRKjpp_VK2DdTTGWcmO'
+        ],
+        amenities: ['Gác lửng'],
+        safe_badge: true,
+        isSafeBadge: true,
+        is_boosted: true,
+        has_pass: false,
+        pass_months_left: 3,
+        seeking_roommate: false,
+        electricityCostType: 'kinh_doanh',
+        waterCost: '15.000 khối',
+        hasSeparateMeter: true,
+        depositMonths: 1,
+        extraFees: { wifi: 0, trash: 0, parking: 0 },
+        isDemo: false,
+        verificationStatus: 'verified',
+        listingType: 'safe',
+        fireSafetyCertified: true
+    },
+    {
+        title: 'Phòng Trọ Thanh Sơn',
+        campus: 'ĐH FPT Cần Thơ',
+        address: '256c đường Vườn Mận phường Long Tuyền CT',
+        location: 'Ninh Kiều, Cần Thơ',
+        price: 2400000,
+        area_sqm: 30,
+        room_type: 'Phòng trọ khép kín',
+        contactPhone: '0907297338',
+        description: 'Có ban công thuận tiện cho việc phơi đồ',
+        rating: 4.8,
+        image_url: 'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+        images: [
+            'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
+            'https://lh3.googleusercontent.com/d/1IEQ9ITgnXtrZ2jcrJm39k--NLqpReCNs',
+            'https://lh3.googleusercontent.com/d/1xt1PXWYvhhjLN3oFLEmMYgaTXVl-geHq',
+            'https://lh3.googleusercontent.com/d/1wINldbqxIIdVPfRMkv4NeYM6lNnZN93t'
+        ],
+        amenities: ['Máy lạnh', 'Gác lửng'],
+        safe_badge: true,
+        isSafeBadge: true,
+        is_boosted: true,
+        has_pass: false,
+        pass_months_left: 3,
+        seeking_roommate: false,
+        electricityCostType: 'kinh_doanh',
+        waterCost: '10.000 khối',
+        hasSeparateMeter: true,
+        depositMonths: 1,
+        extraFees: { wifi: 0, trash: 0, parking: 0 },
+        isDemo: false,
+        verificationStatus: 'verified',
+        listingType: 'safe',
+        fireSafetyCertified: true
+    }
+];
+
+const syncSurveyedRoomsToDatabase = async () => {
+    if (!isDbConnected) return;
+    try {
+        for (const r of surveyedRoomsData) {
+            const exists = await Room.findOne({ title: r.title, price: r.price });
+            if (!exists) {
+                await Room.create(r);
+                console.log(`✅ Đã tự động đồng bộ phòng khảo sát vào MongoDB Atlas: ${r.title} (${r.price})`);
+            }
+        }
+    } catch (err) {
+        console.warn('⚠️ Lỗi đồng bộ phòng khảo sát:', err.message);
+    }
+};
+
 // Kết nối MongoDB Atlas
 if (process.env.MONGO_URI) {
     mongoose.connect(process.env.MONGO_URI, {
         serverSelectionTimeoutMS: 5000,
     })
-        .then(() => {
+        .then(async () => {
             isDbConnected = true;
             app.locals.isDbConnected = true;
             console.log('✅ Connected to MongoDB Atlas successfully!');
+            await syncSurveyedRoomsToDatabase();
         })
         .catch((err) => {
             isDbConnected = false;
@@ -162,6 +287,30 @@ app.get(['/health', '/api/health'], (req, res) => {
         database: app.locals.isDbConnected ? 'connected' : 'fallback_mode',
         timestamp: new Date()
     });
+});
+
+// Endpoint kích hoạt đồng bộ phòng khảo sát thực tế vào MongoDB Atlas
+app.get('/api/sync-surveyed-rooms', async (req, res) => {
+    try {
+        if (!isDbConnected) {
+            return res.json({
+                success: true,
+                message: 'Server đang ở chế độ Fallback Mock Data.',
+                totalRooms: fallbackRooms.length
+            });
+        }
+        await syncSurveyedRoomsToDatabase();
+        const total = await Room.countDocuments();
+        const rooms = await Room.find().select('title price is_surveyed isDemo');
+        res.json({
+            success: true,
+            message: 'Đồng bộ phòng khảo sát vào MongoDB Atlas thành công!',
+            totalRooms: total,
+            rooms
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 // Mount Authentication routes
