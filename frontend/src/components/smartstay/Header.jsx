@@ -199,11 +199,15 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* LOGO */}
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/15 group-hover:bg-orange-500/25 flex items-center justify-center transition-colors">
-              <Home className="w-5 h-5 text-orange-600" />
-            </div>
+            <img
+              src="/smartstay-icon.png"
+              alt="SmartStay Logo"
+              className="w-9 h-9 object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
+            />
             <div className="leading-tight">
-              <div className="font-heading font-extrabold text-foreground text-lg tracking-tight">SmartStay</div>
+              <div className="font-heading font-extrabold text-foreground text-lg tracking-tight group-hover:text-orange-600 transition-colors">
+                SmartStay
+              </div>
               <div className="text-[10px] tracking-wider text-muted-foreground uppercase font-semibold">
                 Cần Thơ · Sinh viên
               </div>

@@ -30,10 +30,12 @@ export default function Footer() {
         <footer className="bg-foreground text-background mt-16">
             <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-xl bg-accent/20 flex items-center justify-center">
-                            <Home className="w-5 h-5 text-accent" />
-                        </div>
+                    <div className="flex items-center gap-2.5">
+                        <img
+                            src="/smartstay-icon.png"
+                            alt="SmartStay Logo"
+                            className="w-8 h-8 object-contain"
+                        />
                         <span className="font-heading font-bold text-lg">SmartStay</span>
                     </div>
                     <p className="mt-3 text-sm text-background/70 max-w-xs">

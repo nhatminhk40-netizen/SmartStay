@@ -206,11 +206,13 @@ export default function AppHeader({
           }}
           className="flex items-center gap-2.5 text-left group focus:outline-none"
         >
-          <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/smartstay-icon.png"
+            alt="SmartStay Logo"
+            className="w-9 h-9 object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
+          />
           <div className="leading-tight">
-            <div className="font-display font-extrabold text-slate-900 text-lg tracking-tight group-hover:text-emerald-600 transition-colors">
+            <div className="font-display font-extrabold text-slate-900 text-lg tracking-tight group-hover:text-orange-600 transition-colors">
               SmartStay
             </div>
             <div className="text-[10px] text-slate-400 font-body uppercase tracking-wider font-semibold">

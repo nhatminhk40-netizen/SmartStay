@@ -442,9 +442,12 @@ export default function Register() {
         style={{ background: "radial-gradient(circle, #6366f1, transparent 70%)" }}
       />
 
-      {/* Top - Logo (text only) */}
+      {/* Top - Logo */}
       <div className="relative z-10 p-10 pb-0">
-        <span className="text-white font-bold text-xl tracking-tight">SmartStay</span>
+        <Link to="/" className="inline-flex items-center gap-2.5 group">
+          <img src="/smartstay-icon.png" alt="SmartStay Logo" className="w-8 h-8 object-contain drop-shadow" />
+          <span className="text-white font-bold text-xl tracking-tight">SmartStay</span>
+        </Link>
       </div>
 
       {/* Middle - Headline */}
@@ -594,10 +597,10 @@ export default function Register() {
           
           {/* Logo on mobile */}
           <div className="mb-6 lg:hidden flex items-center justify-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
-              <Shield className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-xl text-foreground">SmartStay</span>
+            <Link to="/" className="inline-flex items-center gap-2">
+              <img src="/smartstay-icon.png" alt="SmartStay Logo" className="w-8 h-8 object-contain" />
+              <span className="font-bold text-xl text-foreground">SmartStay</span>
+            </Link>
           </div>
 
           <StepIndicator />

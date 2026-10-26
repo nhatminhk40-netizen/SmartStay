@@ -150,9 +150,12 @@ export default function Login() {
           style={{ background: "radial-gradient(circle, #6366f1, transparent 70%)" }}
         />
 
-        {/* Top - Logo (text only) */}
+        {/* Top - Logo */}
         <div className="relative z-10 p-10">
-          <span className="text-white font-bold text-xl tracking-tight">SmartStay</span>
+          <Link to="/" className="inline-flex items-center gap-2.5 group">
+            <img src="/smartstay-icon.png" alt="SmartStay Logo" className="w-8 h-8 object-contain drop-shadow" />
+            <span className="text-white font-bold text-xl tracking-tight">SmartStay</span>
+          </Link>
         </div>
 
         {/* Middle - Headline */}
@@ -215,9 +218,12 @@ export default function Login() {
 
       {/* RIGHT PANEL - Form */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-background">
-        {/* Mobile logo (text only) */}
+        {/* Mobile logo */}
         <div className="mb-8 lg:hidden">
-          <span className="font-bold text-lg text-foreground">SmartStay</span>
+          <Link to="/" className="inline-flex items-center gap-2">
+            <img src="/smartstay-icon.png" alt="SmartStay Logo" className="w-7 h-7 object-contain" />
+            <span className="font-bold text-lg text-foreground">SmartStay</span>
+          </Link>
         </div>
 
         <div className="w-full max-w-[400px]">
