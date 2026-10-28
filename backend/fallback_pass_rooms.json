@@ -1,0 +1,208 @@
+[
+  {
+    "_id": "pass_sample_1",
+    "id": "pass_sample_1",
+    "title": "Pass phòng studio ban công thoáng mát hẻm 51 ĐH Cần Thơ (Khu 2)",
+    "description": "Mình nhận được học bổng kỳ tới chuyển sang cơ sở khác nên cần nhượng lại gấp phòng studio rất xinh. Phòng đầy đủ tiện nghi: máy lạnh, máy giặt riêng, tủ lạnh, giường nệm cao su. Đã đóng cọc 2.500.000đ nhưng mình chỉ pass lại 1.800.000đ cho bạn nào dọn vào sớm trong tháng này!",
+    "address": "Hẻm 51 đường 3 Tháng 2, Phường Xuân Khánh, Quận Ninh Kiều, Cần Thơ",
+    "campus": "ĐH Cần Thơ",
+    "area_sqm": 26,
+    "room_type": "Căn hộ mini / Studio",
+    "images": [
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80"
+    ],
+    "contractImages": [
+      "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=800&q=80"
+    ],
+    "monthlyRent": 2800000,
+    "passPrice": 1800000,
+    "depositAmount": 2800000,
+    "remainingMonths": 5,
+    "moveInDate": "2026-11-05T00:00:00.000Z",
+    "isFlexibleMoveIn": false,
+    "amenities": [
+      "Máy lạnh",
+      "Tủ lạnh",
+      "Máy giặt riêng",
+      "Ban công",
+      "Gác lửng",
+      "Wifi miễn phí",
+      "Giờ giấc tự do"
+    ],
+    "rules": [
+      "Không nuôi chó mèo lớn",
+      "Giữ yên tĩnh sau 23h",
+      "Để xe đúng nơi quy định"
+    ],
+    "landlordName": "Cô Nguyễn Thị Mai",
+    "landlordPhone": "0918123456",
+    "landlordEmail": "cophongmai.cantho@gmail.com",
+    "status": "verified",
+    "landlordConfirmation": {
+      "tokenHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "expiresAt": "2026-11-01T12:00:00.000Z",
+      "confirmedAt": "2026-10-27T08:30:00.000Z",
+      "note": "Tôi đồng ý chuyển nhượng cho bạn sinh viên mới vào tiếp quản hợp đồng còn 5 tháng."
+    },
+    "owner": "651a1b2c3d4e5f6a7b8c9d01",
+    "posterName": "Nguyễn Hoàng Minh (K47 ĐH Cần Thơ)",
+    "posterPhone": "0939112233",
+    "ownerEmail": "minh.nguyen@student.ctu.edu.vn",
+    "viewCount": 142,
+    "savedBy": [],
+    "reports": [],
+    "createdAt": "2026-10-26T10:00:00.000Z",
+    "updatedAt": "2026-10-27T08:30:00.000Z"
+  },
+  {
+    "_id": "pass_sample_2",
+    "id": "pass_sample_2",
+    "title": "Pass phòng trọ khép kín gần ĐH FPT Cần Thơ - Sang cọc tặng kèm bàn ghế",
+    "description": "Mình chuyển về quê thực tập nên nhượng lại phòng gần trường FPT. Phòng mới sơn lại, có gác lửng đúc cao không đụng đầu, toilet riêng sạch sẽ. Tặng luôn bàn học và kệ sách cho bạn nào nhận phòng sớm.",
+    "address": "256C Đường Vườn Mận, Phường Long Tuyền, Bình Thủy, Cần Thơ",
+    "campus": "ĐH FPT",
+    "area_sqm": 22,
+    "room_type": "Phòng trọ khép kín",
+    "images": [
+      "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=800&q=80"
+    ],
+    "contractImages": [],
+    "monthlyRent": 2000000,
+    "passPrice": 1500000,
+    "depositAmount": 2000000,
+    "remainingMonths": 3,
+    "moveInDate": "2026-11-10T00:00:00.000Z",
+    "isFlexibleMoveIn": true,
+    "amenities": [
+      "Máy lạnh",
+      "Gác lửng",
+      "Camera 24/7",
+      "Cửa vân tay",
+      "Đồng hồ điện nước riêng"
+    ],
+    "rules": [
+      "Khóa cửa cổng sau 24h",
+      "Nấu ăn bằng bếp từ"
+    ],
+    "landlordName": "Chú Ba Thanh Sơn",
+    "landlordPhone": "0907297338",
+    "landlordEmail": "thanhson.trofpt@gmail.com",
+    "status": "verified",
+    "landlordConfirmation": {
+      "tokenHash": "f4c8996fb92427ae41e4649b934ca495991b7852b855e3b0c44298fc1c149afb",
+      "expiresAt": "2026-11-02T10:00:00.000Z",
+      "confirmedAt": "2026-10-27T14:15:00.000Z",
+      "note": "Xác nhận đúng phòng số 08 của chú, bạn mới đến nhớ bổ sung CCCD đăng ký tạm trú."
+    },
+    "owner": "651a1b2c3d4e5f6a7b8c9d02",
+    "posterName": "Trần Thanh Thảo (SV FPT K17)",
+    "posterPhone": "0909887766",
+    "ownerEmail": "thaott@fpt.edu.vn",
+    "viewCount": 98,
+    "savedBy": [],
+    "reports": [],
+    "createdAt": "2026-10-27T07:00:00.000Z",
+    "updatedAt": "2026-10-27T14:15:00.000Z"
+  },
+  {
+    "_id": "pass_sample_3",
+    "id": "pass_sample_3",
+    "title": "Phòng homestay cao cấp gần ĐH Y Dược Cần Thơ - Sang cọc bảo lưu ưu đãi",
+    "description": "Nhóm bạn học chung tốt nghiệp đi làm ở bệnh viện khác nên mình cần nhượng lại phòng 2 người ở. Đã đóng tiền cọc 3.000.000đ, sang lại với giá 2.200.000đ (tiết kiệm được 800.000đ). Môi trường cực kỳ yên tĩnh để học tập.",
+    "address": "Đường Nguyễn Văn Linh, Phường An Khánh, Quận Ninh Kiều, Cần Thơ",
+    "campus": "ĐH Y Dược",
+    "area_sqm": 30,
+    "room_type": "Homestay sinh viên",
+    "images": [
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1540518614846-7ede433c4ef4?auto=format&fit=crop&w=800&q=80"
+    ],
+    "contractImages": [],
+    "monthlyRent": 3200000,
+    "passPrice": 2200000,
+    "depositAmount": 3000000,
+    "remainingMonths": 6,
+    "moveInDate": "2026-11-15T00:00:00.000Z",
+    "isFlexibleMoveIn": true,
+    "amenities": [
+      "Máy lạnh",
+      "Tủ lạnh",
+      "Bếp chung",
+      "Máy nước nóng",
+      "Chỗ để xe rộng"
+    ],
+    "rules": [
+      "Không gây ồn sau 22h",
+      "Không hút thuốc lá trong phòng"
+    ],
+    "landlordName": "Anh Đỗ Quốc Tuấn",
+    "landlordPhone": "0939556677",
+    "landlordEmail": "tuandq.homestay@gmail.com",
+    "status": "pending_landlord",
+    "landlordConfirmation": {
+      "tokenHash": "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+      "expiresAt": "2026-11-10T12:00:00.000Z",
+      "confirmedAt": null,
+      "note": ""
+    },
+    "owner": "651a1b2c3d4e5f6a7b8c9d03",
+    "posterName": "Lê Văn Đạt (K46 Y Dược)",
+    "posterPhone": "0912334455",
+    "ownerEmail": "datlevan@ctump.edu.vn",
+    "viewCount": 45,
+    "savedBy": [],
+    "reports": [],
+    "createdAt": "2026-10-28T09:00:00.000Z",
+    "updatedAt": "2026-10-28T09:00:00.000Z"
+  },
+  {
+    "_id": "6aad186f1f34d48876cf6303",
+    "id": "6aad186f1f34d48876cf6303",
+    "title": "SmartStay Pass: Sang nhượng phòng ban công view thoáng (còn cọc 2 tháng)",
+    "description": "Mình cần chuyển sang làm việc ở TP.HCM nên pass lại phòng hợp đồng còn 5 tháng. Đã đóng cọc 2 tháng, để lại toàn bộ tủ lạnh và bàn học.",
+    "address": "Đường Nguyễn Văn Cừ nối dài, An Bình, Ninh Kiều, Cần Thơ",
+    "campus": "FPT Can Tho",
+    "area_sqm": 28,
+    "room_type": "Căn hộ mini / Studio",
+    "images": [
+      "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80"
+    ],
+    "contractImages": [],
+    "monthlyRent": 2800000,
+    "passPrice": 5600000,
+    "depositAmount": 5600000,
+    "remainingMonths": 5,
+    "moveInDate": "2026-10-28T10:37:55.031Z",
+    "isFlexibleMoveIn": true,
+    "amenities": [
+      "Máy lạnh",
+      "Tủ lạnh",
+      "Máy nước nóng",
+      "Tủ quần áo",
+      "Cách âm"
+    ],
+    "rules": [],
+    "landlordName": "Chủ trọ",
+    "landlordPhone": "0987654321",
+    "landlordEmail": "",
+    "status": "pending_landlord",
+    "landlordConfirmation": {
+      "tokenHash": "04039f6f2f9e6e7910c2ea732383ca5630f5e5b302890a3fc390eb9fc169398d",
+      "expiresAt": "2026-10-31T10:37:55.031Z",
+      "confirmedAt": null,
+      "note": ""
+    },
+    "owner": "651a1b2c3d4e5f6a7b8c9d01",
+    "posterName": "Sinh viên",
+    "posterPhone": "0987654321",
+    "ownerEmail": "",
+    "viewCount": 0,
+    "savedBy": [],
+    "reports": [],
+    "createdAt": "2026-10-25T05:41:43.394Z",
+    "updatedAt": "2026-10-28T10:37:55.031Z"
+  }
+]

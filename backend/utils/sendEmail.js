@@ -253,6 +253,174 @@ LƯU Ý: Tuyệt đối KHÔNG chia sẻ mã này cho bất kỳ ai.
     return await transporter.sendMail(mailOptions);
 };
 
-module.exports = {
-    sendOtpEmail
+/**
+ * Gửi email link xác nhận Pass phòng đến Chủ trọ
+ * @param {Object} params
+ * @param {string} params.to - Email chủ trọ
+ * @param {string} params.landlordName - Tên chủ trọ
+ * @param {string} params.tenantName - Tên người đang thuê (người pass)
+ * @param {string} params.roomTitle - Tên phòng / địa chỉ
+ * @param {string} params.confirmLink - Link xác nhận /xac-nhan-pass/:token
+ * @param {number} params.depositAmount - Tiền cọc đã đóng
+ * @param {number} params.monthlyRent - Tiền thuê mỗi tháng
+ * @param {string} [params.moveInDate] - Ngày muốn chuyển
+ * @returns {Promise<Object>}
+ */
+const sendLandlordPassEmail = async ({
+    to,
+    landlordName,
+    tenantName,
+    roomTitle,
+    confirmLink,
+    depositAmount,
+    monthlyRent,
+    moveInDate
+}) => {
+    if (!to) {
+        console.log('ℹ️ [sendLandlordPassEmail] Không có email chủ trọ, bỏ qua bước gửi mail.');
+        return { success: false, reason: 'no_email' };
+    }
+
+    const subject = `[SmartStay] Yêu cầu xác nhận chuyển nhượng cọc phòng: ${roomTitle}`;
+    const textContent = `Kính gửi ${landlordName || 'Chủ trọ'},\n\nSinh viên ${tenantName || 'đang thuê'} đã gửi yêu cầu chuyển nhượng (pass) phòng trọ "${roomTitle}" trên nền tảng SmartStay Cần Thơ.\nTiền cọc hiện tại: ${Number(depositAmount || 0).toLocaleString()}đ.\nGiá thuê: ${Number(monthlyRent || 0).toLocaleString()}đ/tháng.\nNgày muốn chuyển: ${moveInDate || 'Linh hoạt'}.\n\nVui lòng truy cập đường dẫn sau để xem chi tiết và xác nhận hoặc từ chối (link có hiệu lực 72 giờ và chỉ sử dụng 1 lần):\n${confirmLink}\n\nTrân trọng,\nĐội ngũ SmartStay Cần Thơ`;
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #fdfbf7; margin: 0; padding: 20px; color: #1e293b; }
+            .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid #f4ebd9; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+            .header { background: #f97316; padding: 28px 24px; text-align: center; color: #ffffff; }
+            .header h1 { margin: 0; font-size: 22px; font-weight: 800; }
+            .header p { margin: 6px 0 0; font-size: 14px; opacity: 0.9; }
+            .body { padding: 28px 24px; }
+            .info-card { background: #fdfbf7; border: 1px solid #f4ebd9; border-radius: 14px; padding: 18px; margin: 20px 0; }
+            .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e2e8f0; font-size: 14px; }
+            .row:last-child { border-bottom: none; }
+            .label { color: #64748b; font-weight: 500; }
+            .val { font-weight: 700; color: #0f172a; text-align: right; }
+            .btn-wrap { text-align: center; margin: 28px 0 20px; }
+            .btn { display: inline-block; background: #f97316; color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 700; padding: 14px 32px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3); }
+            .notice { font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.5; margin-top: 16px; }
+            .footer { padding: 18px; text-align: center; font-size: 12px; color: #94a3b8; background: #fafaf9; border-top: 1px solid #f1f5f9; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🏠 SmartStay Cần Thơ</h1>
+                <p>Yêu cầu xác nhận chuyển nhượng phòng từ người thuê</p>
+            </div>
+            <div class="body">
+                <p>Kính gửi <strong>${landlordName || 'Chủ trọ'}</strong>,</p>
+                <p>Sinh viên <strong>${tenantName || 'đang thuê'}</strong> vừa tạo yêu cầu chuyển nhượng (pass) phòng trọ trên hệ thống SmartStay. Để đảm bảo quyền lợi và bảo vệ an toàn cho cả hai bên, tin pass phòng sẽ chỉ được công khai sau khi có sự đồng ý của Quý chủ trọ.</p>
+                
+                <div class="info-card">
+                    <div class="row">
+                        <span class="label">Phòng / Địa chỉ:</span>
+                        <span class="val">${roomTitle}</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Người thuê hiện tại:</span>
+                        <span class="val">${tenantName || 'Sinh viên'}</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Tiền cọc đã đóng:</span>
+                        <span class="val" style="color: #059669;">${Number(depositAmount || 0).toLocaleString()} VNĐ</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Giá thuê mỗi tháng:</span>
+                        <span class="val" style="color: #f97316;">${Number(monthlyRent || 0).toLocaleString()} VNĐ</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Ngày muốn chuyển:</span>
+                        <span class="val">${moveInDate || 'Linh hoạt'}</span>
+                    </div>
+                </div>
+
+                <div class="btn-wrap">
+                    <a href="${confirmLink}" class="btn" target="_blank">Xem Chi Tiết & Xác Nhận</a>
+                </div>
+
+                <p class="notice">
+                    🔒 <strong>Lưu ý bảo mật:</strong> Đường dẫn này được mã hóa bảo mật, có hạn dùng trong <strong>72 giờ</strong> và chỉ sử dụng <strong>một lần duy nhất</strong>. Nếu Quý chủ trọ không đồng ý, có thể bấm "Từ chối" kèm lý do.
+                </p>
+            </div>
+            <div class="footer">
+                © SmartStay Cần Thơ — Nền tảng thuê trọ & chuyển nhượng an toàn cho sinh viên.
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    try {
+        // Gửi qua Brevo API nếu có key
+        if (process.env.BREVO_API_KEY) {
+            const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'api-key': process.env.BREVO_API_KEY.trim(),
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sender: { name: 'SmartStay Cần Thơ', email: process.env.BREVO_SENDER_EMAIL || 'smartstay06@gmail.com' },
+                    to: [{ email: to, name: landlordName || 'Chủ trọ' }],
+                    subject,
+                    htmlContent,
+                    textContent
+                })
+            });
+            if (response.ok) return { success: true };
+        }
+
+        // Gửi qua Resend API nếu có key
+        if (process.env.RESEND_API_KEY) {
+            const response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    from: process.env.RESEND_FROM || 'SmartStay Cần Thơ <onboarding@resend.dev>',
+                    to: [to],
+                    subject,
+                    html: htmlContent,
+                    text: textContent
+                })
+            });
+            if (response.ok) return { success: true };
+        }
+
+        // Gửi qua Nodemailer SMTP nếu có thông tin gmail
+        const user = process.env.GMAIL_USER ? process.env.GMAIL_USER.trim() : '';
+        const pass = process.env.GMAIL_APP_PASS ? process.env.GMAIL_APP_PASS.replace(/\s+/g, '') : '';
+        if (user && pass) {
+            const transporter = createTransporter();
+            await transporter.sendMail({
+                from: `"SmartStay Cần Thơ" <${user}>`,
+                to,
+                subject,
+                text: textContent,
+                html: htmlContent
+            });
+            return { success: true };
+        }
+
+        console.log(`📧 [MOCK EMAIL] Đã sinh link duyệt cho chủ trọ (${to}): ${confirmLink}`);
+        return { success: true, mocked: true };
+    } catch (err) {
+        console.warn('⚠️ Lỗi khi gửi email chủ trọ:', err.message);
+        return { success: false, error: err.message };
+    }
 };
+
+module.exports = {
+    sendOtpEmail,
+    sendLandlordPassEmail
+};
+

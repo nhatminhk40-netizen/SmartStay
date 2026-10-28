@@ -25,6 +25,8 @@ import TransporterPortal from '@/pages/TransporterPortal';
 import LandlordConfirmPage from '@/pages/LandlordConfirmPage';
 import RoomDetail from '@/pages/RoomDetail';
 import CompareRooms from '@/pages/CompareRooms';
+import PassRoomDetail from '@/pages/PassRoomDetail';
+import MyPassRooms from '@/pages/MyPassRooms';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -97,6 +99,12 @@ const AuthenticatedApp = () => {
           <Route path="/ghep-ban" element={<Roommates />} />
           <Route path="/chuyen-tro" element={<Transfers />} />
           <Route path="/pass-phong" element={<RoomPass />} />
+          <Route path="/pass-phong/:id" element={<PassRoomDetail />} />
+          <Route path="/pass-phong/cua-toi" element={
+            <ProtectedRoute>
+              <MyPassRooms />
+            </ProtectedRoute>
+          } />
         </Route>
       </Route>
 

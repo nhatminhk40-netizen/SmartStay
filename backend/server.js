@@ -325,6 +325,19 @@ app.use('/api/contracts', contractRoutes);
 const billRoutes = require('./routes/billRoutes');
 app.use('/api/bills', billRoutes);
 
+// Phục vụ tệp tĩnh ảnh tải lên (Pass phòng, Hóa đơn)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Mount SmartStay Pass Room Routes
+const passRoomRoutes = require('./routes/passRoomRoutes');
+const landlordConfirmRoutes = require('./routes/landlordConfirmRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const { startPassRoomCron } = require('./utils/passCron');
+
+app.use('/api/pass-rooms', passRoomRoutes);
+app.use('/api/landlord-confirmation', landlordConfirmRoutes);
+app.use('/api/notifications', notificationRoutes);
+
 
 // Bộ dữ liệu dự phòng (Fallback Data) - Ghi rõ nhãn "Dữ liệu minh họa" để bảo vệ tính trung thực
 const defaultFallbackRooms = [
@@ -2682,4 +2695,6 @@ app.use((err, req, res, next) => {
 // Lắng nghe cổng
 app.listen(PORT, () => {
     console.log(`🚀 SmartStay Backend Server is running on http://localhost:${PORT}`);
+    // Khởi động cron job quét hạn tin Pass phòng
+    startPassRoomCron(() => isDbConnected);
 });

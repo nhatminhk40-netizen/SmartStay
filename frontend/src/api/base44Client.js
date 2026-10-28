@@ -480,6 +480,206 @@ export const base44 = {
       }
     },
 
+    PassRoom: {
+      list: async (params = {}) => {
+        try {
+          const query = new URLSearchParams();
+          if (params.q) query.set('q', params.q);
+          if (params.campus && params.campus !== 'Tất cả') query.set('campus', params.campus);
+          if (params.minPrice) query.set('minPrice', params.minPrice);
+          if (params.maxPrice) query.set('maxPrice', params.maxPrice);
+          if (params.minMonths) query.set('minMonths', params.minMonths);
+          if (params.maxMonths) query.set('maxMonths', params.maxMonths);
+          if (params.verifiedOnly) query.set('verifiedOnly', 'true');
+          if (params.flexibleMoveIn) query.set('flexibleMoveIn', 'true');
+          if (params.sort) query.set('sort', params.sort);
+          if (params.page) query.set('page', params.page);
+          if (params.limit) query.set('limit', params.limit);
+
+          const res = await fetch(`${API_BASE}/pass-rooms?${query.toString()}`);
+          const json = await res.json();
+          if (json.success && json.data) return json;
+          return { success: false, data: [] };
+        } catch (e) {
+          console.warn('PassRoom.list error:', e);
+          return { success: false, data: [] };
+        }
+      },
+
+      get: async (id) => {
+        try {
+          const token = localStorage.getItem('smartstay_token');
+          const headers = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          const res = await fetch(`${API_BASE}/pass-rooms/${id}`, { headers });
+          const json = await res.json();
+          if (json.success && json.data) return json.data;
+          throw new Error(json.message || 'Không tìm thấy phòng pass');
+        } catch (e) {
+          console.warn('PassRoom.get fallback:', e);
+          const localList = JSON.parse(localStorage.getItem('pass_rooms') || '[]');
+          return localList.find(r => r.id === id || r._id === id) || null;
+        }
+      },
+
+      create: async (payload) => {
+        const token = localStorage.getItem('smartstay_token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        let body = payload;
+        // Nếu payload là FormData thì không set Content-Type để browser tự định nghĩa boundary
+        if (!(payload instanceof FormData)) {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify(payload);
+        }
+
+        const res = await fetch(`${API_BASE}/pass-rooms`, {
+          method: 'POST',
+          headers,
+          body
+        });
+        return await res.json();
+      },
+
+      update: async (id, payload) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        return await res.json();
+      },
+
+      delete: async (id) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        return await res.json();
+      },
+
+      myListings: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { success: false, data: [] };
+        try {
+          const res = await fetch(`${API_BASE}/pass-rooms/my/listings`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          return await res.json();
+        } catch (e) {
+          console.warn('PassRoom.myListings error:', e);
+          return { success: false, data: [] };
+        }
+      },
+
+      generateLandlordLink: async (id) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}/landlord-link`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        return await res.json();
+      },
+
+      reserve: async (id, message, phone) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}/reserve`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ message, phone })
+        });
+        return await res.json();
+      },
+
+      respondReservation: async (id, action, note) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}/reserve/respond`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ action, note })
+        });
+        return await res.json();
+      },
+
+      save: async (id) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}/save`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        return await res.json();
+      },
+
+      unsave: async (id) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}/save`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        return await res.json();
+      },
+
+      report: async (id, reason, description) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}/report`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ reason, description })
+        });
+        return await res.json();
+      }
+    },
+
+    LandlordConfirm: {
+      getInfo: async (token) => {
+        try {
+          const res = await fetch(`${API_BASE}/landlord-confirmation/${token}`);
+          return await res.json();
+        } catch (e) {
+          console.warn('LandlordConfirm.getInfo error:', e);
+          return { success: false, message: 'Lỗi kết nối máy chủ' };
+        }
+      },
+
+      respond: async (token, action, note) => {
+        try {
+          const res = await fetch(`${API_BASE}/landlord-confirmation/${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, note })
+          });
+          return await res.json();
+        } catch (e) {
+          console.warn('LandlordConfirm.respond error:', e);
+          return { success: false, message: 'Lỗi gửi xác nhận' };
+        }
+      }
+    },
+
     Appointment: {
       create: async (data) => {
         const res = await fetch(`${API_BASE}/appointments`, {

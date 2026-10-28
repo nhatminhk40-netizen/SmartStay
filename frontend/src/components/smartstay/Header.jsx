@@ -114,6 +114,38 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Tự động đồng bộ thông báo Pass phòng từ server khi người dùng đăng nhập
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifs = async () => {
+      try {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return;
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const res = await fetch(`${apiUrl}/notifications`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const apiNotifs = json.data.map(n => ({
+            id: n._id,
+            title: n.title,
+            desc: n.message,
+            time: 'Mới đây',
+            read: n.read,
+            path: n.link || '/pass-phong/cua-toi',
+            icon: n.type.includes('confirmed') ? ShieldCheck : KeyRound,
+            color: n.type.includes('confirmed') ? 'text-emerald-500 bg-emerald-50' : (n.type.includes('rejected') ? 'text-rose-500 bg-rose-50' : 'text-orange-500 bg-orange-50')
+          }));
+          setNotifications(prev => [...apiNotifs, ...prev.filter(p => !apiNotifs.some(a => a.id === p.id))]);
+        }
+      } catch (e) {
+        // Silent fallback
+      }
+    };
+    fetchNotifs();
+  }, [user]);
+
   const handleMarkAllAsRead = () => {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
@@ -644,6 +676,17 @@ export default function Header() {
                           >
                             <Users className="w-4 h-4 text-slate-500" />
                             <span>Ghép bạn cùng phòng</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenUserMenu(false);
+                              navigate("/pass-phong/cua-toi");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-orange-50 text-slate-700 font-medium transition text-left"
+                          >
+                            <KeyRound className="w-4 h-4 text-[#f97316]" />
+                            <span>Quản lý Pass phòng của tôi</span>
                           </button>
                           <button
                             type="button"
