@@ -14,7 +14,7 @@ export const DEFAULT_HERO = {
   description: "Nền tảng thuê trọ & quản lý minh bạch — bảo vệ người thuê bằng hợp đồng chuẩn, quản lý nghiêm ngặt nhưng dễ dùng cho chủ trọ.",
   badge1: "100% kiểm duyệt phòng trọ",
   badge2: "Sang nhượng cọc an toàn",
-  badge3: "Giá chuyển trọ & dọn phòng niêm yết",
+  badge3: "Hợp đồng & Đặt cọc minh bạch",
   ctaSafeText: "Đăng tin Safe",
   ctaQuizText: "Tìm bạn ở ghép",
   showBadges: true,
@@ -37,7 +37,6 @@ export const DEFAULT_SPECIAL_TOGGLES = {
 export const DEFAULT_QUICK_ACTIONS = [
   { id: "explore", label: "Khám phá", icon: "Compass", action: "explore", enabled: true, desc: "Xem danh sách phòng trọ & căn hộ" },
   { id: "quiz", label: "Ghép bạn", icon: "Users", action: "quiz", enabled: true, desc: "Trắc nghiệm ghép bạn cùng phòng" },
-  { id: "logistics", label: "Chuyển trọ", icon: "Truck", action: "logistics", enabled: true, desc: "Tính giá xe ba gác / tải nhỏ" },
   { id: "pass", label: "Pass phòng", icon: "KeyRound", action: "pass", enabled: true, desc: "Sang nhượng phòng trọ còn cọc" },
   { id: "safe", label: "Đăng tin Safe", icon: "ShieldCheck", action: "safe", enabled: true, desc: "Đăng tin trọ có kiểm duyệt" }
 ];

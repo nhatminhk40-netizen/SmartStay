@@ -38,14 +38,7 @@ const INITIAL_NOTIFICATIONS = [
     read: false,
     action: "quiz"
   },
-  {
-    id: 2,
-    title: "Hỗ trợ chuyển trọ Cần Thơ",
-    desc: "Đội xe ba gác chuyển trọ Ninh Kiều Cần Thơ đang có mã giảm 15% cho bạn.",
-    time: "25 phút trước",
-    read: false,
-    action: "logistics"
-  },
+  
   {
     id: 3,
     title: "Xác minh Safe Badge",
@@ -239,13 +232,7 @@ export default function AppHeader({
             Ghép bạn
           </button>
 
-          <button
-            onClick={onOpenLogistics}
-            className="px-3.5 py-1.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-teal-600 hover:bg-white transition-all flex items-center gap-1.5 focus:outline-none"
-          >
-            <Truck className="w-4 h-4 text-teal-500" />
-            Chuyển trọ
-          </button>
+          
 
           <button
             onClick={onOpenPass}
@@ -465,103 +452,7 @@ export default function AppHeader({
                           {user?.role === "landlord" && user?.verificationStatus === "APPROVED" && (
                             <BadgeCheck className="w-4 h-4 text-amber-300" />
                           )}
-                          {user?.role === "transporter" && (
-                            <BadgeCheck className="w-4 h-4 text-cyan-300" />
-                          )}
-                        </div>
-                        <div className="text-xs text-white/80 flex items-center gap-1">
-                          {user?.role === "landlord" ? (
-                            <span className="flex items-center gap-1">
-                              <Building2 className="w-3.5 h-3.5" />
-                              Chủ nhà trọ · {user?.campus || profile.campus}
-                            </span>
-                          ) : user?.role === "transporter" ? (
-                            <span className="flex items-center gap-1">
-                              <Truck className="w-3.5 h-3.5" />
-                              Đối tác Vận tải · {user?.transporterProfile?.vehicleType || "Tài xế SmartStay"}
-                            </span>
-                          ) : (
-                            <>
-                              <GraduationCap className="w-3.5 h-3.5" />
-                              {profile.campus}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-white/15 flex items-center justify-between text-xs text-white/90">
-                    <div>
-                      {user?.role === "landlord" ? (
-                        <span>Vai trò: <strong className="text-white">Chủ nhà trọ</strong></span>
-                      ) : user?.role === "transporter" ? (
-                        <span>Vai trò: <strong className="text-white">Đối tác Vận tải</strong></span>
-                      ) : (
-                        <span>MSSV: <strong className="text-white">{profile.studentId}</strong></span>
-                      )}
-                    </div>
-                    <div>
-                      {user?.role === "landlord" ? (
-                        <span className={cn(
-                          "px-2 py-0.5 rounded-full text-[11px] font-bold",
-                          user.verificationStatus === "APPROVED" ? "bg-emerald-500/80 text-white" :
-                          user.verificationStatus === "PENDING" ? "bg-amber-400 text-amber-950" :
-                          "bg-rose-500 text-white"
-                        )}>
-                          {user.verificationStatus === "APPROVED" ? "Đã xác minh" :
-                           user.verificationStatus === "PENDING" ? "Chờ duyệt" : "Từ chối"}
-                        </span>
-                      ) : user?.role === "transporter" ? (
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/80 text-white">
-                          ⭐ {user?.transporterProfile?.rating || 5.0} Đã duyệt
-                        </span>
-                      ) : (
-                        <div className="px-2 py-0.5 rounded-full bg-emerald-500/40 text-[11px] font-semibold text-white">
-                          {profile.status}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Profile Quick Details */}
-                <div className="p-3 bg-slate-50 border-b border-slate-100 text-xs space-y-1.5 text-slate-600">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{profile.phone}</span>
-                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">
-                      Đã xác minh
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="truncate">{profile.email}</span>
-                  </div>
-                </div>
-
-                {/* Profile Actions */}
-                <div className="p-2 space-y-1.5">
-                  {user?.role === "admin" && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setShowProfile(false)}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors text-center"
-                    >
-                      <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Trang Quản trị (Admin Portal)</span>
-                    </Link>
-                  )}
-                  {user?.role === "transporter" && (
-                    <Link
-                      to="/chuyen-tro"
-                      onClick={() => setShowProfile(false)}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors text-center shadow-sm"
-                    >
-                      <Truck className="w-3.5 h-3.5" />
-                      <span>Sàn nhận chuyến chuyển trọ (/chuyen-tro)</span>
-                    </Link>
-                  )}
+                          
                   {(user?.role === "landlord" || user?.role === "employee") && (
                     <Link
                       to="/employee"
@@ -675,16 +566,7 @@ export default function AppHeader({
               <Users className="w-4 h-4 text-indigo-600" />
               Ghép bạn
             </button>
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenLogistics();
-              }}
-              className="flex items-center gap-2 p-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 text-xs font-bold text-left"
-            >
-              <Truck className="w-4 h-4 text-teal-600" />
-              Chuyển trọ
-            </button>
+            
             <button
               onClick={() => {
                 setMobileMenuOpen(false);

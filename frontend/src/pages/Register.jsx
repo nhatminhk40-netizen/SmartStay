@@ -627,7 +627,7 @@ export default function Register() {
                 <Label className="text-xs font-bold text-slate-700 mb-2 block uppercase tracking-wider">
                   Bạn tham gia với vai trò gì? <span className="text-rose-500">*</span>
                 </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {/* Option 1: Người thuê */}
                   <button
                     type="button"
@@ -682,25 +682,7 @@ export default function Register() {
                     </div>
                   </button>
 
-                  {/* Option 3: Dịch vụ vận tải (Tạm khóa - Đang phát triển) */}
-                  <div
-                    className="p-3 rounded-2xl border-2 border-slate-200 bg-slate-50/70 text-left relative flex flex-col justify-between opacity-70 cursor-not-allowed select-none transition-all"
-                    title="Tính năng đăng ký Dịch vụ vận tải đang trong quá trình phát triển"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-8 h-8 rounded-xl bg-slate-200/80 flex items-center justify-center text-slate-500">
-                        <Truck className="w-4 h-4" />
-                      </div>
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-[9px] font-bold">
-                        <Lock className="w-2.5 h-2.5" />
-                        Đang phát triển
-                      </span>
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-600">Dịch vụ vận tải</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">Chở đồ, dọn trọ SV</div>
-                    </div>
-                  </div>
+                  
                 </div>
 
                 {selectedRole === "landlord" && (
@@ -712,14 +694,7 @@ export default function Register() {
                   </div>
                 )}
 
-                {selectedRole === "transporter" && (
-                  <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-800 flex items-start gap-2">
-                    <Truck className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600" />
-                    <span>
-                      <strong>Dành cho đối tác vận tải:</strong> Cung cấp thông tin phương tiện để nhận cuốc xe dọn trọ, chở đồ người thuê tại Cần Thơ với thu nhập trực tiếp minh bạch.
-                    </span>
-                  </div>
-                )}
+                
               </div>
 
               {/* GOOGLE SIGN IN (Hỗ trợ 1 chạm cho cả Người thuê & Chủ trọ) */}

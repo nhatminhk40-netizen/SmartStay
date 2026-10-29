@@ -6,7 +6,6 @@ import {
   Plus,
   ShieldCheck,
   Users,
-  Truck,
   KeyRound,
   User,
   LogOut,
@@ -30,22 +29,11 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { label: "Khám phá", path: "/" },
   { label: "Ghép bạn", path: "/ghep-ban" },
-  { label: "Chuyển trọ", path: "/chuyen-tro", badge: "Đang phát triển" },
-  { label: "Pass phòng", path: "/pass-phong" },
+    { label: "Pass phòng", path: "/pass-phong" },
 ];
 
 const INITIAL_NOTIFICATIONS = [
-  {
-    id: 1,
-    title: "Ưu đãi Chuyển trọ & Dọn phòng",
-    desc: "Mã giảm giá TRANTRO15 — Trợ giá 15% khi đặt xe ba gác & xe tải chuyển trọ tuần này.",
-    time: "10 phút trước",
-    read: false,
-    path: "/chuyen-tro",
-    icon: Truck,
-    color: "text-orange-500 bg-orange-50"
-  },
-  {
+    {
     id: 2,
     title: "Gợi ý Bạn cùng phòng",
     desc: "Có 3 người thuê tại Cần Thơ có chỉ số tương thích lối sống >90% với bạn.",
@@ -167,26 +155,7 @@ export default function Header() {
   return (
     <>
       {/* ── BANNER PHÂN BIỆT VAI TRÒ (ĐẢM BẢO KHÔNG DÙNG CHUNG GIAO DIỆN) ── */}
-      {user?.role === "transporter" && (
-        <div className="bg-teal-900 text-teal-100 text-xs py-2 px-4 border-b border-teal-800 sticky top-0 z-50 shadow-md">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-teal-300 shrink-0" />
-              <span>
-                Bác tài <strong className="text-white font-bold">{user.fullName || "Tài xế"}</strong> đang ở giao diện tìm phòng của Người thuê.
-              </span>
-            </div>
-            <Link
-              to="/tai-xe"
-              className="px-3.5 py-1 rounded-full bg-teal-400 hover:bg-teal-300 text-slate-950 font-black text-[11px] whitespace-nowrap transition shadow-sm flex items-center gap-1"
-            >
-              <span>Vào Cổng Nhận Chuyến (/tai-xe)</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-      )}
-
+      
       {user?.role === "landlord" && (
         <div className="bg-orange-900 text-orange-100 text-xs py-2 px-4 border-b border-orange-800 sticky top-0 z-50 shadow-md">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
@@ -352,29 +321,7 @@ export default function Header() {
                       </div>
                     </button>
 
-                    {/* Đặt xe chuyển trọ (Tạm khóa - Đang phát triển) */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOpenPostMenu(false);
-                        navigate("/chuyen-tro");
-                      }}
-                      className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-amber-50 text-left transition-colors group opacity-85"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                        <Truck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-xs font-bold text-slate-800">Đặt xe chuyển trọ & dọn nhà</p>
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                            Đang phát triển
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 leading-tight mt-0.5">Xe ba gác & xe tải giá niêm yết theo km (Tạm khóa)</p>
-                      </div>
-                    </button>
-                  </div>
+                                      </div>
                 </div>
               )}
             </div>
@@ -536,33 +483,7 @@ export default function Header() {
                     {/* Menu items theo đúng từng vai trò (Zero Role Leak) */}
                     <div className="py-1 space-y-0.5 text-xs">
                       {/* VAI TRÒ: TÀI XẾ / ĐỐI TÁC VẬN TẢI */}
-                      {user?.role === "transporter" && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenUserMenu(false);
-                              navigate("/tai-xe");
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 font-bold transition text-left"
-                          >
-                            <Truck className="w-4 h-4 text-teal-700" />
-                            <span>Cổng Tài Xế Điều Phối Chuyến Xe</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenUserMenu(false);
-                              setOpenProfileModal(true);
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
-                          >
-                            <User className="w-4 h-4 text-slate-500" />
-                            <span>Hồ sơ Bác tài & Xe</span>
-                          </button>
-                        </>
-                      )}
-
+                      
                       {/* VAI TRÒ: CHỦ NHÀ TRỌ */}
                       {user?.role === "landlord" && (
                         <>
@@ -627,18 +548,7 @@ export default function Header() {
                             <Building2 className="w-4 h-4 text-orange-600" />
                             <span>Kênh Quản Trị Trọ</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenUserMenu(false);
-                              navigate("/tai-xe");
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-teal-50 text-teal-800 font-medium transition text-left"
-                          >
-                            <Truck className="w-4 h-4 text-teal-600" />
-                            <span>Cổng Tài Xế Vận Tải</span>
-                          </button>
-                          <button
+                                                    <button
                             type="button"
                             onClick={() => {
                               setOpenUserMenu(false);
@@ -688,18 +598,7 @@ export default function Header() {
                             <KeyRound className="w-4 h-4 text-[#f97316]" />
                             <span>Quản lý Pass phòng của tôi</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenUserMenu(false);
-                              navigate("/chuyen-tro");
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
-                          >
-                            <Truck className="w-4 h-4 text-slate-500" />
-                            <span>Dịch vụ chuyển phòng & dọn trọ</span>
-                          </button>
-                          <button
+                                                    <button
                             type="button"
                             onClick={() => {
                               setOpenUserMenu(false);
@@ -816,27 +715,7 @@ export default function Header() {
                   </span>
                 </div>
 
-                {/* Thông tin phương tiện cho Tài xế */}
-                {user?.role === "transporter" && (
-                  <div className="p-3 bg-teal-50/70 border border-teal-200/70 rounded-xl space-y-1.5 text-xs">
-                    <div className="font-bold text-teal-900 flex items-center gap-1.5">
-                      <Truck className="w-4 h-4 text-teal-600" /> Hồ sơ Đối tác Vận tải
-                    </div>
-                    <div className="flex justify-between text-slate-700">
-                      <span>Loại xe:</span>
-                      <span className="font-bold">{user?.transporterProfile?.vehicleType || "Xe ba gác chuyển trọ"}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-700">
-                      <span>Khu vực hoạt động:</span>
-                      <span className="font-bold">{user?.transporterProfile?.operatingArea || "Ninh Kiều / Cái Răng, Cần Thơ"}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-700">
-                      <span>Đánh giá uy tín:</span>
-                      <span className="font-bold text-amber-600">⭐ {user?.transporterProfile?.rating || 5.0} ({user?.transporterProfile?.totalTrips || 1} chuyến)</span>
-                    </div>
-                  </div>
-                )}
-
+                
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                   <span className="text-slate-500">Phương thức đăng nhập:</span>
                   <span className="font-semibold text-slate-800">
