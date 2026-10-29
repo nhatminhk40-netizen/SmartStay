@@ -596,13 +596,16 @@ export default function Roommates() {
         return `Chào ${firstName}, mình thấy bạn đang tìm bạn ở ghép cùng trường ${person.campus || "Cần Thơ"} (ngân sách ~${person.budget}tr/tháng). Mình muốn trao đổi thêm về việc ở ghép nhé!`;
     };
 
-    // Mở hộp thoại nhắn tin
+    // Mở khung chatbox kết nối trực tiếp không gửi tự động
     const handleOpenConnect = (person) => {
-        setSelectedRoommate(person);
-        const msg = generateConnectMessage(person);
-        setCustomMessage(msg.slice(0, 300));
-        setCopiedMessage(false);
-        setSentStatus(false);
+        window.dispatchEvent(
+            new CustomEvent("smartstay:open_chat", {
+                detail: {
+                    recipient: person,
+                    initialMessage: ""
+                }
+            })
+        );
     };
 
     // Sao chép tin nhắn
