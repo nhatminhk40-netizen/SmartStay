@@ -322,10 +322,14 @@ export default function Admin() {
 
   const handleUpdateAppointmentStatus = async (code, newStatus, note = "") => {
     try {
+      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
       const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const res = await fetch(`${API_BASE}/appointments/${code}/status`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` })
+        },
         body: JSON.stringify({
           status: newStatus,
           landlordResponseNote: note || (newStatus === "confirmed" ? "Admin đã duyệt lịch hẹn" : "Admin đã hủy lịch hẹn")
@@ -339,7 +343,7 @@ export default function Admin() {
         showToast(json.message || "Thao tác thất bại", "error");
       }
     } catch (e) {
-      showToast("Lỗi kết nối máy chủ", "error");
+      showToast(e.message || "Lỗi kết nối máy chủ", "error");
     }
   };
 
@@ -538,96 +542,127 @@ export default function Admin() {
       return;
     }
 
-    try {
-      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
-      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-      const id = rejectModal.landlord._id || rejectModal.landlord.id;
-      const pin = sessionAdminPin || sessionStorage.getItem("smartstay_admin_pin") || "";
-      const res = await fetch(`${API_BASE}/admin/landlords/${id}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          "x-admin-pin": pin
-        },
-        body: JSON.stringify({
-          status: "REJECTED",
-          rejectionReason: rejectModal.reason.trim(),
-          adminPin: pin
-        })
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`Đã từ chối duyệt hồ sơ của "${rejectModal.landlord.fullName}".`);
-        setRejectModal({ open: false, landlord: null, reason: "" });
-        if (selectedLandlordDoc && (selectedLandlordDoc._id === id || selectedLandlordDoc.id === id)) {
-          setSelectedLandlordDoc(null);
+    const runReject = async (pin) => {
+      try {
+        const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const id = rejectModal.landlord._id || rejectModal.landlord.id;
+        const res = await fetch(`${API_BASE}/admin/landlords/${id}/status`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            "x-admin-pin": pin
+          },
+          body: JSON.stringify({
+            status: "REJECTED",
+            rejectionReason: rejectModal.reason.trim(),
+            adminPin: pin
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(`Đã từ chối duyệt hồ sơ của "${rejectModal.landlord.fullName}".`);
+          setRejectModal({ open: false, landlord: null, reason: "" });
+          if (selectedLandlordDoc && (selectedLandlordDoc._id === id || selectedLandlordDoc.id === id)) {
+            setSelectedLandlordDoc(null);
+          }
+          fetchLandlords();
+        } else {
+          showToast(json.message || "Không thể từ chối tài khoản", "error");
         }
-        fetchLandlords();
-      } else {
-        showToast(json.message || "Không thể từ chối tài khoản", "error");
+      } catch (err) {
+        showToast(err.message || "Lỗi kết nối máy chủ", "error");
       }
-    } catch (err) {
-      showToast("Lỗi kết nối máy chủ", "error");
+    };
+
+    const pin = sessionAdminPin || sessionStorage.getItem("smartstay_admin_pin") || "";
+    if (pin) {
+      runReject(pin);
+    } else {
+      executeWithAdminPin(`Từ chối hồ sơ "${rejectModal.landlord.fullName}"`, runReject);
     }
   };
 
   const handleCreateLandlordSubmit = async (e) => {
     e.preventDefault();
-    setSubmittingLandlord(true);
-    try {
-      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
-      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-      const res = await fetch(`${API_BASE}/admin/create-landlord`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(landlordForm)
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast("Cấp tài khoản Chủ nhà trọ thành công!");
-        setLandlordForm({
-          fullName: "",
-          phone: "",
-          email: "",
-          password: "",
-          campus: "FPT Can Tho",
-          propertyName: "",
-          propertyAddress: "",
-          note: ""
+    const runCreate = async (pin) => {
+      setSubmittingLandlord(true);
+      try {
+        const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const res = await fetch(`${API_BASE}/admin/create-landlord`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            "x-admin-pin": pin
+          },
+          body: JSON.stringify({ ...landlordForm, adminPin: pin })
         });
-        fetchLandlords();
-      } else {
-        showToast(json.message || "Không thể cấp tài khoản", "error");
+        const json = await res.json();
+        if (json.success) {
+          showToast("Cấp tài khoản Chủ nhà trọ thành công!");
+          setLandlordForm({
+            fullName: "",
+            phone: "",
+            email: "",
+            password: "",
+            campus: "FPT Can Tho",
+            propertyName: "",
+            propertyAddress: "",
+            note: ""
+          });
+          setShowDirectCreateForm(false);
+          fetchLandlords();
+        } else {
+          showToast(json.message || "Không thể cấp tài khoản", "error");
+        }
+      } catch (err) {
+        showToast(err.message || "Lỗi kết nối máy chủ", "error");
+      } finally {
+        setSubmittingLandlord(false);
       }
-    } catch (err) {
-      showToast("Lỗi kết nối máy chủ", "error");
-    } finally {
-      setSubmittingLandlord(false);
+    };
+
+    const pin = sessionAdminPin || sessionStorage.getItem("smartstay_admin_pin") || "";
+    if (pin) {
+      runCreate(pin);
+    } else {
+      executeWithAdminPin("Cấp tài khoản Chủ trọ mới", runCreate);
     }
   };
 
   const handleDeleteLandlord = async (id, name) => {
     if (!window.confirm(`Bạn có chắc chắn muốn thu hồi tài khoản của chủ trọ "${name}"?`)) return;
-    try {
-      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
-      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-      const res = await fetch(`${API_BASE}/admin/landlords/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast("Đã thu hồi tài khoản Chủ trọ.");
-        fetchLandlords();
-      } else {
-        showToast(json.message || "Không thể thu hồi tài khoản", "error");
+    const runDelete = async (pin) => {
+      try {
+        const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const res = await fetch(`${API_BASE}/admin/landlords/${id}?adminPin=${encodeURIComponent(pin)}`, {
+          method: "DELETE",
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            "x-admin-pin": pin
+          }
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast("Đã thu hồi tài khoản Chủ trọ.");
+          fetchLandlords();
+        } else {
+          showToast(json.message || "Không thể thu hồi tài khoản", "error");
+        }
+      } catch (e) {
+        showToast(e.message || "Lỗi kết nối máy chủ", "error");
       }
-    } catch (e) {
-      showToast("Lỗi kết nối máy chủ", "error");
+    };
+
+    const pin = sessionAdminPin || sessionStorage.getItem("smartstay_admin_pin") || "";
+    if (pin) {
+      runDelete(pin);
+    } else {
+      executeWithAdminPin(`Thu hồi tài khoản Chủ trọ "${name}"`, runDelete);
     }
   };
 

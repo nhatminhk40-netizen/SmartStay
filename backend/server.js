@@ -44,7 +44,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://res.cloudinary.com", "https://*.googleusercontent.com", "https://api.dicebear.com"],
-            connectSrc: ["'self'", "http://localhost:5173", "http://localhost:5000", "ws://localhost:5173", "ws://localhost:5000", "wss://localhost:5000", "https://accounts.google.com"],
+            connectSrc: ["'self'", "http://localhost:5173", "http://localhost:5000", "ws://localhost:5173", "ws://localhost:5000", "wss://localhost:5000", "https://accounts.google.com", "https://smart-stay-swart.vercel.app", "https://*.onrender.com", "wss://*.onrender.com", "https://*.vercel.app"],
             frameSrc: ["'self'", "https://accounts.google.com"],
             frameAncestors: ["'self'"],
             formAction: ["'self'"],
@@ -88,14 +88,29 @@ app.use(cors({
     origin: function (origin, callback) {
         // Cho phép request không có origin (server-to-server, mobile app, postman/curl)
         if (!origin) return callback(null, true);
-        if (allowedCorsOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
+        if (
+            allowedCorsOrigins.includes(origin) || 
+            origin.endsWith('.vercel.app') || 
+            origin.endsWith('.onrender.com') ||
+            origin.startsWith('http://localhost:')
+        ) {
             return callback(null, true);
         }
         return callback(new Error('CORS Policy: Nguồn truy cập này không được phép liên kết dữ liệu với SmartStay API.'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+    allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'X-Requested-With', 
+        'Accept', 
+        'x-admin-pin', 
+        'Origin', 
+        'Cache-Control', 
+        'Pragma'
+    ],
+    exposedHeaders: ['Authorization', 'x-admin-pin']
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
