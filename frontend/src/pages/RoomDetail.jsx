@@ -764,7 +764,7 @@ export default function RoomDetail() {
                     {/* Cột phải (5 cols): Nút hành động, Đặt lịch, Hợp đồng & Đánh giá */}
                     <div className="lg:col-span-5 space-y-6">
                         {/* Hộp hành động ghim */}
-                        <div className="bg-white rounded-3xl p-6 border-2 border-accent/20 shadow-lg shadow-accent/5 sticky top-20">
+                        <div className="bg-white rounded-3xl p-6 border-2 border-accent/20 shadow-lg shadow-accent/5 ">
                             {room.price_min && room.price_max && room.price_min !== room.price_max ? (
                                 <>
                                     <div className="text-xs text-muted-foreground mb-1">Khoảng giá các phòng trong khu trọ</div>

@@ -457,7 +457,7 @@ export default function PassRoomDetail() {
           {/* CỘT PHẢI (1/3): Hồ sơ người pass & Nút Hành Động */}
           <div className="space-y-6">
             {/* Box Đặt cọc / Yêu cầu nhận phòng */}
-            <div className="bg-white rounded-3xl p-6 border border-[#f4ebd9] shadow-md sticky top-24 space-y-6">
+            <div className="bg-white rounded-3xl p-6 border border-[#f4ebd9] shadow-md  space-y-6">
               <div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Giá pass nhượng lại</span>
                 <div className="flex items-baseline gap-2 mt-1">
