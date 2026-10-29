@@ -1094,7 +1094,7 @@ export default function Admin() {
     { id: "appointments", label: "Lịch hẹn xem phòng", icon: Calendar, badge: pendingAppointmentsCount },
     { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users, badge: pendingLandlordCount },
     { id: "pass_rooms", label: "Duyệt & Quản lý Pass phòng", icon: KeyRound, badge: pendingPassCount },
-    { id: "transporters", label: "Đối tác Vận tải / Tài xế", icon: Truck },
+    
     { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2 },
     { id: "hero", label: "Quản lý banner (Hero)", icon: ImageIcon },
     { id: "campuses", label: "Danh mục khu vực / Campus", icon: GraduationCap },
