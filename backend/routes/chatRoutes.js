@@ -19,11 +19,11 @@ const escapeRegex = (str) => (str ? str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$
  * 1. LẤY DANH SÁCH CUỘC TRÒ CHUYỆN CỦA MỘT NGƯỜI DÙNG (THEO USERID HOẶC TÊN)
  * GET /api/chat/conversations?userId=...&name=...&phone=...
  */
-router.get('/conversations', async (req, res) => {
+// Hàm dùng chung tìm kiếm hội thoại (dùng cho cả GET và POST search an toàn)
+const handleFindConversations = async (req, res, { userId, name, phone }) => {
     try {
-        const { userId, name, phone } = req.query;
-        if (!userId && !name) {
-            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp userId hoặc name' });
+        if (!userId && !name && !phone) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp thông tin định danh (userId, name hoặc phone)' });
         }
 
         const isDb = req.app.locals.isDbConnected;
@@ -66,11 +66,28 @@ router.get('/conversations', async (req, res) => {
         console.error('Lỗi lấy danh sách cuộc trò chuyện:', error);
         res.status(500).json({ success: false, message: error.message });
     }
+};
+
+/**
+ * 1A. LẤY DANH SÁCH CUỘC TRÒ CHUYỆN (BẢO MẬT: TRUYỀN QUA POST BODY CHỐNG LỘ PII TRÊN URL - CWE-598)
+ * POST /api/chat/conversations/search
+ */
+router.post('/conversations/search', async (req, res) => {
+    const { userId, name, phone } = req.body || {};
+    return handleFindConversations(req, res, { userId, name, phone });
+});
+
+/**
+ * 1B. LẤY DANH SÁCH CUỘC TRÒ CHUYỆN (GET)
+ * GET /api/chat/conversations?userId=...
+ */
+router.get('/conversations', async (req, res) => {
+    const { userId, name, phone } = req.query;
+    return handleFindConversations(req, res, { userId, name, phone });
 });
 
 /**
  * 2. TẠO HOẶC LẤY CUỘC TRÒ CHUYỆN GIỮA 2 NGƯỜI DÙNG
- * POST /api/chat/conversations
  */
 router.post('/conversations', async (req, res) => {
     try {

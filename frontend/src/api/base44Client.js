@@ -273,6 +273,25 @@ const saveClientRooms = (rooms) => {
   } catch (e) {}
 };
 
+// BẢO VỆ DỮ LIỆU CÁ NHÂN (OWASP ZAP - Information Disclosure in localStorage):
+// Loại bỏ triệt để các trường nhạy cảm cao: CCCD/CMND (citizenId, idCard), giấy tờ sở hữu nhà đất (landlordDocuments), hồ sơ bằng lái xe (transporterProfile), passwordHash...
+const sanitizeUserForStorage = (user) => {
+  if (!user || typeof user !== 'object') return null;
+  return {
+    id: user.id || user._id,
+    _id: user._id || user.id,
+    fullName: user.fullName || user.name || '',
+    email: user.email || '',
+    role: user.role || 'student',
+    avatar: user.avatar || '',
+    phone: user.phone || '',
+    campus: user.campus || '',
+    isEmailVerified: Boolean(user.isEmailVerified),
+    phoneVerified: Boolean(user.phoneVerified),
+    verificationStatus: user.verificationStatus || 'APPROVED'
+  };
+};
+
 export const base44 = {
   entities: {
     Room: {
@@ -1816,6 +1835,9 @@ export const base44 = {
     }
   },
 
+
+
+
   auth: {
     getToken: () => localStorage.getItem('smartstay_token'),
     setToken: (token) => {
@@ -1838,7 +1860,7 @@ export const base44 = {
         }
         if (data.access_token) {
           localStorage.setItem('smartstay_token', data.access_token);
-          localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+          localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
         }
         return data;
       } catch (err) {
@@ -1889,7 +1911,7 @@ export const base44 = {
           };
           const fallbackToken = 'jwt_offline_' + btoa(unescape(encodeURIComponent(JSON.stringify(userPayload))));
           localStorage.setItem('smartstay_token', fallbackToken);
-          localStorage.setItem('smartstay_user', JSON.stringify(found));
+          localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(found)));
           return { success: true, access_token: fallbackToken, user: found };
         }
         
@@ -1912,7 +1934,7 @@ export const base44 = {
       }
       if (data.access_token) {
         localStorage.setItem('smartstay_token', data.access_token);
-        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+        localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
       }
       return data;
     },
@@ -1976,7 +1998,7 @@ export const base44 = {
       }
       if (data.access_token) {
         localStorage.setItem('smartstay_token', data.access_token);
-        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+        localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
       }
       return data;
     },
@@ -2082,7 +2104,7 @@ export const base44 = {
       }
       if (data.access_token) {
         localStorage.setItem('smartstay_token', data.access_token);
-        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+        localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
       }
       return data;
     },
@@ -2095,7 +2117,7 @@ export const base44 = {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+          localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
           return data.user;
         }
       } catch (e) {

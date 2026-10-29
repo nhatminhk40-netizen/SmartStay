@@ -32,6 +32,9 @@ const PORT = process.env.PORT || 5000;
 // Tắt thông tin header X-Powered-By để tránh rò rỉ công nghệ server
 app.disable('x-powered-by');
 
+// Tin tưởng reverse proxy (Render / Cloudflare) để nhận diện chính xác giao thức HTTPS và Client IP
+app.set('trust proxy', 1);
+
 // Security Middlewares - Helmet bảo mật HTTP Headers
 app.use(helmet({
     contentSecurityPolicy: {
@@ -68,6 +71,8 @@ app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+    // Đảm bảo mọi kết nối (kể cả WebSocket qua Render proxy) luôn nhận header HSTS
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     next();
 });
 

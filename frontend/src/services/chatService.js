@@ -119,12 +119,24 @@ export const chatService = {
    */
   getConversations: async (userId, name, phone) => {
     try {
-      const params = new URLSearchParams();
-      if (userId) params.set("userId", userId);
-      if (name) params.set("name", name);
-      if (phone) params.set("phone", phone);
+      // Bảo mật chống lộ PII trên URL (OWASP ZAP CWE-598):
+      // Ưu tiên dùng POST /chat/conversations/search để gửi thông tin trong Request Body
+      try {
+        const res = await fetch(`${API_BASE}/chat/conversations/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, name, phone })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) return data.data;
+        }
+      } catch (_) {}
 
-      const res = await fetch(`${API_BASE}/chat/conversations?${params.toString()}`);
+      // Fallback an toàn: Chỉ truyền userId trên query string, TUYỆT ĐỐI không đặt SĐT/tên lên URL
+      const cleanParams = new URLSearchParams();
+      if (userId) cleanParams.set("userId", userId);
+      const res = await fetch(`${API_BASE}/chat/conversations?${cleanParams.toString()}`);
       const data = await res.json();
       return data.success ? data.data : [];
     } catch (e) {
