@@ -533,43 +533,62 @@ export default function Admin() {
     });
   };
 
-  // Xác nhận từ chối hồ sơ
-  const handleRejectLandlordSubmit = async (e) => {
-    if (e) e.preventDefault();
+  // Xác nhận từ chối hồ sơ (Mặc định xóa sạch khỏi hệ thống nếu shouldDelete = true)
+  const handleRejectLandlordSubmit = async (e, shouldDelete = true) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!rejectModal.landlord) return;
-    if (!rejectModal.reason.trim()) {
-      showToast("Vui lòng nhập lý do từ chối hồ sơ!", "error");
-      return;
-    }
 
     const runReject = async (pin) => {
       try {
         const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
         const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
         const id = rejectModal.landlord._id || rejectModal.landlord.id;
-        const res = await fetch(`${API_BASE}/admin/landlords/${id}/status`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-            "x-admin-pin": pin
-          },
-          body: JSON.stringify({
-            status: "REJECTED",
-            rejectionReason: rejectModal.reason.trim(),
-            adminPin: pin
-          })
-        });
-        const json = await res.json();
-        if (json.success) {
-          showToast(`Đã từ chối duyệt hồ sơ của "${rejectModal.landlord.fullName}".`);
-          setRejectModal({ open: false, landlord: null, reason: "" });
-          if (selectedLandlordDoc && (selectedLandlordDoc._id === id || selectedLandlordDoc.id === id)) {
-            setSelectedLandlordDoc(null);
+
+        if (shouldDelete) {
+          // Xóa thẳng hồ sơ khỏi hệ thống ("cho nó bay đi")
+          const res = await fetch(`${API_BASE}/admin/landlords/${id}?adminPin=${encodeURIComponent(pin)}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "x-admin-pin": pin
+            }
+          });
+          const json = await res.json();
+          if (json.success) {
+            showToast(`Đã từ chối và xóa bỏ hồ sơ của "${rejectModal.landlord.fullName}" khỏi hệ thống.`);
+            setRejectModal({ open: false, landlord: null, reason: "" });
+            if (selectedLandlordDoc && (selectedLandlordDoc._id === id || selectedLandlordDoc.id === id)) {
+              setSelectedLandlordDoc(null);
+            }
+            fetchLandlords();
+          } else {
+            showToast(json.message || "Không thể xóa hồ sơ", "error");
           }
-          fetchLandlords();
         } else {
-          showToast(json.message || "Không thể từ chối tài khoản", "error");
+          const res = await fetch(`${API_BASE}/admin/landlords/${id}/status`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+              "x-admin-pin": pin
+            },
+            body: JSON.stringify({
+              status: "REJECTED",
+              rejectionReason: (rejectModal.reason || "Hồ sơ không hợp lệ").trim(),
+              adminPin: pin
+            })
+          });
+          const json = await res.json();
+          if (json.success) {
+            showToast(`Đã từ chối duyệt hồ sơ của "${rejectModal.landlord.fullName}".`);
+            setRejectModal({ open: false, landlord: null, reason: "" });
+            if (selectedLandlordDoc && (selectedLandlordDoc._id === id || selectedLandlordDoc.id === id)) {
+              setSelectedLandlordDoc(null);
+            }
+            fetchLandlords();
+          } else {
+            showToast(json.message || "Không thể từ chối tài khoản", "error");
+          }
         }
       } catch (err) {
         showToast(err.message || "Lỗi kết nối máy chủ", "error");
@@ -2305,7 +2324,7 @@ export default function Admin() {
               {/* FILTER TABS */}
               <div className="flex items-center gap-2 border-b border-[#f4ebd9] pb-3 overflow-x-auto">
                 {[
-                  { id: "ALL", label: `Tất cả (${landlords.length})` },
+                  { id: "ALL", label: `Tất cả (${landlords.filter(l => l.verificationStatus !== "REJECTED").length})` },
                   { id: "PENDING", label: `Chờ duyệt (${landlords.filter(l => l.verificationStatus === "PENDING").length})` },
                   { id: "APPROVED", label: `Đã duyệt (${landlords.filter(l => l.verificationStatus === "APPROVED" || (!l.verificationStatus && l.role === "landlord")).length})` },
                   { id: "REJECTED", label: `Bị từ chối (${landlords.filter(l => l.verificationStatus === "REJECTED").length})` }
@@ -2343,7 +2362,7 @@ export default function Admin() {
                     {landlords
                       .filter((ll) => {
                         const status = ll.verificationStatus || (ll.role === "landlord" ? "APPROVED" : "PENDING");
-                        if (landlordFilter === "ALL") return true;
+                        if (landlordFilter === "ALL") return status !== "REJECTED";
                         return status === landlordFilter;
                       })
                       .map((ll) => {
@@ -2464,6 +2483,18 @@ export default function Admin() {
                                 >
                                   <X className="w-3.5 h-3.5" />
                                   Từ chối
+                                </button>
+                              )}
+
+                              {/* Xóa vĩnh viễn nút (cho tài khoản bị từ chối) */}
+                              {isRejected && (
+                                <button
+                                  onClick={() => handleDeleteLandlord(ll._id || ll.id, ll.fullName)}
+                                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+                                  title="Xóa vĩnh viễn hồ sơ bị từ chối khỏi hệ thống"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Xóa vĩnh viễn
                                 </button>
                               )}
 
@@ -3235,20 +3266,21 @@ export default function Admin() {
               className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20"
             />
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setRejectModal({ open: false, landlord: null, reason: "" })}
-                className="flex-1 py-2.5 rounded-xl text-slate-600 font-bold bg-slate-100 hover:bg-slate-200 transition text-xs"
+                className="py-2.5 px-4 rounded-xl text-slate-600 font-bold bg-slate-100 hover:bg-slate-200 transition text-xs"
               >
                 Hủy
               </button>
               <button
                 type="button"
-                onClick={handleRejectLandlordSubmit}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 transition text-xs shadow-md"
+                onClick={(e) => handleRejectLandlordSubmit(e, true)}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 transition text-xs shadow-md flex items-center justify-center gap-1.5"
               >
-                Xác nhận từ chối
+                <Trash2 className="w-4 h-4" />
+                Từ chối & Xóa khỏi hệ thống
               </button>
             </div>
           </div>

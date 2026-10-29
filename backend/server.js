@@ -2658,12 +2658,12 @@ app.delete('/api/admin/landlords/:id', protect, authorize('admin'), adminIpWhite
     try {
         const { id } = req.params;
         if (isDbConnected) {
-            const deleted = await User.findOneAndDelete({ _id: id, role: 'landlord' });
+            const deleted = await User.findOneAndDelete({ _id: id });
             if (!deleted) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ này.' });
-            return res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ thành công.' });
+            return res.status(200).json({ success: true, message: 'Đã xóa / thu hồi tài khoản Chủ trọ thành công.' });
         }
         const fallbackUsers = req.app.locals.fallbackUsers || [];
-        const idx = fallbackUsers.findIndex(u => (String(u._id) === id || String(u.id) === id) && u.role === 'landlord');
+        const idx = fallbackUsers.findIndex(u => String(u._id) === id || String(u.id) === id);
         if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ.' });
         fallbackUsers.splice(idx, 1);
         res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ.' });
