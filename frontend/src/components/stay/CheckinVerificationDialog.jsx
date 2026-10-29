@@ -355,3 +355,4 @@ export default function CheckinVerificationDialog({ isOpen, onClose, room, onVer
     </div>
   );
 }
+

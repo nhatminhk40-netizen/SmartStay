@@ -652,3 +652,4 @@ export default function LandlordStayManager({ rooms = [] }) {
     </div>
   );
 }
+
