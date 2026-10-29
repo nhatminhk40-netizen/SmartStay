@@ -419,6 +419,10 @@ export default function Register() {
       },
       onError: (err) => {
         setGoogleLoading(false);
+        // Nếu người dùng chủ động đóng popup hoặc hủy, reset loading mà không hiện lỗi đỏ
+        if (err?.code === "POPUP_CLOSED" || err?.message === "popup_closed" || err?.message?.includes("hủy") || err?.message?.includes("closed")) {
+          return;
+        }
         setError(err.message || "Đăng ký bằng Google thất bại.");
       }
     });

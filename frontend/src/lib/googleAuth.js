@@ -122,14 +122,65 @@ export async function triggerGoogleSignIn({ onSuccess, onError, onPromptClientId
   }
 
   try {
+    let isHandled = false;
+    let focusTimer = null;
+    let safetyTimeout = null;
+
+    const cleanupListeners = () => {
+      isHandled = true;
+      if (focusTimer) clearTimeout(focusTimer);
+      if (safetyTimeout) clearTimeout(safetyTimeout);
+      window.removeEventListener("focus", onWindowFocus);
+    };
+
+    const onWindowFocus = () => {
+      // Khi người dùng bấm nút tắt (X) popup của Google hoặc chuyển cửa sổ quay lại
+      focusTimer = setTimeout(() => {
+        if (!isHandled) {
+          cleanupListeners();
+          console.warn("Người dùng đã đóng hoặc hủy cửa sổ Google OAuth.");
+          const cancelErr = new Error("popup_closed");
+          cancelErr.code = "POPUP_CLOSED";
+          onError?.(cancelErr);
+        }
+      }, 800);
+    };
+
+    // Timeout phòng ngừa kẹt loading vĩnh viễn (sau 45s)
+    safetyTimeout = setTimeout(() => {
+      if (!isHandled) {
+        cleanupListeners();
+        const timeoutErr = new Error("popup_closed");
+        timeoutErr.code = "POPUP_CLOSED";
+        onError?.(timeoutErr);
+      }
+    }, 45000);
+
+    // Kích hoạt lắng nghe sự kiện window focus sau khi popup được mở (đợi 1.2s tránh nhận focus sớm)
+    setTimeout(() => {
+      if (!isHandled) {
+        window.addEventListener("focus", onWindowFocus);
+      }
+    }, 1200);
+
     // 3. Khởi tạo Google Token Client chính thức
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: "openid email profile",
+      error_callback: (nonOAuthError) => {
+        cleanupListeners();
+        console.warn("Google OAuth non-OAuth error / closed:", nonOAuthError);
+        const err = new Error("popup_closed");
+        err.code = "POPUP_CLOSED";
+        onError?.(err);
+      },
       callback: async (tokenResponse) => {
+        cleanupListeners();
         if (tokenResponse.error) {
           console.error("Google OAuth error:", tokenResponse);
-          onError?.(new Error(tokenResponse.error_description || tokenResponse.error || "Người dùng đã hủy đăng nhập Google."));
+          const err = new Error(tokenResponse.error_description || tokenResponse.error || "popup_closed");
+          err.code = tokenResponse.error === "popup_closed_by_user" ? "POPUP_CLOSED" : "OAUTH_ERROR";
+          onError?.(err);
           return;
         }
 
