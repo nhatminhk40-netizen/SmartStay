@@ -244,7 +244,7 @@ router.get('/messages/:conversationId', async (req, res) => {
  */
 router.post('/messages', async (req, res) => {
     try {
-        const { conversationId, senderId, senderName, recipientId, recipientName, text, recipientPhone } = req.body;
+        const { conversationId, senderId, senderName, recipientId, recipientName, text, recipientPhone, clientMsgId } = req.body;
         if (!conversationId || !senderId || !recipientId || !text?.trim()) {
             return res.status(400).json({
                 success: false,
@@ -263,6 +263,23 @@ router.post('/messages', async (req, res) => {
         let savedMessage;
 
         if (isDb && mongoose.Types.ObjectId.isValid(conversationId)) {
+            // Chống trùng lặp tại server theo clientMsgId hoặc cùng nội dung trong vòng 3s
+            if (clientMsgId) {
+                const existing = await Message.findOne({ conversationId, clientMsgId });
+                if (existing) {
+                    return res.status(200).json({ success: true, data: existing });
+                }
+            }
+            const duplicateRecent = await Message.findOne({
+                conversationId,
+                senderId: String(senderId),
+                text: text.trim(),
+                createdAt: { $gte: new Date(Date.now() - 3000) }
+            });
+            if (duplicateRecent) {
+                return res.status(200).json({ success: true, data: duplicateRecent });
+            }
+
             savedMessage = await Message.create({
                 conversationId,
                 senderId: String(senderId),
@@ -274,6 +291,7 @@ router.post('/messages', async (req, res) => {
                 detectedPhone,
                 maskedText,
                 redirectZalo: containsSensitiveInfo,
+                clientMsgId: clientMsgId || '',
                 read: false
             });
 
@@ -293,7 +311,23 @@ router.post('/messages', async (req, res) => {
                 await conv.save();
             }
         } else {
-            // Fallback
+            // Fallback in-memory
+            if (clientMsgId) {
+                const existing = fallbackMessages.find(m => String(m.conversationId) === String(conversationId) && m.clientMsgId === clientMsgId);
+                if (existing) {
+                    return res.status(200).json({ success: true, data: existing });
+                }
+            }
+            const duplicateRecent = fallbackMessages.find(m =>
+                String(m.conversationId) === String(conversationId) &&
+                String(m.senderId) === String(senderId) &&
+                m.text === text.trim() &&
+                Math.abs(Date.now() - new Date(m.createdAt || 0).getTime()) < 3000
+            );
+            if (duplicateRecent) {
+                return res.status(200).json({ success: true, data: duplicateRecent });
+            }
+
             savedMessage = {
                 _id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
                 conversationId: String(conversationId),
@@ -306,6 +340,7 @@ router.post('/messages', async (req, res) => {
                 detectedPhone,
                 maskedText,
                 redirectZalo: containsSensitiveInfo,
+                clientMsgId: clientMsgId || '',
                 read: false,
                 createdAt: new Date(),
                 updatedAt: new Date()

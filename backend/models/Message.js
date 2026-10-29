@@ -52,10 +52,14 @@ const messageSchema = new mongoose.Schema({
     read: {
         type: Boolean,
         default: false
+    },
+    clientMsgId: {
+        type: String,
+        default: '',
+        index: true
     }
 }, { timestamps: true });
 
 messageSchema.index({ conversationId: 1, createdAt: 1 });
 
 module.exports = mongoose.model('Message', messageSchema);
-

@@ -168,7 +168,7 @@ export const chatService = {
   /**
    * Gửi tin nhắn đến MongoDB & phát qua Socket
    */
-  sendMessage: async ({ conversationId, senderId, senderName, recipientId, recipientName, text, recipientPhone }) => {
+  sendMessage: async ({ conversationId, senderId, senderName, recipientId, recipientName, text, recipientPhone, clientMsgId }) => {
     try {
       const res = await fetch(`${API_BASE}/chat/messages`, {
         method: "POST",
@@ -180,7 +180,8 @@ export const chatService = {
           recipientId,
           recipientName,
           text,
-          recipientPhone
+          recipientPhone,
+          clientMsgId
         })
       });
       const data = await res.json();

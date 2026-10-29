@@ -98,7 +98,84 @@ export const getConversationKey = (id1, id2, name1 = "", name2 = "") => {
 };
 
 /**
- * Lưu hoặc cập nhật một tin nhắn vào bộ nhớ dùng chung
+ * Kiểm tra xem 2 tin nhắn có phải là cùng một tin hay không
+ * Nhận diện chính xác trường hợp:
+ * - Cùng ID
+ * - Cùng clientMsgId
+ * - Hoặc một bên là mã tạm Optimistic UI (msg_...) và một bên là bản tin chính thức từ MongoDB
+ */
+export const isSameMessage = (msgA, msgB) => {
+  if (!msgA || !msgB) return false;
+
+  const idA = String(msgA._id || msgA.id || "");
+  const idB = String(msgB._id || msgB.id || "");
+  if (idA && idB && idA === idB) return true;
+
+  // So khớp clientMsgId
+  const clientA = msgA.clientMsgId || (idA.startsWith("msg_") ? idA : "");
+  const clientB = msgB.clientMsgId || (idB.startsWith("msg_") ? idB : "");
+  if (clientA && clientB && clientA === clientB) return true;
+  if (clientA && (clientA === idB || clientA === msgB.clientMsgId)) return true;
+  if (clientB && (clientB === idA || clientB === msgA.clientMsgId)) return true;
+
+  // So khớp nội dung và người gửi
+  const textA = (msgA.text || "").trim();
+  const textB = (msgB.text || "").trim();
+  if (!textA || textA !== textB) return false;
+
+  const senderA = (msgA.senderName || msgA.senderId || "").trim().toLowerCase();
+  const senderB = (msgB.senderName || msgB.senderId || "").trim().toLowerCase();
+  if (senderA && senderB && senderA !== senderB) return false;
+
+  // Kiểm tra thời gian gửi
+  const tA = msgA.createdAt ? new Date(msgA.createdAt).getTime() : 0;
+  const tB = msgB.createdAt ? new Date(msgB.createdAt).getTime() : 0;
+  if (!tA || !tB) return true;
+
+  const diff = Math.abs(tA - tB);
+
+  // Nếu một trong hai là mã tạm client và bên kia là server: trong vòng 30s coi là cùng 1 tin
+  const oneIsTemp = idA.startsWith("msg_") || idB.startsWith("msg_") || Boolean(clientA) || Boolean(clientB);
+  if (oneIsTemp && diff < 30000) return true;
+
+  // Nếu cả hai cùng nội dung, cùng người gửi trong vòng 4s: loại bỏ trùng lặp (tránh double-click / sync đúp)
+  if (diff < 4000) return true;
+
+  return false;
+};
+
+/**
+ * Thuật toán loại bỏ tin nhắn trùng lặp tuyệt đối (Deduplication)
+ * Ngăn chặn hiện tượng lặp tin do độ lệch ID giữa bộ nhớ đệm Optimistic và Máy chủ
+ */
+export const deduplicateMessages = (msgList = []) => {
+  if (!Array.isArray(msgList) || msgList.length === 0) return [];
+
+  const result = [];
+  for (const msg of msgList) {
+    if (!msg) continue;
+    const existingIdx = result.findIndex((existing) => isSameMessage(existing, msg));
+    if (existingIdx === -1) {
+      result.push(msg);
+    } else {
+      // Đã có tin nhắn này: Ưu tiên giữ lại bản tin từ Server (có _id chính thức từ MongoDB)
+      const existing = result[existingIdx];
+      const existingIsTemp = String(existing._id || "").startsWith("msg_");
+      const currentIsServer = !String(msg._id || "").startsWith("msg_");
+
+      if (existingIsTemp && currentIsServer) {
+        result[existingIdx] = { ...existing, ...msg };
+      } else {
+        result[existingIdx] = { ...msg, ...existing };
+      }
+    }
+  }
+
+  return result.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+};
+
+/**
+ * Lưu hoặc cập nhật một tin nhắn vào bộ nhớ dùng chung (có chống trùng lặp)
  */
 export const persistMessageToSyncStore = (msg, conversationData) => {
   const store = getStoredMessengerData();
@@ -111,22 +188,30 @@ export const persistMessageToSyncStore = (msg, conversationData) => {
       conversationData?.participantDetails?.find((p) => p.id === msg.recipientId)?.name
     );
 
-  // 1. Thêm tin nhắn vào danh sách tin nhắn của hội thoại
   if (!store.messages[convKey]) {
     store.messages[convKey] = [];
   }
 
-  const existingIdx = store.messages[convKey].findIndex(
-    (m) => String(m._id || m.id) === String(msg._id || msg.id)
-  );
+  // Khử trùng lặp thông minh: So khớp bằng isSameMessage
+  const existingIdx = store.messages[convKey].findIndex((m) => isSameMessage(m, msg));
 
   if (existingIdx !== -1) {
-    store.messages[convKey][existingIdx] = msg;
+    const existing = store.messages[convKey][existingIdx];
+    const existingIsTemp = String(existing._id || "").startsWith("msg_");
+    const incomingIsServer = !String(msg._id || "").startsWith("msg_");
+    if (existingIsTemp && incomingIsServer) {
+      store.messages[convKey][existingIdx] = { ...existing, ...msg };
+    } else {
+      store.messages[convKey][existingIdx] = { ...msg, ...existing };
+    }
   } else {
     store.messages[convKey].push(msg);
   }
 
-  // 2. Cập nhật hoặc thêm cuộc trò chuyện
+  // Đảm bảo toàn bộ danh sách được loại bỏ trùng lặp triệt để
+  store.messages[convKey] = deduplicateMessages(store.messages[convKey]);
+
+  // Cập nhật hoặc thêm cuộc trò chuyện
   const convId = String(conversationData?._id || conversationData?.id || convKey);
   let conv = store.conversations.find(
     (c) => String(c._id || c.id) === convId || c.convKey === convKey
@@ -166,7 +251,7 @@ export const persistMessageToSyncStore = (msg, conversationData) => {
 
   saveStoredMessengerData(store);
 
-  // 3. Kích hoạt sự kiện storage liên tục giữa các tab
+  // Kích hoạt sự kiện storage liên tục giữa các tab
   try {
     localStorage.setItem(
       STORAGE_KEY_PING,
@@ -184,11 +269,12 @@ export const persistMessageToSyncStore = (msg, conversationData) => {
 };
 
 /**
- * Lấy lịch sử tin nhắn của một cuộc hội thoại từ bộ nhớ đồng bộ
+ * Lấy lịch sử tin nhắn của một cuộc hội thoại từ bộ nhớ đồng bộ (đã lọc trùng)
  */
 export const getMessagesFromSyncStore = (convKey) => {
   const store = getStoredMessengerData();
-  return store.messages[convKey] || [];
+  const list = store.messages[convKey] || [];
+  return deduplicateMessages(list);
 };
 
 /**
@@ -228,12 +314,25 @@ export const broadcastTypingStatus = (convKey, senderName, isTyping) => {
  * Đăng ký lắng nghe sự kiện đồng bộ từ các tab khác
  */
 export const subscribeToMessengerSync = (onMessageReceived, onTypingReceived) => {
+  const processedKeys = new Set();
+  const safeNotify = (msg, conv) => {
+    if (!msg || !onMessageReceived) return;
+    const key = `${msg._id || msg.id || ''}_${msg.senderName}_${msg.text}`;
+    if (processedKeys.has(key)) return;
+    processedKeys.add(key);
+    if (processedKeys.size > 200) {
+      const first = processedKeys.values().next().value;
+      processedKeys.delete(first);
+    }
+    onMessageReceived(msg, conv);
+  };
+
   const handleMessage = (event) => {
     const data = event.data;
     if (!data) return;
 
     if (data.type === "SMARTSTAY_NEW_MESSAGE" && onMessageReceived) {
-      onMessageReceived(data.message, data.conversation);
+      safeNotify(data.message, data.conversation);
     } else if (data.type === "SMARTSTAY_TYPING" && onTypingReceived) {
       onTypingReceived(data.convKey, data.senderName, data.isTyping);
     }
@@ -253,7 +352,7 @@ export const subscribeToMessengerSync = (onMessageReceived, onTypingReceived) =>
           const msgs = getMessagesFromSyncStore(ping.convKey);
           const lastMsg = msgs[msgs.length - 1];
           if (lastMsg) {
-            onMessageReceived(lastMsg, null);
+            safeNotify(lastMsg, null);
           }
         }
       } catch (err) {}

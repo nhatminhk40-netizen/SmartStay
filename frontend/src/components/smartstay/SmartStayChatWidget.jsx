@@ -36,7 +36,8 @@ import {
   broadcastNewMessage,
   broadcastTypingStatus,
   subscribeToMessengerSync,
-  getConversationKey
+  getConversationKey,
+  deduplicateMessages
 } from "@/services/messengerSync";
 
 export default function SmartStayChatWidget() {
@@ -135,12 +136,7 @@ export default function SmartStayChatWidget() {
               incomingMsg.recipientName?.toLowerCase() === currentTarget.name?.toLowerCase()));
 
         if (isCurrentConv) {
-          setMessages((prev) => {
-            if (prev.some((m) => String(m._id || m.id) === String(incomingMsg._id || incomingMsg.id))) {
-              return prev;
-            }
-            return [...prev, incomingMsg];
-          });
+          setMessages((prev) => deduplicateMessages([...prev, incomingMsg]));
         }
 
         // Nếu tin nhắn được gửi từ đối phương đến mình
@@ -191,18 +187,18 @@ export default function SmartStayChatWidget() {
       const latestLocal = getMessagesFromSyncStore(currentConvKey);
       if (Array.isArray(latestLocal) && latestLocal.length > 0) {
         setMessages((prev) => {
-          const prevMap = new Set(prev.map((m) => String(m._id || m.id)));
-          const newOnes = latestLocal.filter((m) => !prevMap.has(String(m._id || m.id)));
+          const merged = deduplicateMessages([...prev, ...latestLocal]);
+          const prevIds = new Set(prev.map((m) => String(m._id || m.id)));
+          const reallyNew = merged.filter((m) => !prevIds.has(String(m._id || m.id)));
 
-          if (newOnes.length > 0) {
-            // Có tin nhắn mới được gửi đến từ phía đối phương
-            const lastMsg = newOnes[newOnes.length - 1];
+          if (reallyNew.length > 0) {
+            const lastMsg = reallyNew[reallyNew.length - 1];
             const isFromOther =
               lastMsg.senderName?.toLowerCase() !== currentActor.name?.toLowerCase();
             if (isFromOther) {
               if (soundEnabled) playNotificationSound("receive");
               if (!isOpen || isMinimized) {
-                setUnreadTotal((c) => c + newOnes.length);
+                setUnreadTotal((c) => c + reallyNew.length);
                 toast({
                   title: `💬 ${lastMsg.senderName || "Bạn cùng phòng"} vừa nhắn:`,
                   description: lastMsg.text?.slice(0, 80) || "Tin nhắn mới",
@@ -210,9 +206,8 @@ export default function SmartStayChatWidget() {
                 });
               }
             }
-            return latestLocal;
           }
-          return prev;
+          return merged;
         });
       }
 
@@ -223,22 +218,7 @@ export default function SmartStayChatWidget() {
           .getMessages(convId)
           .then((serverMsgs) => {
             if (Array.isArray(serverMsgs) && serverMsgs.length > 0) {
-              setMessages((prev) => {
-                const prevMap = new Set(prev.map((m) => String(m._id || m.id)));
-                const newFromServer = serverMsgs.filter((m) => !prevMap.has(String(m._id || m.id)));
-                if (newFromServer.length > 0) {
-                  const lastMsg = newFromServer[newFromServer.length - 1];
-                  const isFromOther =
-                    lastMsg.senderName?.toLowerCase() !== currentActor.name?.toLowerCase();
-                  if (isFromOther && soundEnabled) {
-                    playNotificationSound("receive");
-                  }
-                  return [...prev, ...newFromServer].sort(
-                    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-                  );
-                }
-                return prev;
-              });
+              setMessages((prev) => deduplicateMessages([...prev, ...serverMsgs]));
             }
           })
           .catch(() => {});
@@ -264,12 +244,7 @@ export default function SmartStayChatWidget() {
         (String(msg.conversationId) === String(activeConversation._id) ||
           String(msg.conversationId) === String(activeConversation.id))
       ) {
-        setMessages((prev) => {
-          if (prev.some((m) => String(m._id || m.id) === String(msg._id || msg.id))) {
-            return prev;
-          }
-          return [...prev, msg];
-        });
+        setMessages((prev) => deduplicateMessages([...prev, msg]));
       }
       loadConversations();
     };
@@ -287,8 +262,8 @@ export default function SmartStayChatWidget() {
   useEffect(() => {
     if (!currentConvKey) return;
 
-    // Tải tức thì từ bộ nhớ đồng bộ
-    const localMsgs = getMessagesFromSyncStore(currentConvKey);
+    // Tải tức thì từ bộ nhớ đồng bộ (đã lọc trùng)
+    const localMsgs = deduplicateMessages(getMessagesFromSyncStore(currentConvKey));
     setMessages(localMsgs);
 
     if (activeConversation?._id || activeConversation?.id) {
@@ -298,14 +273,7 @@ export default function SmartStayChatWidget() {
         .getMessages(convId)
         .then((serverMsgs) => {
           if (Array.isArray(serverMsgs) && serverMsgs.length > 0) {
-            setMessages((prev) => {
-              const map = new Map();
-              prev.forEach((m) => map.set(String(m._id || m.id), m));
-              serverMsgs.forEach((m) => map.set(String(m._id || m.id), m));
-              return Array.from(map.values()).sort(
-                (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-              );
-            });
+            setMessages((prev) => deduplicateMessages([...prev, ...serverMsgs]));
           }
         })
         .finally(() => setIsLoadingMessages(false));
@@ -446,9 +414,11 @@ export default function SmartStayChatWidget() {
       : text;
 
     const convKey = getConversationKey(sender.id, recipient.id, sender.name, recipient.name);
+    const clientGeneratedId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const newMsg = {
-      _id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      id: `msg_${Date.now()}`,
+      _id: clientGeneratedId,
+      id: clientGeneratedId,
+      clientMsgId: clientGeneratedId,
       conversationId: targetConv?._id || targetConv?.id || `conv_${convKey}`,
       conversationKey: convKey,
       senderId: String(sender.id),
@@ -464,9 +434,9 @@ export default function SmartStayChatWidget() {
       createdAt: new Date().toISOString()
     };
 
-    // Lưu vào store và phát qua tất cả các kênh (BroadcastChannel & Storage Ping)
+    // Lưu vào store và cập nhật state (đã khử trùng lặp)
     persistMessageToSyncStore(newMsg, targetConv);
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => deduplicateMessages([...prev, newMsg]));
     broadcastNewMessage(newMsg, targetConv);
 
     // Gửi nền lên MongoDB nếu có kết nối
@@ -477,7 +447,13 @@ export default function SmartStayChatWidget() {
       recipientId: recipient.id,
       recipientName: recipient.name,
       text,
-      recipientPhone: recipient.phone
+      recipientPhone: recipient.phone,
+      clientMsgId: clientGeneratedId
+    }).then((res) => {
+      if (res?.success && res?.data) {
+        setMessages((prev) => deduplicateMessages([...prev, res.data]));
+        persistMessageToSyncStore(res.data, targetConv);
+      }
     });
 
     loadConversations();
@@ -742,7 +718,7 @@ export default function SmartStayChatWidget() {
                   <div className="text-center py-6 text-slate-400 text-xs">Đang tải tin nhắn...</div>
                 )}
 
-                {messages.map((msg) => {
+                {deduplicateMessages(messages).map((msg) => {
                   const isMe =
                     String(msg.senderId) === String(currentActor.id) ||
                     (msg.senderName &&
