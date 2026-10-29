@@ -101,8 +101,10 @@ export default function LandlordStayManager({ rooms = [], defaultSubTab = 'codes
     if (rooms && rooms.length > 0) {
       setInternalRooms(rooms);
     } else {
-      base44.entities.Room.getAll().then(res => {
-        if (res && res.data && Array.isArray(res.data)) {
+      base44.entities.Room.list().then(res => {
+        if (Array.isArray(res)) {
+          setInternalRooms(res);
+        } else if (res && Array.isArray(res.data)) {
           setInternalRooms(res.data);
         }
       }).catch(err => console.warn('Lỗi tải danh sách phòng fallback:', err));
