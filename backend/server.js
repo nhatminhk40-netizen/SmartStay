@@ -3,6 +3,8 @@ if (dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');
 }
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoose = require('mongoose');
@@ -37,7 +39,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://res.cloudinary.com", "https://*.googleusercontent.com", "https://api.dicebear.com"],
-            connectSrc: ["'self'", "http://localhost:5173", "http://localhost:5000", "ws://localhost:5173", "https://accounts.google.com"],
+            connectSrc: ["'self'", "http://localhost:5173", "http://localhost:5000", "ws://localhost:5173", "ws://localhost:5000", "wss://localhost:5000", "https://accounts.google.com"],
             frameSrc: ["'self'", "https://accounts.google.com"],
             frameAncestors: ["'self'"],
             formAction: ["'self'"],
@@ -90,6 +92,24 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// Khởi tạo HTTP Server & Socket.IO cho tính năng Chat thời gian thực P2P
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: function (origin, callback) {
+            if (!origin) return callback(null, true);
+            if (allowedCorsOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
+                return callback(null, true);
+            }
+            return callback(null, true);
+        },
+        credentials: true
+    }
+});
+app.locals.io = io;
+const { setupChatSocket } = require('./socket/chatSocket');
+setupChatSocket(io);
 
 // Chống tấn công NoSQL Injection (loại bỏ triệt để các operator $ và . khỏi body/query/params khi pentest)
 const sanitizeNoSql = (data) => {
@@ -351,6 +371,10 @@ const { startPassRoomCron } = require('./utils/passCron');
 app.use('/api/pass-rooms', passRoomRoutes);
 app.use('/api/landlord-confirmation', landlordConfirmRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+// Mount Chat Routes (MongoDB Models: Conversation & Message, Realtime P2P)
+const chatRoutes = require('./routes/chatRoutes');
+app.use('/api/chat', chatRoutes);
 
 
 // Bộ dữ liệu dự phòng (Fallback Data) - Ghi rõ nhãn "Dữ liệu minh họa" để bảo vệ tính trung thực
@@ -2707,7 +2731,7 @@ app.use((err, req, res, next) => {
 });
 
 // Lắng nghe cổng
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🚀 SmartStay Backend Server is running on http://localhost:${PORT}`);
     // Khởi động cron job quét hạn tin Pass phòng
     startPassRoomCron(() => isDbConnected);
