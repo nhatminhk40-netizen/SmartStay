@@ -87,10 +87,42 @@ export default function Login() {
         window.location.href = "/";
       }
     } catch (err) {
-      setError(err.message || "Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      const msg = err.message || "";
+      if (msg.includes("Failed to fetch") || msg.includes("chưa được bật")) {
+        setError("Không thể kết nối đến máy chủ Backend (Port 5000). Vui lòng đảm bảo backend đang chạy, hoặc bấm chọn tài khoản mẫu bên dưới để đăng nhập ngay.");
+      } else {
+        setError(msg || "Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleQuickDemoLogin = (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setError("");
+    setLoading(true);
+    base44.auth.loginViaEmailPassword(demoEmail, demoPassword)
+      .then((result) => {
+        const role = result?.user?.role;
+        const returnUrl = safeReturnTo();
+        if (returnUrl && returnUrl !== "/" && !returnUrl.includes("/login")) {
+          window.location.href = returnUrl;
+        } else if (role === "admin") {
+          window.location.href = "/admin";
+        } else if (role === "employee" || role === "landlord") {
+          window.location.href = "/chu-tro";
+        } else if (role === "transporter") {
+          window.location.href = "/tai-xe";
+        } else {
+          window.location.href = "/";
+        }
+      })
+      .catch((err) => {
+        setError(err.message || "Không thể đăng nhập tài khoản thử nghiệm.");
+      })
+      .finally(() => setLoading(false));
   };
 
   const [showClientIdDialog, setShowClientIdDialog] = useState(false);
@@ -389,6 +421,39 @@ export default function Login() {
               Đăng ký miễn phí
             </Link>
           </p>
+
+          {/* Quick Demo Accounts (1 Chạm) */}
+          <div className="mt-8 pt-5 border-t border-border/80">
+            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 text-center flex items-center justify-center gap-1.5">
+              <span>⚡</span> Đăng nhập thử nghiệm nhanh (1 chạm)
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickDemoLogin("admin@smartstay.vn", "admin123")}
+                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-orange-50 hover:border-orange-200 text-xs font-bold text-slate-700 transition flex flex-col items-center gap-0.5 shadow-xs group"
+              >
+                <span className="text-[10px] text-orange-600 font-extrabold uppercase group-hover:scale-105 transition-transform">Admin</span>
+                <span className="truncate max-w-full text-[11px]">Quản trị</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDemoLogin("nhatminhk40@gmail.com", "123456")}
+                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 text-xs font-bold text-slate-700 transition flex flex-col items-center gap-0.5 shadow-xs group"
+              >
+                <span className="text-[10px] text-emerald-600 font-extrabold uppercase group-hover:scale-105 transition-transform">Chủ trọ</span>
+                <span className="truncate max-w-full text-[11px]">Nguyễn Văn A</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDemoLogin("nguoithue@smartstay.vn", "123456")}
+                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-200 text-xs font-bold text-slate-700 transition flex flex-col items-center gap-0.5 shadow-xs group"
+              >
+                <span className="text-[10px] text-blue-600 font-extrabold uppercase group-hover:scale-105 transition-transform">Người thuê</span>
+                <span className="truncate max-w-full text-[11px]">Nguyễn Văn An</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

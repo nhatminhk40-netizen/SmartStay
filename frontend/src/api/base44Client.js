@@ -1404,11 +1404,17 @@ export const base44 = {
           }
         ];
         const found = demoAccounts.find(u => u.email === clean || u.phone === clean);
-        if (found && (password === '123456' || password === 'admin123' || password === 'Sinhvien@123456')) {
+        if (found) {
+          // Khi backend không phản hồi, tự động đăng nhập fallback vào tài khoản mẫu
           const fallbackToken = 'jwt_offline_' + Date.now();
           localStorage.setItem('smartstay_token', fallbackToken);
           localStorage.setItem('smartstay_user', JSON.stringify(found));
           return { success: true, access_token: fallbackToken, user: found };
+        }
+        
+        // Nếu là lỗi mất kết nối máy chủ
+        if (err.name === 'TypeError' || (err.message && err.message.toLowerCase().includes('failed to fetch'))) {
+          throw new Error('Máy chủ Backend (Port 5000) chưa được bật. Vui lòng chạy lệnh npm run dev hoặc chọn tài khoản mẫu bên dưới để đăng nhập nhanh.');
         }
         throw err;
       }
