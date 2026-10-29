@@ -692,7 +692,9 @@
     "isDemo": true,
     "demoNote": "Dữ liệu minh họa SmartStay",
     "seeking_roommate": true,
-    "createdAt": "2026-10-25T05:41:43.394Z"
+    "createdAt": "2026-10-25T05:41:43.394Z",
+    "owner": "usr_admin_001",
+    "ownerEmail": "admin@smartstay.vn"
   },
   {
     "_id": "6aad186f1f34d48876cf6302",
@@ -732,7 +734,9 @@
     "isDemo": true,
     "demoNote": "Dữ liệu minh họa SmartStay",
     "seeking_roommate": false,
-    "createdAt": "2026-10-25T05:41:43.394Z"
+    "createdAt": "2026-10-25T05:41:43.394Z",
+    "owner": "usr_admin_001",
+    "ownerEmail": "admin@smartstay.vn"
   },
   {
     "_id": "6aad186f1f34d48876cf6303",
@@ -781,7 +785,9 @@
     "pass_reason": "Chuyển chỗ thực tập lên TP.HCM",
     "is_boosted": false,
     "seeking_roommate": false,
-    "createdAt": "2026-10-25T05:41:43.394Z"
+    "createdAt": "2026-10-25T05:41:43.394Z",
+    "owner": "usr_admin_001",
+    "ownerEmail": "admin@smartstay.vn"
   },
   {
     "_id": "6aad186f1f34d48876cf6304",
@@ -823,6 +829,8 @@
     "isDemo": true,
     "demoNote": "Dữ liệu minh họa SmartStay",
     "seeking_roommate": true,
-    "createdAt": "2026-10-25T05:41:43.394Z"
+    "createdAt": "2026-10-25T05:41:43.394Z",
+    "owner": "usr_admin_001",
+    "ownerEmail": "admin@smartstay.vn"
   }
 ]

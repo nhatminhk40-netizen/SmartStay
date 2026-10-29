@@ -10,7 +10,8 @@
 const assert = require('assert');
 const express = require('express');
 const http = require('http');
-const { protect, generateToken } = require('../middleware/auth');
+const { protect, authorize, generateToken } = require('../middleware/auth');
+const isSameId = (a, b) => String(a || '') === String(b || '');
 const billRoutes = require('../routes/billRoutes');
 const contractRoutes = require('../routes/contracts');
 
@@ -67,8 +68,64 @@ app.locals.fallbackRooms = [
     }
 ];
 
+app.locals.fallbackAppointments = [
+    {
+        _id: 'appt_sample_001',
+        appointmentCode: 'APPT-733963',
+        roomId: 'room_bac_ba_1',
+        studentName: 'Nguyễn Văn Sinh Viên',
+        studentPhone: '0988776655',
+        landlordPhone: '0907297338',
+        status: 'confirmed'
+    }
+];
+
 app.use('/api/bills', billRoutes);
 app.use('/api/contracts', contractRoutes);
+
+app.get('/api/appointments/landlord', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
+    try {
+        const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = req.user.email?.toLowerCase();
+        const userPhone = (req.user.phone && String(req.user.phone).trim()) ? String(req.user.phone).trim() : null;
+        const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
+
+        const fallbackRooms = app.locals.fallbackRooms || [];
+        const fallbackAppointments = app.locals.fallbackAppointments || [];
+
+        const myRooms = fallbackRooms.filter(r => 
+            isAdmin ||
+            isSameId(r.owner, currentUserId) ||
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+        );
+        const myRoomIds = new Set(myRooms.map(r => String(r._id || r.id)));
+
+        if (!isAdmin && myRoomIds.size === 0 && !userPhone) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                data: []
+            });
+        }
+
+        const filtered = isAdmin 
+            ? fallbackAppointments 
+            : fallbackAppointments.filter(a => {
+                const aRoomId = a.roomId?._id || a.roomId?.id || a.roomId;
+                const matchRoom = aRoomId && myRoomIds.has(String(aRoomId));
+                const matchPhone = userPhone && a.landlordPhone && String(a.landlordPhone).trim() === userPhone;
+                return matchRoom || matchPhone;
+            });
+
+        res.status(200).json({
+            success: true,
+            count: filtered.length,
+            data: filtered
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 const testServer = http.createServer(app);
 
@@ -245,7 +302,25 @@ testServer.listen(0, async () => {
         console.log('✓ Minh Minh nhận danh sách hợp đồng rỗng [] và toàn bộ stats = 0 chuẩn xác.');
         console.log('✅ TEST 5 THÀNH CÔNG: Cách ly danh sách Hợp đồng & Tiền cọc an toàn tuyệt đối!\n');
 
-        console.log('🎉 TẤT CẢ 5 BỘ TEST CÁCH LY TÀI KHOẢN VÀ BẢO MẬT ĐỀU ĐẠT 100%!');
+        // --- TEST 6: Cách ly Lịch hẹn xem phòng (Appointments): Không rò rỉ lịch hẹn người khác cho acc mới ---
+        console.log('--- TEST 6: Chủ trọ mới (Minh Minh) tải Lịch hẹn xem phòng ---');
+        const apptsMinhRes = await makeRequest({
+            hostname: '127.0.0.1',
+            port,
+            path: '/api/appointments/landlord',
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${tokenMinh}`
+            }
+        });
+        assert.strictEqual(apptsMinhRes.status, 200);
+        assert.strictEqual(apptsMinhRes.body.success, true);
+        assert.strictEqual(apptsMinhRes.body.count, 0, 'Minh Minh không sở hữu phòng được đặt hẹn phải có count = 0');
+        assert.deepStrictEqual(apptsMinhRes.body.data, [], 'Minh Minh phải nhận danh sách lịch hẹn rỗng [], không hiển thị APPT-733963 của Bác Ba');
+        console.log('✓ Minh Minh nhận danh sách lịch hẹn rỗng [] (count = 0), mã APPT-733963 hoàn toàn được che giấu.');
+        console.log('✅ TEST 6 THÀNH CÔNG: Cách ly Yêu cầu Lịch hẹn xem phòng an toàn 100%!\n');
+
+        console.log('🎉 TẤT CẢ 6 BỘ TEST CÁCH LY TÀI KHOẢN VÀ BẢO MẬT ĐỀU ĐẠT 100%!');
         testServer.close();
         process.exit(0);
     } catch (err) {

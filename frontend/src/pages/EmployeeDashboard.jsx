@@ -3105,7 +3105,13 @@ export default function EmployeeDashboard() {
         }
       }
 
-      setAppointments(apptsData || []);
+      // Cách ly lịch hẹn: Chủ trọ mới chưa có phòng và không có SĐT -> tuyệt đối không hiển thị lịch hẹn
+      const landlordPhone = user?.phone ? String(user.phone).trim() : null;
+      if (!isDemoAccount && (!roomsRes?.data || roomsRes.data.length === 0) && !landlordPhone) {
+        setAppointments([]);
+      } else {
+        setAppointments(apptsData || []);
+      }
       if (statsRes?.stats) {
         setStats(statsRes.stats);
       } else if (!isDemoAccount && (!roomsRes?.data || roomsRes.data.length === 0)) {
@@ -3128,9 +3134,31 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     loadLandlordData();
-    const data = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
-    setPassRequests(data.filter(r => r.status === "pending_landlord"));
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    try {
+      const data = JSON.parse(localStorage.getItem("pass_rooms") || "[]");
+      const isAdmin = user?.role === "admin" || user?.role === "employee";
+      const uPhone = user?.phone ? String(user.phone).trim() : null;
+      const uEmail = user?.email ? user.email.toLowerCase().trim() : null;
+      const uId = user?._id || user?.id;
+      const myRoomIds = new Set((realRooms || []).map(r => String(r._id || r.id)));
+
+      const filtered = (data || []).filter(r => {
+        if (r.status !== "pending_landlord") return false;
+        if (isAdmin) return true;
+        const matchPhone = uPhone && r.landlordPhone && String(r.landlordPhone).trim() === uPhone;
+        const matchEmail = uEmail && r.landlordEmail && r.landlordEmail.toLowerCase().trim() === uEmail;
+        const matchOwner = uId && r.owner && String(r.owner) === String(uId);
+        const matchRoom = r.roomId && myRoomIds.has(String(r.roomId));
+        return matchPhone || matchEmail || matchOwner || matchRoom;
+      });
+      setPassRequests(filtered);
+    } catch (_) {
+      setPassRequests([]);
+    }
+  }, [user, realRooms]);
 
   const handleOpenAddProperty = () => {
     setEditingRoom(null);

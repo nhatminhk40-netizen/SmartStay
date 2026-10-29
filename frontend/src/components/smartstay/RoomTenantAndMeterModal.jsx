@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import html2canvas from "html2canvas";
 import QRCode from "qrcode";
 import {
@@ -1241,8 +1242,8 @@ export default function RoomTenantAndMeterModal({
       {/* ══════════════════════════════════════════════════════════════════
           MODAL HÓA ĐƠN TIỀN TRỌ (HỖ TRỢ COPY ẢNH GỬI ZALO & XUẤT PDF)
          ══════════════════════════════════════════════════════════════════ */}
-      {viewingInvoice && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto" style={{ zIndex: 9999 }}>
+      {viewingInvoice && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto" style={{ zIndex: 99999 }}>
           
           {/* CSS tối ưu cho in ấn và xuất PDF */}
           <style>{`

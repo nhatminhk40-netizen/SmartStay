@@ -897,26 +897,52 @@ app.get('/api/rooms/landlord/stats', protect, authorize('landlord', 'admin', 'em
         let myContracts = [];
         let pendingAppointmentsCount = 0;
 
+        const userPhone = (req.user.phone && String(req.user.phone).trim()) ? String(req.user.phone).trim() : null;
+
         if (isDbConnected) {
             const roomQuery = isAdmin ? {} : {
-                $or: [{ owner: currentUserId }, { ownerEmail: currentUserEmail }]
+                $or: [{ owner: currentUserId }, ...(currentUserEmail ? [{ ownerEmail: currentUserEmail }] : [])]
             };
             myRooms = await Room.find(roomQuery);
 
-            const contractQuery = isAdmin ? {} : { landlord: currentUserId };
+            const contractQuery = isAdmin ? {} : {
+                $or: [{ landlord: currentUserId }, ...(currentUserEmail ? [{ landlordEmail: currentUserEmail }] : [])]
+            };
             const Contract = mongoose.model('Contract');
             myContracts = await Contract.find(contractQuery);
 
             const roomIds = myRooms.map(r => r._id);
-            pendingAppointmentsCount = await Appointment.countDocuments({
-                $or: [
-                    { roomId: { $in: roomIds }, status: 'pending_landlord' },
-                    { landlordPhone: req.user.phone, status: 'pending_landlord' }
-                ]
-            });
+            const apptConditions = [];
+            if (roomIds.length > 0) {
+                apptConditions.push({ roomId: { $in: roomIds }, status: 'pending_landlord' });
+            }
+            if (userPhone) {
+                apptConditions.push({ landlordPhone: userPhone, status: 'pending_landlord' });
+            }
+            if (isAdmin) {
+                pendingAppointmentsCount = await Appointment.countDocuments({ status: 'pending_landlord' });
+            } else if (apptConditions.length > 0) {
+                pendingAppointmentsCount = await Appointment.countDocuments({ $or: apptConditions });
+            } else {
+                pendingAppointmentsCount = 0;
+            }
         } else {
-            myRooms = fallbackRooms;
-            pendingAppointmentsCount = fallbackAppointments.filter(a => a.status === 'pending_landlord').length;
+            myRooms = isAdmin 
+                ? fallbackRooms 
+                : fallbackRooms.filter(r => 
+                    isSameId(r.owner, currentUserId) || 
+                    (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+                );
+            const myRoomIds = new Set(myRooms.map(r => String(r._id || r.id)));
+            pendingAppointmentsCount = isAdmin 
+                ? fallbackAppointments.filter(a => a.status === 'pending_landlord').length
+                : fallbackAppointments.filter(a => {
+                    if (a.status !== 'pending_landlord') return false;
+                    const aRoomId = a.roomId?._id || a.roomId?.id || a.roomId;
+                    const matchRoom = aRoomId && myRoomIds.has(String(aRoomId));
+                    const matchPhone = userPhone && a.landlordPhone && String(a.landlordPhone).trim() === userPhone;
+                    return matchRoom || matchPhone;
+                }).length;
         }
 
         const totalRooms = myRooms.length;
@@ -2825,23 +2851,40 @@ app.get('/api/appointments/landlord', protect, authorize('landlord', 'admin', 'e
     try {
         const currentUserId = req.user._id || req.user.id;
         const currentUserEmail = req.user.email?.toLowerCase();
+        const userPhone = (req.user.phone && String(req.user.phone).trim()) ? String(req.user.phone).trim() : null;
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
 
         if (isDbConnected) {
             let roomIds = [];
             if (!isAdmin) {
                 const myRooms = await Room.find({
-                    $or: [{ owner: currentUserId }, { ownerEmail: currentUserEmail }]
+                    $or: [
+                        { owner: currentUserId },
+                        ...(currentUserEmail ? [{ ownerEmail: currentUserEmail }] : [])
+                    ]
                 }).select('_id');
                 roomIds = myRooms.map(r => r._id);
             }
 
-            const query = isAdmin ? {} : {
-                $or: [
-                    { roomId: { $in: roomIds } },
-                    { landlordPhone: req.user.phone }
-                ]
-            };
+            let query = {};
+            if (!isAdmin) {
+                const conditions = [];
+                if (roomIds.length > 0) {
+                    conditions.push({ roomId: { $in: roomIds } });
+                }
+                if (userPhone) {
+                    conditions.push({ landlordPhone: userPhone });
+                }
+                // Nếu chủ trọ chưa có phòng nào và không có SĐT -> Trả về mảng rỗng [] ngay
+                if (conditions.length === 0) {
+                    return res.status(200).json({
+                        success: true,
+                        count: 0,
+                        data: []
+                    });
+                }
+                query = { $or: conditions };
+            }
 
             const appts = await Appointment.find(query)
                 .sort({ createdAt: -1 })
@@ -2854,10 +2897,36 @@ app.get('/api/appointments/landlord', protect, authorize('landlord', 'admin', 'e
             });
         }
 
+        // Chế độ Fallback Local: lọc chặt chẽ theo danh sách phòng sở hữu hoặc số điện thoại của chủ trọ
+        const myRooms = fallbackRooms.filter(r => 
+            isAdmin ||
+            isSameId(r.owner, currentUserId) ||
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+        );
+        const myRoomIds = new Set(myRooms.map(r => String(r._id || r.id)));
+
+        // Nếu chủ trọ không phải admin và không sở hữu phòng nào và không có phone:
+        if (!isAdmin && myRoomIds.size === 0 && !userPhone) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                data: []
+            });
+        }
+
+        const filtered = isAdmin 
+            ? fallbackAppointments 
+            : fallbackAppointments.filter(a => {
+                const aRoomId = a.roomId?._id || a.roomId?.id || a.roomId;
+                const matchRoom = aRoomId && myRoomIds.has(String(aRoomId));
+                const matchPhone = userPhone && a.landlordPhone && String(a.landlordPhone).trim() === userPhone;
+                return matchRoom || matchPhone;
+            });
+
         res.status(200).json({
             success: true,
-            count: fallbackAppointments.length,
-            data: fallbackAppointments
+            count: filtered.length,
+            data: filtered
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

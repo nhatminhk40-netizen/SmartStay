@@ -118,6 +118,7 @@ router.get('/', protect, async (req, res) => {
         const limitNum = Math.max(1, parseInt(limit, 10));
         const isDbConnected = req.app.locals.isDbConnected;
         const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = (req.user.email || '').toLowerCase();
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
         const isStudent = req.user.role === 'student';
 
