@@ -357,25 +357,37 @@ export const base44 = {
               body: JSON.stringify(data)
             });
             const json = await res.json();
-            if (json.data) {
-              FALLBACK_ROOMS.unshift({ ...json.data, id: json.data._id || json.data.id });
-              return json.data;
+            if (res.ok && json.data) {
+              const saved = { ...json.data, id: json.data._id || json.data.id };
+              FALLBACK_ROOMS.unshift(saved);
+              const cur = loadClientRooms();
+              cur.unshift(saved);
+              saveClientRooms(cur);
+              return saved;
             }
-        } catch (e) {
-          console.warn('Create room API fallback:', e);
-        }
-        const newR = {
-          _id: `room_${Date.now()}`,
-          id: `room_${Date.now()}`,
-          ...data,
-          createdAt: new Date()
-        };
-        const currentRooms = loadClientRooms();
-        currentRooms.unshift(newR);
-        saveClientRooms(currentRooms);
-        FALLBACK_ROOMS.unshift(newR);
-        return newR;
-      },
+            if (!res.ok) {
+              console.error('Server error creating room:', json);
+              throw new Error(json.message || json.error || `Lỗi máy chủ (${res.status})`);
+            }
+          } catch (e) {
+            console.warn('Create room API error / fallback:', e);
+            const isNetworkError = e.name === 'TypeError' || (typeof navigator !== 'undefined' && !navigator.onLine);
+            if (!isNetworkError) {
+              throw e;
+            }
+          }
+          const newR = {
+            _id: `room_${Date.now()}`,
+            id: `room_${Date.now()}`,
+            ...data,
+            createdAt: new Date()
+          };
+          const currentRooms = loadClientRooms();
+          currentRooms.unshift(newR);
+          saveClientRooms(currentRooms);
+          FALLBACK_ROOMS.unshift(newR);
+          return newR;
+        },
 
       update: async (id, data) => {
         try {
@@ -473,7 +485,7 @@ export const base44 = {
       },
 
       myRooms: async () => {
-        const token = localStorage.getItem('smartstay_token');
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
         if (!token) return { count: 0, stats: {}, data: [] };
         try {
           const res = await fetch(`${API_BASE}/rooms/my-rooms`, {
@@ -487,7 +499,7 @@ export const base44 = {
       },
 
       landlordStats: async () => {
-        const token = localStorage.getItem('smartstay_token');
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
         if (!token) return { stats: {} };
         try {
           const res = await fetch(`${API_BASE}/rooms/landlord/stats`, {

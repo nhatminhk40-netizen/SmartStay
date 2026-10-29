@@ -1512,9 +1512,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
           return;
         }
 
-        const newRoom = {
-          _id: `room_${Date.now()}`,
-          id: `room_${Date.now()}`,
+        const payload = {
           property_name: activeProp.property_name,
           room_number: singleNumber.trim(),
           title: `${activeProp.property_name} - ${singleNumber.trim()}`,
@@ -1545,14 +1543,11 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
           meterHistory: []
         };
 
-        try {
-          await base44.entities.Room.create(newRoom);
-        } catch (e) {
-          console.warn("Backend create subroom:", e);
-        }
+        const createdRoom = await base44.entities.Room.create(payload);
+        const savedRoom = createdRoom || { ...payload, _id: `room_${Date.now()}`, id: `room_${Date.now()}` };
 
-        alert(`🎉 Đã thêm thành công phòng "${newRoom.room_number}" vào khu trọ "${activeProp.property_name}"!`);
-        onSuccess?.(newRoom);
+        alert(`🎉 Đã thêm thành công phòng "${singleNumber.trim()}" vào khu trọ "${activeProp.property_name}"!`);
+        onSuccess?.(savedRoom);
         onClose();
       } else {
         // Bulk mode
@@ -1577,8 +1572,6 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
         for (let i = fromNum; i <= toNum; i++) {
           const rNum = `${bulkPrefix}${i}`;
           const rObj = {
-            _id: `room_${baseTs}_${i}`,
-            id: `room_${baseTs}_${i}`,
             property_name: activeProp.property_name,
             room_number: rNum,
             title: `${activeProp.property_name} - ${rNum}`,
@@ -1603,11 +1596,12 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
             tenant: null,
             meterHistory: []
           };
-          generatedRooms.push(rObj);
           try {
-            await base44.entities.Room.create(rObj);
-          } catch (e) {
-            console.warn("Backend bulk create subroom:", e);
+            const created = await base44.entities.Room.create(rObj);
+            generatedRooms.push(created || { ...rObj, _id: `room_${baseTs}_${i}`, id: `room_${baseTs}_${i}` });
+          } catch (createErr) {
+            console.warn("Lỗi tạo phòng bulk:", createErr);
+            generatedRooms.push({ ...rObj, _id: `room_${baseTs}_${i}`, id: `room_${baseTs}_${i}` });
           }
         }
 
@@ -3045,9 +3039,12 @@ export default function EmployeeDashboard() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          // Nếu không phải tài khoản demo chutro@smartstay.vn, loại bỏ các phòng mẫu có ID số 1, 2, 3
+          // Nếu không phải tài khoản demo chutro@smartstay.vn, loại bỏ các phòng mẫu có ID số 1, 2, 3 nhưng giữ ID Mongo và ID phòng vừa tạo
           if (!isDemoAccount) {
-            return parsed.filter(r => r._id && /^[0-9a-fA-F]{24}$/.test(String(r._id)));
+            return parsed.filter(r => {
+              const idStr = String(r._id || r.id || "");
+              return /^[0-9a-fA-F]{24}$/.test(idStr) || idStr.startsWith("room_");
+            });
           }
           return parsed;
         }
@@ -3095,8 +3092,12 @@ export default function EmployeeDashboard() {
       } else {
         // Tài khoản chủ trọ thật:
         if (roomsRes?.data && roomsRes.data.length > 0) {
-          setRealRooms(roomsRes.data);
-          saveStoredLandlordRooms(userId, roomsRes.data);
+          // QUAN TRỌNG: Kết hợp phòng trả về từ backend cùng các phòng mới tạo trong local stored để tránh mất phòng
+          const backendIds = new Set(roomsRes.data.map(r => String(r._id || r.id)));
+          const extraStored = (stored || []).filter(r => !backendIds.has(String(r._id || r.id)));
+          const merged = [...roomsRes.data, ...extraStored];
+          setRealRooms(merged);
+          saveStoredLandlordRooms(userId, merged);
         } else if (stored && stored.length > 0) {
           setRealRooms(stored);
         } else {
@@ -3232,6 +3233,14 @@ export default function EmployeeDashboard() {
       saveStoredLandlordRooms(userId, updated);
       return updated;
     });
+    if (toAdd.length > 0) {
+      const first = toAdd[0];
+      const pName = (first.property_name && first.property_name.trim()) || first.title || "";
+      const pAddr = (first.address && first.address.trim()) || "";
+      if (pName && pAddr && !selectedPropertyKey) {
+        setSelectedPropertyKey(`${pName}:::${pAddr}`);
+      }
+    }
     loadLandlordData();
   };
 

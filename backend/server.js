@@ -850,15 +850,22 @@ app.get('/api/rooms/my-rooms', protect, authorize('landlord', 'admin', 'employee
     try {
         const currentUserId = req.user._id || req.user.id;
         const currentUserEmail = req.user.email?.toLowerCase();
+        const userPhone = req.user.phone ? String(req.user.phone).trim() : null;
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
 
         if (isDbConnected) {
-            const query = isAdmin ? {} : {
-                $or: [
-                    { owner: currentUserId },
-                    { ownerEmail: currentUserEmail }
-                ]
-            };
+            const orConditions = [];
+            if (currentUserId && mongoose.Types.ObjectId.isValid(currentUserId)) {
+                orConditions.push({ owner: currentUserId });
+            }
+            if (currentUserEmail) {
+                orConditions.push({ ownerEmail: { $regex: new RegExp(`^${currentUserEmail}$`, 'i') } });
+            }
+            if (userPhone) {
+                orConditions.push({ contactPhone: userPhone });
+            }
+
+            const query = isAdmin ? {} : (orConditions.length > 0 ? { $or: orConditions } : { ownerEmail: '__none__' });
 
             const rooms = await Room.find(query).sort({ createdAt: -1 });
 
@@ -883,7 +890,8 @@ app.get('/api/rooms/my-rooms', protect, authorize('landlord', 'admin', 'employee
         const myRooms = fallbackRooms.filter(r => 
             isAdmin ||
             isSameId(r.owner, currentUserId) ||
-            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail) ||
+            (userPhone && r.contactPhone && String(r.contactPhone).trim() === userPhone)
         );
 
         const stats = {
@@ -920,9 +928,17 @@ app.get('/api/rooms/landlord/stats', protect, authorize('landlord', 'admin', 'em
         const userPhone = (req.user.phone && String(req.user.phone).trim()) ? String(req.user.phone).trim() : null;
 
         if (isDbConnected) {
-            const roomQuery = isAdmin ? {} : {
-                $or: [{ owner: currentUserId }, ...(currentUserEmail ? [{ ownerEmail: currentUserEmail }] : [])]
-            };
+            const roomConditions = [];
+            if (currentUserId && mongoose.Types.ObjectId.isValid(currentUserId)) {
+                roomConditions.push({ owner: currentUserId });
+            }
+            if (currentUserEmail) {
+                roomConditions.push({ ownerEmail: { $regex: new RegExp(`^${currentUserEmail}$`, 'i') } });
+            }
+            if (userPhone) {
+                roomConditions.push({ contactPhone: userPhone });
+            }
+            const roomQuery = isAdmin ? {} : (roomConditions.length > 0 ? { $or: roomConditions } : { ownerEmail: '__none__' });
             myRooms = await Room.find(roomQuery);
 
             const contractQuery = isAdmin ? {} : {
@@ -1002,7 +1018,7 @@ app.get('/api/rooms/landlord/stats', protect, authorize('landlord', 'admin', 'em
 });
 
 // 1.3. Cập nhật nhanh tình trạng phòng (Còn phòng / Đã thuê) & Xác nhận minh bạch
-app.patch('/api/rooms/:id/availability', protect, checkRoomOwnership, async (req, res) => {
+app.patch('/api/rooms/:id/availability', protect, async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body; // 'available' | 'rented' | 'repairing'
@@ -1011,13 +1027,27 @@ app.patch('/api/rooms/:id/availability', protect, checkRoomOwnership, async (req
             return res.status(400).json({ success: false, message: 'Trạng thái phòng không hợp lệ.' });
         }
 
+        let targetRoom = null;
+        if (isDbConnected && mongoose.Types.ObjectId.isValid(id)) {
+            targetRoom = await Room.findById(id);
+        } else {
+            targetRoom = fallbackRooms.find(r => isSameId(r._id, id) || isSameId(r.id, id));
+        }
+
+        if (!targetRoom) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
+        }
+
+        if (!checkRoomOwnership(targetRoom, req.user)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền cập nhật trạng thái phòng này.' });
+        }
+
         if (isDbConnected) {
             const room = await Room.findByIdAndUpdate(
                 id,
                 { status, lastAvailabilityConfirmedAt: new Date() },
                 { new: true }
             );
-            if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
             return res.status(200).json({
                 success: true,
                 message: `Đã cập nhật tình trạng phòng: ${status === 'available' ? 'Còn phòng' : (status === 'rented' ? 'Đã cho thuê' : 'Đang sửa chữa')}`,
@@ -1025,12 +1055,11 @@ app.patch('/api/rooms/:id/availability', protect, checkRoomOwnership, async (req
             });
         }
 
-        const room = fallbackRooms.find(r => isSameId(r._id, id) || isSameId(r.id, id));
-        if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
-        room.status = status;
-        room.lastAvailabilityConfirmedAt = new Date();
+        targetRoom.status = status;
+        targetRoom.lastAvailabilityConfirmedAt = new Date();
+        saveFallbackRooms(fallbackRooms);
 
-        res.status(200).json({ success: true, message: 'Đã cập nhật tình trạng phòng (Fallback).', data: room });
+        res.status(200).json({ success: true, message: 'Đã cập nhật tình trạng phòng (Fallback).', data: targetRoom });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -1131,6 +1160,10 @@ app.get('/api/rooms/:id', async (req, res) => {
 app.post('/api/rooms', protect, async (req, res) => {
     try {
         const data = { ...req.body };
+        // QUAN TRỌNG: Loại bỏ _id và id giả lập của client để MongoDB tự sinh ObjectId hợp lệ
+        delete data._id;
+        delete data.id;
+
         if (!data.image_url && data.images && data.images.length > 0) {
             data.image_url = data.images[0];
         }
@@ -1155,7 +1188,13 @@ app.post('/api/rooms', protect, async (req, res) => {
         data.isDemo = req.body.isDemo !== undefined ? req.body.isDemo : false;
         data.isSurveyed = req.body.isSurveyed !== undefined ? req.body.isSurveyed : true;
         data.verificationStatus = data.safe_badge || data.isSurveyed ? 'verified' : (req.body.verificationStatus || 'unverified');
-        data.owner = req.user?._id || req.user?.id;
+
+        const validUserId = req.user?._id || req.user?.id;
+        if (validUserId && mongoose.Types.ObjectId.isValid(validUserId)) {
+            data.owner = validUserId;
+        } else {
+            delete data.owner;
+        }
         data.ownerEmail = req.user?.email || '';
         data.lastAvailabilityConfirmedAt = new Date();
 
@@ -1174,6 +1213,7 @@ app.post('/api/rooms', protect, async (req, res) => {
         saveFallbackRooms(fallbackRooms);
         res.status(201).json({ success: true, data: newRoom });
     } catch (error) {
+        console.error('Lỗi POST /api/rooms:', error);
         res.status(400).json({ success: false, error: error.message });
     }
 });
@@ -1190,10 +1230,18 @@ app.post('/api/rooms/pass', protect, async (req, res) => {
             isSafeBadge: false,
             safe_badge: false,
             verificationStatus: 'unverified',
-            owner: req.user._id || req.user.id,
-            ownerEmail: req.user.email || '',
+            ownerEmail: req.user?.email || '',
             lastAvailabilityConfirmedAt: new Date()
         };
+        delete passData._id;
+        delete passData.id;
+
+        const validUserId = req.user?._id || req.user?.id;
+        if (validUserId && mongoose.Types.ObjectId.isValid(validUserId)) {
+            passData.owner = validUserId;
+        } else {
+            delete passData.owner;
+        }
 
         if (isDbConnected) {
             const room = await Room.create(passData);
