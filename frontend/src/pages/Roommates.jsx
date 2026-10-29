@@ -41,6 +41,8 @@ import { ToastAction } from "@/components/ui/toast";
 import { formatGender } from "@/utils/genderLabel";
 import { calcCompatibility, normalizeGender } from "@/utils/compatibility";
 import { roommateApi } from "@/services/roommateApi";
+import { checkHasRecipientReplied } from "@/services/messengerSync";
+import { getCurrentChatIdentity } from "@/services/chatService";
 
 const campuses = ["ĐH Cần Thơ", "ĐH Y Dược", "ĐH Nam Cần Thơ", "ĐH FPT"];
 const PAGE_SIZE = 12;
@@ -596,16 +598,13 @@ export default function Roommates() {
         return `Chào ${firstName}, mình thấy bạn đang tìm bạn ở ghép cùng trường ${person.campus || "Cần Thơ"} (ngân sách ~${person.budget}tr/tháng). Mình muốn trao đổi thêm về việc ở ghép nhé!`;
     };
 
-    // Mở khung chatbox kết nối trực tiếp không gửi tự động
+    // Mở hộp thoại nhắn tin
     const handleOpenConnect = (person) => {
-        window.dispatchEvent(
-            new CustomEvent("smartstay:open_chat", {
-                detail: {
-                    recipient: person,
-                    initialMessage: ""
-                }
-            })
-        );
+        setSelectedRoommate(person);
+        const msg = generateConnectMessage(person);
+        setCustomMessage(msg.slice(0, 300));
+        setCopiedMessage(false);
+        setSentStatus(false);
     };
 
     // Sao chép tin nhắn
@@ -615,9 +614,20 @@ export default function Roommates() {
         setTimeout(() => setCopiedMessage(false), 2200);
     };
 
-    // Mở liên kết nhắn tin Zalo
+    // Mở liên kết nhắn tin Zalo (Chỉ cho phép khi đối phương đã phản hồi)
     const handleOpenZalo = () => {
         if (!selectedRoommate) return;
+        const myIdentity = getCurrentChatIdentity(user);
+        const hasReplied = checkHasRecipientReplied(
+            myIdentity.id,
+            myIdentity.name,
+            selectedRoommate.id || selectedRoommate._id,
+            selectedRoommate.name
+        );
+        if (!hasReplied) {
+            alert("🔒 Bạn chỉ có thể mở Zalo sau khi đối phương phản hồi trong Chat SmartStay để bảo mật riêng tư.");
+            return;
+        }
         const phone = selectedRoommate.rawContact || selectedRoommate.contact || "";
         const cleanPhone = phone.replace(/[^0-9]/g, "");
         if (cleanPhone && cleanPhone.length >= 9) {
@@ -1402,28 +1412,40 @@ export default function Roommates() {
                         {/* Các hành động kết nối */}
                         <div className="space-y-2.5">
                             {/* Nút Zalo: Chỉ hiển thị hoạt động khi người nhận bật cho phép hoặc đã phản hồi */}
-                            {selectedRoommate.allowZalo || selectedRoommate.allowShareContact || selectedRoommate.hasRepliedInChat ? (
-                                <button
-                                    type="button"
-                                    onClick={handleOpenZalo}
-                                    className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                                >
-                                    <ExternalLink className="w-4 h-4" /> Mở Zalo nhắn tin trực tiếp
-                                </button>
-                            ) : (
-                                <div className="space-y-1">
-                                    <button
-                                        type="button"
-                                        disabled
-                                        className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs flex items-center justify-center gap-2 border border-slate-200 cursor-not-allowed opacity-80"
-                                    >
-                                        <ExternalLink className="w-4 h-4 text-slate-300" /> Mở Zalo nhắn tin trực tiếp
-                                    </button>
-                                    <p className="text-[10px] text-center text-slate-400 italic">
-                                        🔒 Hiện sau khi bạn ấy phản hồi trong Chat SmartStay
-                                    </p>
-                                </div>
-                            )}
+                            {(() => {
+                                const myIdentity = getCurrentChatIdentity(user);
+                                const hasReplied = checkHasRecipientReplied(
+                                    myIdentity.id,
+                                    myIdentity.name,
+                                    selectedRoommate.id || selectedRoommate._id,
+                                    selectedRoommate.name
+                                );
+                                if (hasReplied) {
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={handleOpenZalo}
+                                            className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                                        >
+                                            <ExternalLink className="w-4 h-4" /> Mở Zalo nhắn tin trực tiếp
+                                        </button>
+                                    );
+                                }
+                                return (
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs flex items-center justify-center gap-2 border border-slate-200 cursor-not-allowed opacity-80"
+                                        >
+                                            <ExternalLink className="w-4 h-4 text-slate-300" /> Mở Zalo nhắn tin trực tiếp
+                                        </button>
+                                        <p className="text-[10px] text-center text-slate-400 italic">
+                                            🔒 Hiện sau khi bạn ấy phản hồi trong Chat SmartStay
+                                        </p>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="flex gap-2">
                                 <button

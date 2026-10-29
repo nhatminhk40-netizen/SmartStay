@@ -77,6 +77,20 @@ export default function SmartStayChatWidget() {
     ? getConversationKey(currentActor.id, currentTarget.id, currentActor.name, currentTarget.name)
     : "";
 
+  // Kiểm tra xem đối phương đã từng gửi ít nhất 1 tin nhắn phản hồi trong cuộc trò chuyện hay chưa
+  const hasOtherReplied = React.useMemo(() => {
+    if (!messages || messages.length === 0) return false;
+    const actorId = String(currentActor?.id || "");
+    const actorName = String(currentActor?.name || "").trim().toLowerCase();
+
+    return messages.some((m) => {
+      const sId = String(m.senderId || "");
+      const sName = String(m.senderName || "").trim().toLowerCase();
+      const isMe = (actorId && sId === actorId) || (actorName && sName === actorName);
+      return !isMe;
+    });
+  }, [messages, currentActor?.id, currentActor?.name]);
+
   // 1. Tải danh sách cuộc trò chuyện
   const loadConversations = async () => {
     if (!currentActor?.id && !currentActor?.name) return;
@@ -337,7 +351,7 @@ export default function SmartStayChatWidget() {
       setActiveConversation(resolvedConv);
 
       if (initialMessage && initialMessage.trim()) {
-        setInputText(initialMessage.trim());
+        await executeSendMessage(initialMessage.trim(), resolvedConv, baseIdentity, contactData);
       }
     };
 
@@ -461,8 +475,16 @@ export default function SmartStayChatWidget() {
     setDetectedPhoneInInput(null);
   };
 
-  // Mở Zalo trực tiếp
+  // Mở Zalo trực tiếp (Chỉ cho phép sau khi đối phương đã phản hồi trong SmartStay)
   const handleOpenZalo = (phone) => {
+    if (!hasOtherReplied) {
+      toast({
+        title: "🔒 Chưa thể mở Zalo",
+        description: "Để bảo vệ quyền riêng tư, bạn chỉ có thể mở Zalo sau khi đối phương phản hồi trong Chat SmartStay.",
+        duration: 4000
+      });
+      return;
+    }
     const targetPhone = phone || currentTarget?.phone || detectedPhoneInInput;
     if (targetPhone) {
       openZaloChat(targetPhone);
@@ -581,15 +603,25 @@ export default function SmartStayChatWidget() {
                 {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-orange-200" />}
               </button>
 
-              {/* Nút mở Zalo trực tiếp trong header */}
+              {/* Nút mở Zalo trực tiếp trong header - CHỈ BẬT KHI ĐỐI PHƯƠNG ĐÃ PHẢN HỒI */}
               {viewMode === "chat" && (currentTarget?.phone || currentTarget?.contact) && (
-                <button
-                  onClick={() => handleOpenZalo(currentTarget.phone || currentTarget.contact)}
-                  className="px-2.5 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-[11px] flex items-center gap-1 transition cursor-pointer"
-                  title="Mở Zalo trực tiếp để tiếp tục trao đổi SĐT & gọi điện"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Zalo
-                </button>
+                hasOtherReplied ? (
+                  <button
+                    onClick={() => handleOpenZalo(currentTarget.phone || currentTarget.contact)}
+                    className="px-2.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center gap-1 transition cursor-pointer shadow-xs"
+                    title="Mở Zalo trực tiếp (Đối phương đã phản hồi)"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Zalo
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenZalo()}
+                    className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-white/60 font-bold text-[11px] flex items-center gap-1 cursor-not-allowed transition"
+                    title="🔒 Chỉ mở Zalo sau khi bạn ấy phản hồi trong Chat SmartStay"
+                  >
+                    <Lock className="w-3 h-3 text-orange-200" /> Zalo
+                  </button>
+                )
               )}
 
               <button

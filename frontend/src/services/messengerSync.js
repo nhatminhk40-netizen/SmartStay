@@ -98,6 +98,37 @@ export const getConversationKey = (id1, id2, name1 = "", name2 = "") => {
 };
 
 /**
+ * Kiểm tra xem người nhận (recipient) đã gửi tin nhắn phản hồi trong cuộc trò chuyện hay chưa
+ * Giúp khóa nút Zalo cho đến khi đối phương thực sự phản hồi trong SmartStay
+ */
+export const checkHasRecipientReplied = (myId, myName, recipientId, recipientName) => {
+  if (!recipientId && !recipientName) return false;
+  const convKey = getConversationKey(myId, recipientId, myName, recipientName);
+  const messages = getMessagesFromSyncStore(convKey);
+  if (!Array.isArray(messages) || messages.length === 0) return false;
+
+  const myIdStr = String(myId || "");
+  const myNameStr = String(myName || "").trim().toLowerCase();
+  const recipIdStr = String(recipientId || "");
+  const recipNameStr = String(recipientName || "").trim().toLowerCase();
+
+  return messages.some((m) => {
+    const sId = String(m.senderId || "");
+    const sName = String(m.senderName || "").trim().toLowerCase();
+
+    const isFromRecipient =
+      (recipIdStr && sId === recipIdStr) ||
+      (recipNameStr && sName === recipNameStr);
+
+    const isNotMine =
+      (!myIdStr || sId !== myIdStr) &&
+      (!myNameStr || sName !== myNameStr);
+
+    return isFromRecipient || isNotMine;
+  });
+};
+
+/**
  * Kiểm tra xem 2 tin nhắn có phải là cùng một tin hay không
  * Nhận diện chính xác trường hợp:
  * - Cùng ID
