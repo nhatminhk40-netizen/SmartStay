@@ -17,7 +17,6 @@ import {
   Repeat,
   Volume2,
   VolumeX,
-  Check,
   CheckCheck
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
@@ -97,7 +96,6 @@ export default function SmartStayChatWidget() {
         currentActor.phone
       );
       if (Array.isArray(serverConvs) && serverConvs.length > 0) {
-        // Gộp hai nguồn
         const map = new Map();
         localConvs.forEach((c) => map.set(c._id || c.id || c.convKey, c));
         serverConvs.forEach((c) => map.set(c._id || c.id, { ...map.get(c._id || c.id), ...c }));
@@ -115,15 +113,23 @@ export default function SmartStayChatWidget() {
     loadConversations();
   }, [currentActor?.id, currentActor?.name, swappedRole]);
 
-  // 2. Lắng nghe Đồng bộ Thời gian thực kiểu Messenger (Cross-Tab BroadcastChannel + LocalStorage)
+  // 2. Lắng nghe Đồng bộ Thời gian thực kiểu Messenger (Cross-Tab BroadcastChannel + Storage Event)
   useEffect(() => {
     const unsubscribe = subscribeToMessengerSync(
-      (incomingMsg, convData) => {
+      (incomingMsg) => {
         if (!incomingMsg) return;
 
-        // Kiểm tra xem tin nhắn có thuộc cuộc hội thoại đang mở hay không
+        const msgConvKey =
+          incomingMsg.conversationKey ||
+          getConversationKey(
+            incomingMsg.senderId,
+            incomingMsg.recipientId,
+            incomingMsg.senderName,
+            incomingMsg.recipientName
+          );
+
         const isCurrentConv =
-          incomingMsg.conversationKey === currentConvKey ||
+          msgConvKey === currentConvKey ||
           (currentTarget &&
             (incomingMsg.senderName?.toLowerCase() === currentTarget.name?.toLowerCase() ||
               incomingMsg.recipientName?.toLowerCase() === currentTarget.name?.toLowerCase()));
@@ -142,16 +148,15 @@ export default function SmartStayChatWidget() {
           incomingMsg.senderName?.toLowerCase() !== currentActor.name?.toLowerCase();
 
         if (isFromOther) {
-          // 1. Phát âm thanh 'Ting!' đặc trưng của Messenger
+          // Phát âm thanh 'Ting!' đặc trưng của Messenger
           if (soundEnabled) {
             playNotificationSound("receive");
           }
 
-          // 2. Tăng số lượng tin chưa đọc nếu đang đóng chat hoặc ở tab khác
           if (!isOpen || isMinimized || !isCurrentConv) {
             setUnreadTotal((count) => count + 1);
 
-            // 3. Hiển thị Toast thông báo nổi như Messenger
+            // Hiển thị Toast thông báo nổi như Messenger
             toast({
               title: `💬 ${incomingMsg.senderName || "Bạn cùng phòng"} vừa nhắn:`,
               description: incomingMsg.text?.slice(0, 80) || "Tin nhắn mới",
@@ -163,7 +168,6 @@ export default function SmartStayChatWidget() {
         loadConversations();
       },
       (convKey, typingSenderName, isTyping) => {
-        // Xử lý Typing Indicator
         if (
           convKey === currentConvKey &&
           typingSenderName?.toLowerCase() !== currentActor.name?.toLowerCase()
@@ -178,7 +182,73 @@ export default function SmartStayChatWidget() {
     };
   }, [currentConvKey, currentActor.name, currentTarget?.name, isOpen, isMinimized, soundEnabled]);
 
-  // 3. Lắng nghe Socket.IO từ máy chủ MongoDB Backend
+  // 3. TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC LIÊN TỤC 1000ms (KHÔNG CẦN F5 RELOAD TRANG)
+  useEffect(() => {
+    if (!currentConvKey) return;
+
+    const pollInterval = setInterval(() => {
+      // 1. Kiểm tra tin nhắn mới từ Local Store dùng chung
+      const latestLocal = getMessagesFromSyncStore(currentConvKey);
+      if (Array.isArray(latestLocal) && latestLocal.length > 0) {
+        setMessages((prev) => {
+          const prevMap = new Set(prev.map((m) => String(m._id || m.id)));
+          const newOnes = latestLocal.filter((m) => !prevMap.has(String(m._id || m.id)));
+
+          if (newOnes.length > 0) {
+            // Có tin nhắn mới được gửi đến từ phía đối phương
+            const lastMsg = newOnes[newOnes.length - 1];
+            const isFromOther =
+              lastMsg.senderName?.toLowerCase() !== currentActor.name?.toLowerCase();
+            if (isFromOther) {
+              if (soundEnabled) playNotificationSound("receive");
+              if (!isOpen || isMinimized) {
+                setUnreadTotal((c) => c + newOnes.length);
+                toast({
+                  title: `💬 ${lastMsg.senderName || "Bạn cùng phòng"} vừa nhắn:`,
+                  description: lastMsg.text?.slice(0, 80) || "Tin nhắn mới",
+                  duration: 4000
+                });
+              }
+            }
+            return latestLocal;
+          }
+          return prev;
+        });
+      }
+
+      // 2. Kiểm tra từ Cloud MongoDB nếu có backend kết nối
+      if (activeConversation?._id || activeConversation?.id) {
+        const convId = activeConversation._id || activeConversation.id;
+        chatService
+          .getMessages(convId)
+          .then((serverMsgs) => {
+            if (Array.isArray(serverMsgs) && serverMsgs.length > 0) {
+              setMessages((prev) => {
+                const prevMap = new Set(prev.map((m) => String(m._id || m.id)));
+                const newFromServer = serverMsgs.filter((m) => !prevMap.has(String(m._id || m.id)));
+                if (newFromServer.length > 0) {
+                  const lastMsg = newFromServer[newFromServer.length - 1];
+                  const isFromOther =
+                    lastMsg.senderName?.toLowerCase() !== currentActor.name?.toLowerCase();
+                  if (isFromOther && soundEnabled) {
+                    playNotificationSound("receive");
+                  }
+                  return [...prev, ...newFromServer].sort(
+                    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+                  );
+                }
+                return prev;
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [currentConvKey, currentActor.name, soundEnabled, isOpen, isMinimized, activeConversation?._id]);
+
+  // 4. Lắng nghe Socket.IO từ máy chủ MongoDB Backend
   useEffect(() => {
     const socket = getSocket();
     if (!socket || !currentActor?.id) return;
@@ -213,15 +283,14 @@ export default function SmartStayChatWidget() {
     };
   }, [activeConversation, currentActor?.id, currentActor?.name, swappedRole]);
 
-  // 4. Tải tin nhắn khi mở cuộc trò chuyện
+  // 5. Tải tin nhắn khi mở cuộc trò chuyện
   useEffect(() => {
     if (!currentConvKey) return;
 
-    // 1. Tải tức thì từ bộ nhớ đồng bộ
+    // Tải tức thì từ bộ nhớ đồng bộ
     const localMsgs = getMessagesFromSyncStore(currentConvKey);
     setMessages(localMsgs);
 
-    // 2. Tải thêm từ MongoDB Backend
     if (activeConversation?._id || activeConversation?.id) {
       const convId = activeConversation._id || activeConversation.id;
       setIsLoadingMessages(true);
@@ -243,7 +312,7 @@ export default function SmartStayChatWidget() {
     }
   }, [currentConvKey, activeConversation?._id, activeConversation?.id, swappedRole]);
 
-  // 5. Lắng nghe sự kiện mở chat từ toàn website
+  // 6. Lắng nghe sự kiện mở chat từ toàn website
   useEffect(() => {
     const handleOpenChatEvent = async (e) => {
       const { recipient, initialMessage } = e.detail || {};
@@ -269,7 +338,6 @@ export default function SmartStayChatWidget() {
       setViewMode("chat");
       setUnreadTotal(0);
 
-      // Tạo cuộc trò chuyện
       const convKey = getConversationKey(
         baseIdentity.id,
         contactData.id,
@@ -305,7 +373,6 @@ export default function SmartStayChatWidget() {
 
       setActiveConversation(resolvedConv);
 
-      // Gửi tin nhắn đầu tiên nếu có
       if (initialMessage && initialMessage.trim()) {
         await executeSendMessage(initialMessage.trim(), resolvedConv, baseIdentity, contactData);
       }
@@ -317,7 +384,7 @@ export default function SmartStayChatWidget() {
     };
   }, [baseIdentity]);
 
-  // 6. Nhấp nháy tiêu đề tab trình duyệt khi có tin nhắn mới
+  // 7. Nhấp nháy tiêu đề tab trình duyệt khi có tin nhắn mới
   useEffect(() => {
     if (unreadTotal > 0) {
       const originalTitle = document.title;
@@ -334,14 +401,14 @@ export default function SmartStayChatWidget() {
     }
   }, [unreadTotal]);
 
-  // 7. Tự động cuộn xuống đáy tin nhắn
+  // 8. Tự động cuộn xuống đáy tin nhắn
   useEffect(() => {
     if (isOpen && !isMinimized && viewMode === "chat") {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isOpen, isMinimized, viewMode, swappedRole, isOtherTyping]);
 
-  // 8. Báo trạng thái gõ phím (Typing)
+  // 9. Báo trạng thái gõ phím (Typing)
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInputText(val);
@@ -349,7 +416,6 @@ export default function SmartStayChatWidget() {
     const phone = detectPhoneNumberInText(val);
     setDetectedPhoneInInput(phone);
 
-    // Phát sự kiện đang gõ
     if (currentConvKey) {
       broadcastTypingStatus(currentConvKey, currentActor.name, true);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -359,24 +425,24 @@ export default function SmartStayChatWidget() {
     }
   };
 
-  // 9. Thực thi gửi tin nhắn chuẩn Messenger
+  // 10. Thực thi gửi tin nhắn chuẩn Messenger
   const executeSendMessage = async (rawText, targetConv, sender, recipient) => {
     const text = rawText.trim();
     if (!text || !recipient) return;
 
-    // Phát âm thanh 'Pop' gửi tin nhắn
     if (soundEnabled) {
       playNotificationSound("send");
     }
 
-    // Tắt trạng thái gõ phím
     broadcastTypingStatus(currentConvKey, sender.name, false);
 
-    // Kiểm duyệt SĐT cá nhân
     const phone = detectPhoneNumberInText(text);
     const hasSensitive = Boolean(phone);
     const masked = hasSensitive
-      ? text.replace(/(?:(?:\+84|0)[3|5|7|8|9](?:[\s.-]?[0-9]){8})|(?:\b\d{9,11}\b)/g, "[Đã ẩn SĐT - Vui lòng mở qua Zalo]")
+      ? text.replace(
+          /(?:(?:\+84|0)[3|5|7|8|9](?:[\s.-]?[0-9]){8})|(?:\b\d{9,11}\b)/g,
+          "[Đã ẩn SĐT - Vui lòng mở qua Zalo]"
+        )
       : text;
 
     const convKey = getConversationKey(sender.id, recipient.id, sender.name, recipient.name);
@@ -398,14 +464,12 @@ export default function SmartStayChatWidget() {
       createdAt: new Date().toISOString()
     };
 
-    // 1. Lưu ngay vào bộ nhớ đồng bộ cục bộ (Instant Sync)
+    // Lưu vào store và phát qua tất cả các kênh (BroadcastChannel & Storage Ping)
     persistMessageToSyncStore(newMsg, targetConv);
     setMessages((prev) => [...prev, newMsg]);
-
-    // 2. Phát ngay sang tất cả các tab khác (Zero latency < 1ms)
     broadcastNewMessage(newMsg, targetConv);
 
-    // 3. Gửi lên máy chủ MongoDB trong nền (Background Cloud Sync)
+    // Gửi nền lên MongoDB nếu có kết nối
     chatService.sendMessage({
       conversationId: targetConv?._id || targetConv?.id || `conv_${convKey}`,
       senderId: sender.id,
@@ -451,7 +515,6 @@ export default function SmartStayChatWidget() {
     setUnreadTotal(0);
   };
 
-  // Nếu chưa có liên hệ và chưa mở, hiển thị bubble
   if (!activeContact && !isOpen && conversations.length === 0) {
     return null;
   }
@@ -671,7 +734,7 @@ export default function SmartStayChatWidget() {
                 {/* Thông báo kết nối ban đầu */}
                 <div className="text-center my-1">
                   <span className="inline-block px-3 py-1 rounded-full bg-slate-100 text-[10px] text-slate-500 font-medium border border-slate-200/60">
-                    🔒 Hai bạn đang trò chuyện trực tiếp (Đồng bộ tức thì)
+                    🔒 Hai bạn đang trò chuyện trực tiếp (Tự động đồng bộ liên tục)
                   </span>
                 </div>
 
@@ -680,7 +743,6 @@ export default function SmartStayChatWidget() {
                 )}
 
                 {messages.map((msg) => {
-                  // So khớp xem tin nhắn này do "Tôi" hay do "Đối phương" gửi
                   const isMe =
                     String(msg.senderId) === String(currentActor.id) ||
                     (msg.senderName &&

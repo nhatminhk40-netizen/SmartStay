@@ -73,6 +73,7 @@ export const playNotificationSound = (type = "receive") => {
 
 // 3. Quản lý lưu trữ tin nhắn đồng bộ vào Local Storage trung tâm
 const STORAGE_KEY_CHATS = "smartstay_messenger_store_v1";
+const STORAGE_KEY_PING = "smartstay_messenger_ping";
 
 export const getStoredMessengerData = () => {
   try {
@@ -164,6 +165,21 @@ export const persistMessageToSyncStore = (msg, conversationData) => {
   }
 
   saveStoredMessengerData(store);
+
+  // 3. Kích hoạt sự kiện storage liên tục giữa các tab
+  try {
+    localStorage.setItem(
+      STORAGE_KEY_PING,
+      JSON.stringify({
+        convKey,
+        msgId: msg._id || msg.id,
+        senderName: msg.senderName,
+        text: msg.text,
+        timestamp: Date.now()
+      })
+    );
+  } catch (e) {}
+
   return { store, convKey, conv };
 };
 
@@ -180,12 +196,14 @@ export const getMessagesFromSyncStore = (convKey) => {
  */
 export const broadcastNewMessage = (msg, convData) => {
   if (channel) {
-    channel.postMessage({
-      type: "SMARTSTAY_NEW_MESSAGE",
-      message: msg,
-      conversation: convData,
-      timestamp: Date.now()
-    });
+    try {
+      channel.postMessage({
+        type: "SMARTSTAY_NEW_MESSAGE",
+        message: msg,
+        conversation: convData,
+        timestamp: Date.now()
+      });
+    } catch (e) {}
   }
 };
 
@@ -194,13 +212,15 @@ export const broadcastNewMessage = (msg, convData) => {
  */
 export const broadcastTypingStatus = (convKey, senderName, isTyping) => {
   if (channel) {
-    channel.postMessage({
-      type: "SMARTSTAY_TYPING",
-      convKey,
-      senderName,
-      isTyping,
-      timestamp: Date.now()
-    });
+    try {
+      channel.postMessage({
+        type: "SMARTSTAY_TYPING",
+        convKey,
+        senderName,
+        isTyping,
+        timestamp: Date.now()
+      });
+    } catch (e) {}
   }
 };
 
@@ -208,8 +228,6 @@ export const broadcastTypingStatus = (convKey, senderName, isTyping) => {
  * Đăng ký lắng nghe sự kiện đồng bộ từ các tab khác
  */
 export const subscribeToMessengerSync = (onMessageReceived, onTypingReceived) => {
-  if (!channel) return () => {};
-
   const handleMessage = (event) => {
     const data = event.data;
     if (!data) return;
@@ -221,15 +239,22 @@ export const subscribeToMessengerSync = (onMessageReceived, onTypingReceived) =>
     }
   };
 
-  channel.addEventListener("message", handleMessage);
+  if (channel) {
+    channel.addEventListener("message", handleMessage);
+    channel.onmessage = handleMessage;
+  }
 
-  // Fallback qua storage event cho các trình duyệt không hỗ trợ BroadcastChannel
+  // Lắng nghe sự kiện storage để đồng bộ tức thì xuyên suốt mọi cửa sổ
   const handleStorage = (e) => {
-    if (e.key === STORAGE_KEY_CHATS && e.newValue) {
+    if (e.key === STORAGE_KEY_PING && e.newValue) {
       try {
-        const parsed = JSON.parse(e.newValue);
-        if (onMessageReceived) {
-          onMessageReceived(null, null, parsed);
+        const ping = JSON.parse(e.newValue);
+        if (onMessageReceived && ping.convKey) {
+          const msgs = getMessagesFromSyncStore(ping.convKey);
+          const lastMsg = msgs[msgs.length - 1];
+          if (lastMsg) {
+            onMessageReceived(lastMsg, null);
+          }
         }
       } catch (err) {}
     }
@@ -237,7 +262,9 @@ export const subscribeToMessengerSync = (onMessageReceived, onTypingReceived) =>
   window.addEventListener("storage", handleStorage);
 
   return () => {
-    channel.removeEventListener("message", handleMessage);
+    if (channel) {
+      channel.removeEventListener("message", handleMessage);
+    }
     window.removeEventListener("storage", handleStorage);
   };
 };
