@@ -4289,7 +4289,12 @@ export default function EmployeeDashboard() {
 
           {/* Tab Bảng chốt số điện nước dạng Lưới Excel thông minh */}
           {activeTab === "meter-grid" && (
-            <MeterGridManager onBackToDashboard={() => setActiveTab("overview")} />
+            <MeterGridManager 
+              user={user}
+              rooms={realRooms}
+              onBackToDashboard={() => setActiveTab("overview")} 
+              onNavigateToRooms={() => setActiveTab("rooms")}
+            />
           )}
 
           {/* Tab Quản lý Hợp đồng & Cọc phòng */}

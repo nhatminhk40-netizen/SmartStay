@@ -13,6 +13,7 @@ import {
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
 
 // Format tiền tệ VNĐ
 const formatVND = (amount) => {
@@ -79,7 +80,19 @@ const docSoTienBangChu = (so) => {
   return str.charAt(0).toUpperCase() + str.slice(1) + " đồng chẵn";
 };
 
-export default function MeterGridManager({ onBackToDashboard }) {
+export default function MeterGridManager({
+  user: propUser,
+  rooms = [],
+  onBackToDashboard,
+  onNavigateToRooms
+}) {
+  const { user: authUser } = useAuth();
+  const currentUser = propUser || authUser;
+  const currentUserId = currentUser?._id || currentUser?.id || currentUser?.email || "default";
+  const currentUserEmail = (currentUser?.email || "").toLowerCase();
+  const isDemoLandlord = currentUserEmail === "chutro@smartstay.vn";
+
+  const getCacheKey = (m, y) => `smartstay_meter_grid_${currentUserId}_${y}_${m}`;
   const currentDate = new Date();
   const [month, setMonth] = useState(currentDate.getMonth() + 1);
   const [year, setYear] = useState(currentDate.getFullYear());
@@ -120,7 +133,9 @@ export default function MeterGridManager({ onBackToDashboard }) {
     const amount = Number(viewingInvoice.totalAmount) || 0;
     const roomClean = String(viewingInvoice.roomNumber || "P101").replace(/[^a-zA-Z0-9]/g, "");
     const addInfo = `TT TIEN TRO P${roomClean} T${month}`;
-    const qrPayload = `https://img.vietqr.io/image/MB-0907297338-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=LE%20KHAI`;
+    const accNum = batchRates.accountNumber || currentUser?.phone || "0907297338";
+    const accName = encodeURIComponent(batchRates.accountHolder || currentUser?.fullName || "CHU TRO");
+    const qrPayload = `https://img.vietqr.io/image/MB-${accNum}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=${accName}`;
 
     QRCode.toDataURL(qrPayload, {
       width: 250,
@@ -150,13 +165,63 @@ export default function MeterGridManager({ onBackToDashboard }) {
 
   // Modal cài đặt đơn giá chung cho cả dãy (Batch Rates)
   const [batchRatesModal, setBatchRatesModal] = useState(false);
-  const [batchRates, setBatchRates] = useState({
-    electricPrice: 3500,
-    waterPrice: 15000,
-    wifiFee: 50000,
-    trashFee: 20000,
-    applyToProperty: "all"
+  const [batchRates, setBatchRates] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`smartstay_landlord_rates_${currentUserId}`);
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return {
+      electricPrice: 3500,
+      waterPrice: 15000,
+      wifiFee: 50000,
+      trashFee: 20000,
+      applyToProperty: "all",
+      bankName: "MB Bank (Quân Đội)",
+      accountNumber: currentUser?.phone || "0907297338",
+      accountHolder: currentUser?.fullName || "Chủ nhà trọ"
+    };
   });
+
+  const generateRowsFromRealRooms = (roomList) => {
+    return (roomList || []).map((r, idx) => {
+      const rent = Number(r.price) || 0;
+      const wifi = Number(r.extraFees?.wifi) || 0;
+      const trash = Number(r.extraFees?.trash) || 0;
+      const otherFees = [];
+      if (wifi > 0) otherFees.push({ name: "Wifi", amount: wifi });
+      if (trash > 0) otherFees.push({ name: "Rác", amount: trash });
+      const otherTotal = wifi + trash;
+
+      return {
+        id: `row_${r._id || r.id || idx}`,
+        roomId: r._id || r.id,
+        roomNumber: r.room_number || r.title || `P.${idx + 101}`,
+        propertyName: r.property_name || (r.address ? r.address.split(',')[0] : "Dãy trọ"),
+        tenantName: r.tenant?.name || (r.status === "rented" || r.status === "Đang thuê" ? "Khách thuê" : "Phòng trống"),
+        tenantPhone: r.tenant?.phone || "",
+        monthlyRent: rent,
+        electricPrice: batchRates.electricPrice || 3500,
+        electricPrevious: 0,
+        electricCurrent: "",
+        electricUsage: 0,
+        electricTotal: 0,
+        waterPrice: batchRates.waterPrice || 15000,
+        waterPrevious: 0,
+        waterCurrent: "",
+        waterUsage: 0,
+        waterTotal: 0,
+        otherFees,
+        otherTotal,
+        previousDebt: 0,
+        totalAmount: rent + otherTotal,
+        status: "draft",
+        billId: null,
+        isAutoRollover: false,
+        hasPrevRecord: false,
+        note: ""
+      };
+    });
+  };
 
   // 1. TẢI DỮ LIỆU BẢNG LƯỚI TỪ SERVER HOẶC LOCAL STORAGE
   const loadGridData = async (targetMonth = month, targetYear = year) => {
@@ -168,6 +233,17 @@ export default function MeterGridManager({ onBackToDashboard }) {
       if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
         setRows(res.data);
         saveToLocalCache(targetMonth, targetYear, res.data);
+        setLoading(false);
+        return;
+      }
+      if (res && res.success && Array.isArray(res.data) && res.data.length === 0 && !isDemoLandlord) {
+        if (rooms && rooms.length > 0) {
+          const generatedFromRooms = generateRowsFromRealRooms(rooms);
+          setRows(generatedFromRooms);
+          saveToLocalCache(targetMonth, targetYear, generatedFromRooms);
+        } else {
+          setRows([]);
+        }
         setLoading(false);
         return;
       }
@@ -220,32 +296,53 @@ export default function MeterGridManager({ onBackToDashboard }) {
         return;
       }
 
-      // 4. Fallback mẫu mặc định nếu chưa từng có dữ liệu
-      const defaultRows = generateDefaultMockRows(targetMonth, targetYear);
-      setRows(defaultRows);
-      saveToLocalCache(targetMonth, targetYear, defaultRows);
+      // 4. Phân luồng dữ liệu an toàn: Tuyệt đối không lấy dữ liệu Bác Ba gán cho Chủ trọ khác
+      if (!isDemoLandlord) {
+        if (rooms && rooms.length > 0) {
+          const generatedFromRooms = generateRowsFromRealRooms(rooms);
+          setRows(generatedFromRooms);
+          saveToLocalCache(targetMonth, targetYear, generatedFromRooms);
+        } else {
+          setRows([]);
+        }
+      } else {
+        const defaultRows = generateDefaultMockRows(targetMonth, targetYear);
+        setRows(defaultRows);
+        saveToLocalCache(targetMonth, targetYear, defaultRows);
+      }
     } catch (err) {
-      console.warn("Lỗi tải bảng lưới, sử dụng fallback:", err);
-      const cached = getFromLocalCache(targetMonth, targetYear) || generateDefaultMockRows(targetMonth, targetYear);
-      setRows(cached);
+      console.warn("Lỗi tải bảng lưới, sử dụng fallback an toàn:", err);
+      const cached = getFromLocalCache(targetMonth, targetYear);
+      if (cached && cached.length > 0) {
+        setRows(cached);
+      } else if (!isDemoLandlord) {
+        if (rooms && rooms.length > 0) {
+          const generatedFromRooms = generateRowsFromRealRooms(rooms);
+          setRows(generatedFromRooms);
+        } else {
+          setRows([]);
+        }
+      } else {
+        setRows(generateDefaultMockRows(targetMonth, targetYear));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper lưu LocalStorage
+  // Helper lưu LocalStorage riêng biệt theo từng tài khoản Chủ trọ
   const saveToLocalCache = (m, y, data) => {
     try {
-      localStorage.setItem(`smartstay_meter_grid_${y}_${m}`, JSON.stringify(data));
+      localStorage.setItem(getCacheKey(m, y), JSON.stringify(data));
     } catch (e) {
       console.warn("LocalStorage error:", e);
     }
   };
 
-  // Helper đọc LocalStorage
+  // Helper đọc LocalStorage riêng biệt theo từng tài khoản Chủ trọ
   const getFromLocalCache = (m, y) => {
     try {
-      const item = localStorage.getItem(`smartstay_meter_grid_${y}_${m}`);
+      const item = localStorage.getItem(getCacheKey(m, y));
       return item ? JSON.parse(item) : null;
     } catch {
       return null;
@@ -1637,9 +1734,26 @@ export default function MeterGridManager({ onBackToDashboard }) {
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="py-12 text-center text-slate-400">
-                    <AlertCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="font-bold text-slate-600">Không tìm thấy phòng nào phù hợp.</p>
+                  <td colSpan={15} className="py-16 text-center text-slate-500">
+                    <div className="max-w-md mx-auto space-y-3">
+                      <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-3xl mx-auto flex items-center justify-center border border-amber-200">
+                        <Home className="w-7 h-7" />
+                      </div>
+                      <h4 className="font-heading font-black text-slate-900 text-base">Chưa có danh sách phòng để chốt số</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Tài khoản của bạn ({currentUser?.fullName || currentUser?.email || "Chủ trọ"}) hiện chưa có phòng trọ nào được thêm vào hệ thống. Vui lòng vào mục <b>"Phòng của tôi"</b> để thêm phòng trước khi ghi điện nước nhé!
+                      </p>
+                      {onNavigateToRooms && (
+                        <Button 
+                          type="button" 
+                          onClick={onNavigateToRooms}
+                          className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-sm gap-1.5"
+                        >
+                          <Home className="w-4 h-4" />
+                          Đi tới mục Phòng của tôi
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -2444,8 +2558,8 @@ export default function MeterGridManager({ onBackToDashboard }) {
               <div className="flex flex-col sm:flex-row items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs gap-3">
                 <div className="space-y-1 flex-1 text-left w-full sm:w-auto">
                   <span className="font-bold text-slate-800 block text-[11px] uppercase tracking-wider">Tài khoản thanh toán:</span>
-                  <span className="text-slate-600 block">Ngân hàng: <b>MB Bank (Quân Đội)</b></span>
-                  <span className="text-slate-600 block">Số tài khoản: <b className="font-mono text-slate-900 text-sm">0907297338</b> (LE KHAI)</span>
+                  <span className="text-slate-600 block">Ngân hàng: <b>{batchRates.bankName || "MB Bank (Quân Đội)"}</b></span>
+                  <span className="text-slate-600 block">Số tài khoản: <b className="font-mono text-slate-900 text-sm">{batchRates.accountNumber || currentUser?.phone || "0907297338"}</b> ({batchRates.accountHolder || currentUser?.fullName || "Chủ nhà trọ"})</span>
                   <span className="text-slate-500 block text-[11px]">Nội dung CK: <b className="font-mono text-orange-600 font-bold">TT TIEN TRO {viewingInvoice.roomNumber} T{month}</b></span>
                 </div>
 

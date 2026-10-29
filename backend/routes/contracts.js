@@ -69,7 +69,7 @@ router.get('/lookup/rooms', protect, authorize('landlord', 'admin', 'employee'),
         // Fallback local mode
         const fallbackRooms = req.app.locals.fallbackRooms || [];
         const rooms = isAdmin ? fallbackRooms : fallbackRooms.filter(r => 
-            isSameId(r.owner, currentUserId) || r.ownerEmail === req.user.email || !r.owner
+            isSameId(r.owner, currentUserId) || (r.ownerEmail && r.ownerEmail.toLowerCase() === req.user.email?.toLowerCase())
         );
         return res.status(200).json({ success: true, data: rooms });
     } catch (error) {
@@ -205,12 +205,11 @@ router.get('/', protect, async (req, res) => {
         // ==================== B. CHẾ ĐỘ FALLBACK LOCAL / OFFLINE ====================
         let contracts = loadFallbackContracts();
         if (!isAdmin) {
-            // Cho phép hiển thị hợp đồng mẫu cho chủ trọ demo / dev mode
+            // Cách ly hợp đồng chặt chẽ theo từng tài khoản chủ trọ
             contracts = contracts.filter(c => 
                 isSameId(c.landlord?._id || c.landlord, currentUserId) ||
-                c.landlord?.email === req.user?.email ||
-                req.user?.email === 'chutro@smartstay.vn' ||
-                !isProd
+                (c.landlord?.email && c.landlord.email.toLowerCase() === req.user?.email?.toLowerCase()) ||
+                (req.user?.email === 'chutro@smartstay.vn' && (!c.landlord || c.landlord?.email === 'chutro@smartstay.vn'))
             );
         }
 

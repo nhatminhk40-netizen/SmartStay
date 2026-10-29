@@ -16,7 +16,7 @@ if (!rawSecret || rawSecret === 'smartstay_jwt_secret_fallback_key' || rawSecret
     }
 }
 
-// Middleware xác thực JWT token
+// Middleware xác thực JWT token (Phân quyền & Cách ly tài khoản nghiêm ngặt)
 const protect = async (req, res, next) => {
     let token;
 
@@ -25,17 +25,64 @@ const protect = async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
 
             // 1. Hỗ trợ offline / demo token trong môi trường development hoặc fallback
-            if (!isProd && token && (token.startsWith('jwt_offline_') || token.startsWith('demo_token_') || token === 'undefined' || token === 'null')) {
-                const fallbackUsers = req.app.locals.fallbackUsers || [];
-                const found = fallbackUsers.find(u => u.role === 'landlord') || {
-                    _id: 'usr_landlord_001',
-                    id: 'usr_landlord_001',
-                    fullName: 'Bác Ba Cần Thơ (Chủ trọ)',
-                    email: 'chutro@smartstay.vn',
-                    role: 'landlord'
-                };
-                req.user = found;
-                return next();
+            if (!isProd && token) {
+                // Token rỗng hoặc literal undefined/null -> từ chối ngay lập tức, tuyệt đối không gán nhầm sang Bác Ba
+                if (token === 'undefined' || token === 'null' || token === '') {
+                    return res.status(401).json({ success: false, message: 'Token không hợp lệ. Vui lòng đăng nhập lại.' });
+                }
+
+                // Nếu là jwt_offline_ chứa payload base64 của chính người dùng đăng nhập
+                if (token.startsWith('jwt_offline_')) {
+                    const rawPayload = token.replace('jwt_offline_', '');
+                    try {
+                        const parsedUser = JSON.parse(Buffer.from(rawPayload, 'base64').toString('utf8'));
+                        if (parsedUser && (parsedUser.id || parsedUser._id || parsedUser.email)) {
+                            req.user = {
+                                _id: parsedUser._id || parsedUser.id,
+                                id: parsedUser.id || parsedUser._id,
+                                fullName: parsedUser.fullName || 'Người dùng SmartStay',
+                                email: parsedUser.email,
+                                role: parsedUser.role || 'landlord'
+                            };
+                            return next();
+                        }
+                    } catch (_) {
+                        // Không phải base64 JSON, tiếp tục xử lý
+                    }
+                }
+
+                // Nếu là demo_token chỉ định đích danh vai trò
+                if (token.startsWith('demo_token_')) {
+                    const fallbackUsers = req.app.locals.fallbackUsers || [];
+                    if (token === 'demo_token_admin') {
+                        req.user = fallbackUsers.find(u => u.role === 'admin') || {
+                            _id: 'usr_admin_001',
+                            id: 'usr_admin_001',
+                            fullName: 'Admin Hệ Thống',
+                            email: 'admin@smartstay.vn',
+                            role: 'admin'
+                        };
+                        return next();
+                    } else if (token === 'demo_token_student') {
+                        req.user = fallbackUsers.find(u => u.role === 'student') || {
+                            _id: 'usr_student_001',
+                            id: 'usr_student_001',
+                            fullName: 'Nguyễn Văn An (Người thuê)',
+                            email: 'nguoithue@smartstay.vn',
+                            role: 'student'
+                        };
+                        return next();
+                    } else if (token === 'demo_token_landlord') {
+                        req.user = fallbackUsers.find(u => u.email === 'chutro@smartstay.vn') || {
+                            _id: 'usr_landlord_001',
+                            id: 'usr_landlord_001',
+                            fullName: 'Bác Ba Cần Thơ (Chủ trọ)',
+                            email: 'chutro@smartstay.vn',
+                            role: 'landlord'
+                        };
+                        return next();
+                    }
+                }
             }
 
             let decoded;
@@ -48,12 +95,7 @@ const protect = async (req, res, next) => {
                     if (unverified && (unverified.id || unverified._id || unverified.email)) {
                         decoded = unverified;
                     } else {
-                        decoded = {
-                            id: 'usr_landlord_001',
-                            _id: 'usr_landlord_001',
-                            email: 'chutro@smartstay.vn',
-                            role: 'landlord'
-                        };
+                        return res.status(401).json({ success: false, message: 'Token không thể giải mã hoặc thông tin người dùng không hợp lệ.' });
                     }
                 } else {
                     throw jwtErr;
@@ -65,17 +107,17 @@ const protect = async (req, res, next) => {
                 const userId = decoded.id || decoded._id;
                 req.user = await User.findById(userId).select('-password');
                 if (!req.user && !isProd) {
-                    req.user = decoded; // Dev fallback
+                    req.user = decoded; // Dev fallback giữ nguyên danh tính thực
                 } else if (!req.user) {
                     return res.status(401).json({ success: false, message: 'Tài khoản không tồn tại hoặc đã bị xóa.' });
                 }
             } else {
-                // Chế độ in-memory fallback
+                // Chế độ in-memory fallback: tìm chính xác tài khoản theo ID hoặc Email
                 if (isProd) {
                     return res.status(503).json({ success: false, message: 'Dịch vụ xác thực cơ sở dữ liệu tạm thời gián đoạn.' });
                 }
                 const fallbackUsers = req.app.locals.fallbackUsers || [];
-                const found = fallbackUsers.find(u => String(u._id) === String(decoded.id || decoded._id) || u.email === decoded.email);
+                const found = fallbackUsers.find(u => String(u._id) === String(decoded.id || decoded._id) || (u.email && u.email.toLowerCase() === (decoded.email || '').toLowerCase()));
                 req.user = found || decoded;
             }
 
@@ -86,18 +128,6 @@ const protect = async (req, res, next) => {
     }
 
     if (!token) {
-        if (!isProd) {
-            // Cho phép dev mode tự động gắn tài khoản demo landlord
-            const fallbackUsers = req.app.locals.fallbackUsers || [];
-            req.user = fallbackUsers.find(u => u.role === 'landlord') || {
-                _id: 'usr_landlord_001',
-                id: 'usr_landlord_001',
-                fullName: 'Bác Ba Cần Thơ (Chủ trọ)',
-                email: 'chutro@smartstay.vn',
-                role: 'landlord'
-            };
-            return next();
-        }
         return res.status(401).json({ success: false, message: 'Yêu cầu đăng nhập để thực hiện thao tác này.' });
     }
 };

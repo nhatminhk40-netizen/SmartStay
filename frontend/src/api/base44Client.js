@@ -1822,8 +1822,15 @@ export const base44 = {
         ];
         const found = demoAccounts.find(u => u.email === clean || u.phone === clean);
         if (found) {
-          // Khi backend không phản hồi, tự động đăng nhập fallback vào tài khoản mẫu
-          const fallbackToken = 'jwt_offline_' + Date.now();
+          // Khi backend không phản hồi, tự động đăng nhập fallback vào tài khoản mẫu với payload định danh an toàn
+          const userPayload = {
+            id: found.id || found._id,
+            _id: found._id || found.id,
+            email: found.email,
+            role: found.role,
+            fullName: found.fullName
+          };
+          const fallbackToken = 'jwt_offline_' + btoa(unescape(encodeURIComponent(JSON.stringify(userPayload))));
           localStorage.setItem('smartstay_token', fallbackToken);
           localStorage.setItem('smartstay_user', JSON.stringify(found));
           return { success: true, access_token: fallbackToken, user: found };

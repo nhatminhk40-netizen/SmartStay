@@ -12,9 +12,8 @@ const isSameId = (a, b) => {
 };
 
 // Local in-memory mock store cho Bảng chốt số điện nước Grid (khi không có DB Atlas)
-const fallbackGridStore = {
-    // Tháng 9/2026: Dữ liệu chốt tháng trước làm căn cứ nhảy số tự động
-    "2026_9": [
+const fallbackGridStore = {};
+fallbackGridStore["2026_9"] = fallbackGridStore["usr_landlord_001_2026_9"] = [
         {
             id: "row_demo_101",
             contractId: "ctr_sample_001",
@@ -160,8 +159,7 @@ const fallbackGridStore = {
             hasPrevRecord: false,
             note: "Phòng đang trống"
         }
-    ]
-};
+    ];
 
 // Hàm lấy dữ liệu bảng lưới khi ở chế độ Fallback
 const getFallbackGridRows = (month, year, prevMonth, prevYear) => {
@@ -217,9 +215,9 @@ const getFallbackGridRows = (month, year, prevMonth, prevYear) => {
 };
 
 // Hàm lưu dữ liệu bảng lưới khi ở chế độ Fallback
-const saveFallbackGridRows = (month, year, rows) => {
+const saveFallbackGridRows = (userId, userEmail, month, year, rows) => {
     const key = `${year}_${month}`;
-    fallbackGridStore[key] = rows.map(r => {
+    const formatted = rows.map(r => {
         const elPrev = Number(r.electricPrevious) || 0;
         const elCurr = r.electricCurrent !== "" && r.electricCurrent !== null ? Number(r.electricCurrent) : elPrev;
         const elUsage = Math.max(0, elCurr - elPrev);
@@ -252,6 +250,9 @@ const saveFallbackGridRows = (month, year, rows) => {
             isAutoRollover: false
         };
     });
+    if (userId) fallbackGridStore[`${userId}_${key}`] = formatted;
+    if (userEmail) fallbackGridStore[`${userEmail}_${key}`] = formatted;
+    fallbackGridStore[key] = formatted;
 };
 
 // ============================================================================
@@ -264,6 +265,7 @@ router.get('/grid', protect, authorize('landlord', 'admin', 'employee'), async (
         const month = parseInt(req.query.month) || (new Date().getMonth() + 1);
         const year = parseInt(req.query.year) || new Date().getFullYear();
         const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = (req.user.email || '').toLowerCase();
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
         const isDbConnected = req.app.locals.isDbConnected;
 
@@ -273,18 +275,33 @@ router.get('/grid', protect, authorize('landlord', 'admin', 'employee'), async (
 
         if (isDbConnected) {
             // Lấy hợp đồng của chủ trọ
-            const contractQuery = isAdmin ? {} : { landlord: currentUserId };
+            const contractQuery = isAdmin ? {} : {
+                $or: [
+                    { landlord: currentUserId },
+                    ...(currentUserEmail ? [{ landlordEmail: currentUserEmail }] : [])
+                ]
+            };
             const contracts = await Contract.find(contractQuery)
                 .populate('room')
                 .populate('tenant', 'fullName phone email')
                 .sort({ createdAt: -1 });
 
             // Lấy danh sách phòng thuộc sở hữu của chủ trọ
-            const roomQuery = isAdmin ? {} : { owner: currentUserId };
+            const roomQuery = isAdmin ? {} : {
+                $or: [
+                    { owner: currentUserId },
+                    ...(currentUserEmail ? [{ ownerEmail: currentUserEmail }] : [])
+                ]
+            };
             const ownedRooms = await Room.find(roomQuery);
 
             // Lấy toàn bộ hóa đơn để đối soát
-            const billQuery = isAdmin ? {} : { landlord: currentUserId };
+            const billQuery = isAdmin ? {} : {
+                $or: [
+                    { landlord: currentUserId },
+                    ...(currentUserEmail ? [{ landlordEmail: currentUserEmail }] : [])
+                ]
+            };
             const allBills = await Bill.find(billQuery)
                 .populate('room', 'title room_number property_name')
                 .populate('tenant', 'fullName phone');
@@ -450,17 +467,121 @@ router.get('/grid', protect, authorize('landlord', 'admin', 'employee'), async (
             });
         }
 
-        // Mock Fallback
-        const mockRows = getFallbackGridRows(month, year, prevMonth, prevYear);
-        return res.status(200).json({
-            success: true,
-            month,
-            year,
-            prevMonth,
-            prevYear,
-            count: mockRows.length,
-            data: mockRows
-        });
+        // Mock Fallback: Phân quyền & Cách ly nghiêm ngặt theo từng tài khoản Chủ trọ
+        const fallbackRooms = req.app.locals.fallbackRooms || [];
+        const isDemoLandlord = currentUserEmail === 'chutro@smartstay.vn' || String(currentUserId) === 'usr_landlord_001';
+
+        const storeKey = `${currentUserId}_${year}_${month}`;
+        const emailStoreKey = currentUserEmail ? `${currentUserEmail}_${year}_${month}` : null;
+
+        if (fallbackGridStore[storeKey] && fallbackGridStore[storeKey].length > 0) {
+            return res.status(200).json({ success: true, month, year, prevMonth, prevYear, count: fallbackGridStore[storeKey].length, data: fallbackGridStore[storeKey] });
+        }
+        if (emailStoreKey && fallbackGridStore[emailStoreKey] && fallbackGridStore[emailStoreKey].length > 0) {
+            return res.status(200).json({ success: true, month, year, prevMonth, prevYear, count: fallbackGridStore[emailStoreKey].length, data: fallbackGridStore[emailStoreKey] });
+        }
+
+        // Tự động nhảy số công tơ từ tháng trước của CHÍNH tài khoản này
+        const prevStoreKey = `${currentUserId}_${prevYear}_${prevMonth}`;
+        const prevEmailStoreKey = currentUserEmail ? `${currentUserEmail}_${prevYear}_${prevMonth}` : null;
+        let prevRows = fallbackGridStore[prevStoreKey] || (prevEmailStoreKey ? fallbackGridStore[prevEmailStoreKey] : null);
+
+        if (!prevRows && isDemoLandlord) {
+            prevRows = fallbackGridStore["usr_landlord_001_2026_9"] || fallbackGridStore["2026_9"];
+        }
+
+        if (prevRows && prevRows.length > 0) {
+            const rolloverRows = prevRows.map(prev => {
+                const elecPrev = prev.electricCurrent !== '' && prev.electricCurrent !== null ? Number(prev.electricCurrent) : Number(prev.electricPrevious);
+                const waterPrev = prev.waterCurrent !== '' && prev.waterCurrent !== null ? Number(prev.waterCurrent) : Number(prev.waterPrevious);
+                const debt = prev.status === 'unpaid' ? (Number(prev.totalAmount) || 0) : 0;
+                const otherTotal = (prev.otherFees || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+                const rent = Number(prev.monthlyRent) || 0;
+
+                return {
+                    id: `row_${year}_${month}_${prev.roomNumber || prev.roomId}`,
+                    contractId: prev.contractId || null,
+                    roomId: prev.roomId,
+                    roomNumber: prev.roomNumber,
+                    propertyName: prev.propertyName || 'Dãy trọ',
+                    tenantName: prev.tenantName,
+                    tenantPhone: prev.tenantPhone || '',
+                    monthlyRent: rent,
+                    electricPrice: prev.electricPrice || 3500,
+                    electricPrevious: elecPrev,
+                    electricCurrent: "",
+                    electricUsage: 0,
+                    electricTotal: 0,
+                    waterPrice: prev.waterPrice || 15000,
+                    waterPrevious: waterPrev,
+                    waterCurrent: "",
+                    waterUsage: 0,
+                    waterTotal: 0,
+                    otherFees: prev.otherFees || [],
+                    otherTotal,
+                    previousDebt: debt,
+                    totalAmount: rent + otherTotal + debt,
+                    status: 'draft',
+                    billId: null,
+                    isAutoRollover: true,
+                    hasPrevRecord: true,
+                    note: debt > 0 ? `Chuyển nợ cũ ${debt.toLocaleString('vi-VN')} đ từ Tháng ${prevMonth}` : ''
+                };
+            });
+            return res.status(200).json({ success: true, month, year, prevMonth, prevYear, count: rolloverRows.length, data: rolloverRows });
+        }
+
+        // Nếu tháng trước chưa có: Tạo danh sách dòng chốt số từ đúng các phòng thuộc sở hữu của Chủ trọ này
+        const myRooms = fallbackRooms.filter(r => 
+            isAdmin ||
+            isSameId(r.owner, currentUserId) ||
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+        );
+
+        if (myRooms.length > 0) {
+            const initialRows = myRooms.map((r, idx) => ({
+                id: `row_init_${year}_${month}_${r._id || r.id || idx}`,
+                contractId: null,
+                roomId: r._id || r.id,
+                roomNumber: r.room_number || r.title || `P.${idx + 101}`,
+                propertyName: r.property_name || 'Dãy trọ',
+                tenantName: r.tenant?.name || (r.status === 'rented' ? 'Khách thuê' : 'Phòng trống'),
+                tenantPhone: r.tenant?.phone || '',
+                monthlyRent: Number(r.price) || 0,
+                electricPrice: 3500,
+                electricPrevious: 0,
+                electricCurrent: "",
+                electricUsage: 0,
+                electricTotal: 0,
+                waterPrice: 15000,
+                waterPrevious: 0,
+                waterCurrent: "",
+                waterUsage: 0,
+                waterTotal: 0,
+                otherFees: [
+                    ...(r.extraFees?.wifi ? [{ name: 'Wifi', amount: r.extraFees.wifi }] : []),
+                    ...(r.extraFees?.trash ? [{ name: 'Rác', amount: r.extraFees.trash }] : [])
+                ],
+                otherTotal: (r.extraFees?.wifi || 0) + (r.extraFees?.trash || 0),
+                previousDebt: 0,
+                totalAmount: Number(r.price) || 0,
+                status: 'draft',
+                billId: null,
+                isAutoRollover: false,
+                hasPrevRecord: false,
+                note: ''
+            }));
+            return res.status(200).json({ success: true, month, year, prevMonth, prevYear, count: initialRows.length, data: initialRows });
+        }
+
+        // Nếu là tài khoản Demo chutro@smartstay.vn và chưa có phòng nào: Cho phép hiển thị dữ liệu demo
+        if (isDemoLandlord) {
+            const demoRows = fallbackGridStore["usr_landlord_001_2026_9"] || fallbackGridStore["2026_9"] || [];
+            return res.status(200).json({ success: true, month, year, prevMonth, prevYear, count: demoRows.length, data: demoRows });
+        }
+
+        // Đối với tài khoản Chủ trọ thật khác (như Minh Minh): Trả về mảng rỗng [], KHÔNG BAO GIỜ hiển thị phòng Bác Ba!
+        return res.status(200).json({ success: true, month, year, prevMonth, prevYear, count: 0, data: [] });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi tải bảng chốt số: ' + error.message });
     }
@@ -584,8 +705,9 @@ router.post('/batch-save-grid', protect, authorize('landlord', 'admin', 'employe
             });
         }
 
-        // Fallback
-        saveFallbackGridRows(month, year, rows);
+        // Fallback: Lưu bảng chốt số vào kho dữ liệu của chính Chủ trọ
+        const currentUserEmail = (req.user.email || '').toLowerCase();
+        saveFallbackGridRows(currentUserId, currentUserEmail, month, year, rows);
         return res.status(200).json({
             success: true,
             message: createBills
