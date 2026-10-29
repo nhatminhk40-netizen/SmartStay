@@ -27,3 +27,50 @@ export function safeReturnTo() {
     return "/";
   }
 }
+
+/**
+ * Trả về route mặc định theo Role của user
+ */
+export function getDefaultRouteForRole(role) {
+  if (role === "admin") return "/admin";
+  if (role === "landlord" || role === "employee") return "/chu-tro";
+  if (role === "transporter") return "/tai-xe";
+  return "/";
+}
+
+/**
+ * Kiểm tra xem role có được phép truy cập đường dẫn path hay không
+ */
+export function isPathAllowedForRole(path, role) {
+  if (!path || path === "/" || path.includes("/login")) return true;
+
+  // /admin chỉ dành riêng cho role 'admin'
+  if (path.startsWith("/admin")) {
+    return role === "admin";
+  }
+
+  // /chu-tro và /employee chỉ dành cho landlord, employee, admin
+  if (path.startsWith("/chu-tro") || path.startsWith("/employee")) {
+    return ["landlord", "employee", "admin"].includes(role);
+  }
+
+  // /tai-xe chỉ dành cho transporter, admin
+  if (path.startsWith("/tai-xe")) {
+    return ["transporter", "admin"].includes(role);
+  }
+
+  return true;
+}
+
+/**
+ * Giải quyết điều hướng thông minh sau đăng nhập:
+ * Nếu returnUrl hợp lệ với role thì về returnUrl; nếu không thì về trang chủ phân hệ tương ứng của role đó.
+ */
+export function resolvePostLoginRedirect(role, returnUrl) {
+  if (returnUrl && returnUrl !== "/" && !returnUrl.includes("/login")) {
+    if (isPathAllowedForRole(returnUrl, role)) {
+      return returnUrl;
+    }
+  }
+  return getDefaultRouteForRole(role);
+}
