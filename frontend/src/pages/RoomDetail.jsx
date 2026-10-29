@@ -333,7 +333,7 @@ export default function RoomDetail() {
                     <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-3 shadow-sm">
                         <Info className="w-5 h-5 text-amber-600 flex-shrink-0" />
                         <div className="text-xs leading-relaxed">
-                            <span className="font-bold">Chế độ Dữ liệu minh họa SmartStay:</span> Tin đăng này được dùng cho mục đích trải nghiệm và minh họa cấu trúc dữ liệu minh bạch, chưa được khảo sát thực tế tại địa chỉ.
+                            <span className="font-bold">Chế độ Dữ liệu minh họa SmartStay:</span> Tin đăng này được dùng cho mục đích trải nghiệm và minh họa cấu trúc dữ liệu chuẩn, chưa được khảo sát thực tế tại địa chỉ.
                         </div>
                     </div>
                 )}
@@ -428,7 +428,7 @@ export default function RoomDetail() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Cột trái (7 cols): Chi tiết minh bạch & Tiêu chí khắt khe */}
+                    {/* Cột trái (7 cols): Chi tiết phòng & Tiêu chí khắt khe */}
                     <div className="lg:col-span-7 space-y-6">
                         {/* 0. DANH SÁCH CÁC PHÒNG THUỘC KHU TRỌ NÀY */}
                         {room.rooms_list && room.rooms_list.length > 0 && (
@@ -530,7 +530,7 @@ export default function RoomDetail() {
                                 </div>
                                 <div>
                                     <h2 className="font-heading font-bold text-base text-foreground">Bảng kiểm kê chi phí thực tế hàng tháng</h2>
-                                    <p className="text-xs text-muted-foreground">Minh bạch rõ ràng, nói KHÔNG với phát sinh ẩn</p>
+                                    <p className="text-xs text-muted-foreground">Chi phí rõ ràng, nói KHÔNG với phát sinh ẩn</p>
                                 </div>
                             </div>
 
@@ -679,7 +679,7 @@ export default function RoomDetail() {
                                 </div>
                                 <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
                                     <span className="flex items-center gap-2">
-                                        <Check className="w-4 h-4 text-emerald-600" /> Biểu phí minh bạch (Điện, nước, cọc niêm yết rõ)
+                                        <Check className="w-4 h-4 text-emerald-600" /> Biểu phí chi tiết (Điện, nước, cọc niêm yết rõ)
                                     </span>
                                     <span className="font-bold text-emerald-600">+20đ</span>
                                 </div>
@@ -895,7 +895,7 @@ export default function RoomDetail() {
                                 )}
                             </div>
 
-                            {/* Form Gửi Đánh Giá Minh Bạch */}
+                            {/* Form Gửi Đánh Giá */}
                             <form onSubmit={handleReviewSubmit} className="pt-4 border-t border-border space-y-3">
                                 <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
                                     Gửi đánh giá trải nghiệm thực tế
@@ -1196,7 +1196,7 @@ export default function RoomDetail() {
                             </div>
 
                             <div>
-                                <h4 className="font-bold text-slate-900 mb-1">ĐIỀU 2: TIỀN THUÊ VÀ CHI PHÍ ĐIỆN NƯỚC MINH BẠCH</h4>
+                                <h4 className="font-bold text-slate-900 mb-1">ĐIỀU 2: TIỀN THUÊ VÀ CHI PHÍ ĐIỆN NƯỚC</h4>
                                 <p>• Giá thuê cố định: <strong>{basePrice.toLocaleString('vi-VN')} VNĐ/tháng</strong> (Không được tự ý tăng giá trong suốt thời hạn hợp đồng).</p>
                                 <p>• Tiền điện: Thu theo chỉ số công tơ riêng ({!room.electricityCostType || room.electricityCostType === 'nha_nuoc' || String(room.electricityCostType).includes('nhà nước') ? 'Giá theo biểu giá nhà nước' : room.electricityCostType}).</p>
                                 <p>• Tiền nước: {room.waterCost || 'Theo giá quy định nhà nước'}.</p>

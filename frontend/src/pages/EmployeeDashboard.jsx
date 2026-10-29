@@ -874,8 +874,8 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null, onSw
           {/* BƯỚC 3: CHI PHÍ SINH HOẠT */}
           {step === 3 && (
             <div className="space-y-4">
-              <h4 className="font-bold text-slate-900 text-base">3. Chi phí sinh hoạt (Minh bạch không phụ phí ẩn)</h4>
-              <p className="text-xs text-slate-500">SmartStay cam kết minh bạch chi phí để bảo vệ cả người thuê lẫn uy tín chủ trọ.</p>
+              <h4 className="font-bold text-slate-900 text-base">3. Chi phí sinh hoạt (Không phụ phí ẩn)</h4>
+              <p className="text-xs text-slate-500">SmartStay cam kết rõ ràng chi phí để bảo vệ cả người thuê lẫn uy tín chủ trọ.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* 1. Tiền điện */}
@@ -1028,7 +1028,7 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null, onSw
                   />
                   <div>
                     <span className="text-sm font-bold text-slate-800 block">Đồng hồ điện & nước riêng từng phòng</span>
-                    <span className="text-xs text-slate-500">Giúp phòng đạt tiêu chuẩn minh bạch và người thuê an tâm lựa chọn</span>
+                    <span className="text-xs text-slate-500">Giúp phòng đạt tiêu chuẩn và người thuê an tâm lựa chọn</span>
                   </div>
                 </label>
               </div>
@@ -2648,7 +2648,7 @@ export default function EmployeeDashboard() {
           {/* Tab Quản lý Hợp đồng & Cọc phòng */}
           {activeTab === "contracts" && <ContractsManager />}
 
-          {/* Tab Hóa đơn & Thu tiền minh bạch */}
+          {/* Tab Hóa đơn & Thu tiền */}
           {activeTab === "invoices" && <InvoiceManager />}
 
           {/* Placeholders for other tabs */}

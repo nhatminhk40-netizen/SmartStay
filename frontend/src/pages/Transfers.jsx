@@ -514,7 +514,7 @@ export default function Transfers() {
             <div>
               <h4 className="font-bold text-slate-900 text-sm mb-1">Ưu đãi người thuê 15%</h4>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Giá minh bạch theo số km đường bộ đo tự động trên bản đồ, không kỳ kèo phát sinh chi phí ẩn.
+                Giá rõ ràng theo số km đường bộ đo tự động trên bản đồ, không kỳ kèo phát sinh chi phí ẩn.
               </p>
             </div>
           </div>
@@ -742,7 +742,7 @@ export default function Transfers() {
 
           {/* CỘT PHẢI (5 cột): Bảng Tính Cước & Form Đặt Chuyến */}
           <div className="lg:col-span-5 space-y-6">
-            {/* Box Tổng Tiền & Chi Tiết Cước (Minh bạch 100% theo đường bộ - Tone màu cam ấm SmartStay) */}
+            {/* Box Tổng Tiền & Chi Tiết Cước (Rõ ràng 100% theo đường bộ - Tone màu cam ấm SmartStay) */}
             <div className="bg-white border-2 border-orange-200/90 rounded-3xl p-6 sm:p-7 shadow-md relative overflow-hidden">
               <div
                 className="absolute -top-14 -right-14 w-44 h-44 rounded-full opacity-40 blur-2xl pointer-events-none"

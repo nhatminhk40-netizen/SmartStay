@@ -94,7 +94,7 @@ export default function StudentPortalModal({ open, onClose }) {
             </div>
             <div>
               <h3 className="font-heading font-black text-lg text-slate-900">
-                Cổng Thuê Trọ Minh Bạch
+                Cổng Thuê Trọ Trực Tuyến
               </h3>
               <p className="text-xs font-semibold text-slate-500">
                 Hợp đồng điện tử · Hóa đơn có ảnh công tơ · Lịch hẹn xem phòng
@@ -287,7 +287,7 @@ export default function StudentPortalModal({ open, onClose }) {
                           </div>
                         </div>
 
-                        {/* Chứng từ công tơ điện nước minh bạch */}
+                        {/* Chứng từ công tơ điện nước */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                           {/* Điện */}
                           <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-xl">

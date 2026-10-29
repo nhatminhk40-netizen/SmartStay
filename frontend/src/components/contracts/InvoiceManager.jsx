@@ -124,7 +124,7 @@ export default function InvoiceManager() {
         <div>
           <h2 className="font-heading font-black text-xl text-slate-900 flex items-center gap-2">
             <Receipt className="w-5 h-5 text-[#f97316]" />
-            Hóa đơn Tiền trọ & Điện nước minh bạch
+            Hóa đơn Tiền trọ & Điện nước
           </h2>
           <p className="text-xs font-semibold text-slate-500 mt-1">
             Gắn ảnh chụp đồng hồ điện & nước thực tế, bảo vệ quyền lợi người thuê và chủ trọ.
@@ -197,7 +197,7 @@ export default function InvoiceManager() {
           </div>
           <h4 className="font-bold text-slate-900 text-lg">Chưa có hóa đơn nào</h4>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            Bấm nút "Lập hóa đơn mới" ở trên để ghi chỉ số điện nước và gửi hóa đơn minh bạch cho người thuê.
+            Bấm nút "Lập hóa đơn mới" ở trên để ghi chỉ số điện nước và gửi hóa đơn cho người thuê.
           </p>
         </div>
       ) : (
@@ -245,7 +245,7 @@ export default function InvoiceManager() {
                     </div>
                   </div>
 
-                  {/* Chi tiết điện nước minh bạch */}
+                  {/* Chi tiết điện nước đối chiếu */}
                   <div className="grid grid-cols-2 gap-3 py-3 text-xs">
                     {/* Điện */}
                     <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-100/60">
@@ -346,7 +346,7 @@ export default function InvoiceManager() {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-[#fdfbf7]">
               <div>
                 <h3 className="font-heading font-black text-lg text-slate-900">Lập Hóa Đơn Tiền Trọ & Điện Nước</h3>
-                <p className="text-xs text-slate-500 font-semibold">Minh bạch chỉ số và ảnh chụp công tơ thực tế</p>
+                <p className="text-xs text-slate-500 font-semibold">Chính xác chỉ số và ảnh chụp công tơ thực tế</p>
               </div>
               <button onClick={() => setCreateOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition">
                 <X className="w-5 h-5 text-slate-500" />
@@ -432,7 +432,7 @@ export default function InvoiceManager() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-amber-900 mb-1 flex items-center gap-1">
-                    <Camera className="w-3.5 h-3.5" /> URL Ảnh chụp đồng hồ điện (Minh bạch)
+                    <Camera className="w-3.5 h-3.5" /> URL Ảnh chụp đồng hồ điện (Thực tế)
                   </label>
                   <input
                     type="text"
@@ -476,7 +476,7 @@ export default function InvoiceManager() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-cyan-900 mb-1 flex items-center gap-1">
-                    <Camera className="w-3.5 h-3.5" /> URL Ảnh chụp đồng hồ nước (Minh bạch)
+                    <Camera className="w-3.5 h-3.5" /> URL Ảnh chụp đồng hồ nước (Thực tế)
                   </label>
                   <input
                     type="text"

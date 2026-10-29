@@ -178,7 +178,7 @@ export default function Login() {
             }}
           >
             <Building2 className="w-3.5 h-3.5 text-orange-400" />
-            <span>Nền tảng tìm phòng trọ minh bạch Cần Thơ</span>
+            <span>SmartStay Cần Thơ - Hỗ trợ tìm phòng & Quản lí phòng trọ</span>
           </div>
           <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4">
             Tìm phòng trọ
@@ -195,7 +195,7 @@ export default function Login() {
           </h1>
           <p className="text-slate-400 text-base leading-relaxed max-w-md">
             Hàng trăm phòng trọ, căn hộ chất lượng dành cho mọi người có nhu cầu thuê tại Cần Thơ.
-            Minh bạch giá cả, an toàn tuyệt đối.
+            Thông tin rõ ràng, an toàn tuyệt đối.
           </p>
         </div>
 

@@ -507,7 +507,7 @@ export default function TransporterPortal() {
                 <b className="text-slate-800">{user?.transporterProfile?.operatingArea || "Ninh Kiều / Cái Răng / Bình Thủy, Cần Thơ"}</b>
               </div>
               <div className="p-3.5 bg-teal-50/70 border border-teal-100 rounded-2xl text-slate-600 space-y-1">
-                <div className="font-bold text-teal-900">Cam kết minh bạch của Tài xế:</div>
+                <div className="font-bold text-teal-900">Cam kết an toàn của Tài xế:</div>
                 <div>• Luôn tính đúng giá theo số km hiển thị trên ứng dụng.</div>
                 <div>• Tuyệt đối không tự ý phát sinh phụ phí hẻm sâu hay cầu thang nếu chưa thỏa thuận.</div>
                 <div>• Hỗ trợ người thuê khuân vác cẩn thận, bảo quản đồ đạc an toàn.</div>

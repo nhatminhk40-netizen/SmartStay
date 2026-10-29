@@ -10,11 +10,11 @@ const features = [
     {
         icon: FileCheck,
         title: "Sang nhượng cọc an toàn",
-        desc: "Ký kết minh bạch, bảo lãnh cọc rõ ràng",
+        desc: "Ký kết an toàn, bảo lãnh cọc rõ ràng",
     },
     {
         icon: Tags,
-        title: "Giá niêm yết minh bạch",
+        title: "Giá niêm yết rõ ràng",
         desc: "Trọn gói rõ ràng, không phụ phí ẩn",
     },
 ];
@@ -25,10 +25,10 @@ export default function Hero() {
             <div className="absolute inset-0 bg-gradient-to-b from-[#fdfbf7] via-[#faf3e3] to-[#f4ebd9]" />
             <div className="relative max-w-5xl mx-auto px-6 pt-16 pb-14 text-center">
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium mb-6">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Nền tảng thuê trọ & quản lý minh bạch cho Người thuê & Chủ trọ
+                    <ShieldCheck className="w-3.5 h-3.5" /> Nền tảng hỗ trợ tìm phòng & Quản lí phòng trọ tại Cần Thơ
                 </span>
                 <h1 className="font-heading text-4xl md:text-5xl font-extrabold text-foreground leading-tight">
-                    Thuê trọ <span className="text-accent">minh bạch</span> cho mọi người thuê
+                    Hỗ trợ tìm phòng & <span className="text-accent">quản lí phòng trọ</span>
                 </h1>
                 <p className="mt-4 text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
                     Tìm phòng đúng vị trí, đúng túi tiền — đánh giá thực tế từ người đã ở, quản lý nghiêm ngặt nhưng dễ dùng, bảo vệ cọc an toàn tuyệt đối.

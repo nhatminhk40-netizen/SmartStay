@@ -168,7 +168,7 @@ export default function ContractModal({ open, onClose, onSuccess, initialData = 
               {isEdit ? "Chỉnh sửa hợp đồng thuê phòng" : "Tạo hợp đồng thuê phòng mới"}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Quản lý kỳ hạn, số tiền cọc và điều khoản pháp lý minh bạch
+              Quản lý kỳ hạn, số tiền cọc và điều khoản pháp lý rõ ràng
             </p>
           </div>
           <button

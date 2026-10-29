@@ -11,7 +11,7 @@ const isSameId = (a, b) => {
     return String(a) === String(b);
 };
 
-// 1. TẠO HÓA ĐƠN TIỀN TRỌ & ĐIỆN NƯỚC MINH BẠCH (CHỦ TRỌ / ADMIN)
+// 1. TẠO HÓA ĐƠN TIỀN TRỌ & ĐIỆN NƯỚC (CHỦ TRỌ / ADMIN)
 router.post('/', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
     try {
         const {
@@ -109,7 +109,7 @@ router.post('/', protect, authorize('landlord', 'admin', 'employee'), async (req
 
             return res.status(201).json({
                 success: true,
-                message: `Lập hóa đơn Tháng ${month}/${year} thành công với chứng từ công tơ minh bạch!`,
+                message: `Lập hóa đơn Tháng ${month}/${year} thành công với đầy đủ chứng từ công tơ!`,
                 data: populatedBill
             });
         }

@@ -209,7 +209,7 @@ export default function AppHeader({
               SmartStay
             </div>
             <div className="text-[10px] text-slate-400 font-body uppercase tracking-wider font-semibold">
-              Cần Thơ · Người thuê
+              Cần Thơ · Hỗ trợ tìm phòng & Quản lí phòng trọ
             </div>
           </div>
         </button>
@@ -260,7 +260,7 @@ export default function AppHeader({
           <button
             onClick={() => setShowStudentPortal(true)}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-all border border-emerald-200"
-            title="Xem hợp đồng thuê phòng, hóa đơn tiền điện nước minh bạch và lịch hẹn xem phòng"
+            title="Xem hợp đồng thuê phòng, hóa đơn tiền điện nước và lịch hẹn xem phòng"
           >
             <Receipt className="w-3.5 h-3.5" />
             <span>Phòng & Hóa đơn của tôi</span>

@@ -61,12 +61,12 @@ const LANDLORD_FEATURES = [
   {
     icon: Users,
     title: "Tiếp cận hàng nghìn người thuê tại Cần Thơ",
-    desc: "Kết nối trực tiếp người thuê có nhu cầu ở thực, thông tin minh bạch, tối ưu tỷ lệ lấp đầy phòng",
+    desc: "Kết nối trực tiếp người thuê có nhu cầu ở thực, thông tin rõ ràng, tối ưu tỷ lệ lấp đầy phòng",
   },
   {
     icon: ShieldCheck,
     title: "Quản lý nghiêm ngặt & Tiện lợi",
-    desc: "Hợp đồng điện tử chuẩn pháp lý, chốt cọc minh bạch, ghi nhận công tơ điện nước chống thất thoát",
+    desc: "Hợp đồng điện tử chuẩn pháp lý, chốt cọc an toàn, ghi nhận công tơ điện nước chống thất thoát",
   },
   {
     icon: CheckCircle2,
@@ -468,7 +468,7 @@ export default function Register() {
           <span>
             {selectedRole === "landlord"
               ? "Dành riêng cho Chủ nhà trọ & Quản lý căn hộ tại Cần Thơ"
-              : "Nền tảng tìm phòng trọ minh bạch Cần Thơ"}
+              : "SmartStay Cần Thơ - Hỗ trợ tìm phòng & Quản lí phòng trọ"}
           </span>
         </div>
         <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4">
@@ -504,8 +504,8 @@ export default function Register() {
         </h1>
         <p className="text-slate-400 text-base leading-relaxed max-w-md">
           {selectedRole === "landlord"
-            ? "Tiếp cận trực tiếp hàng nghìn người có nhu cầu thuê tại Cần Thơ. Quản lý phòng trọ nghiêm ngặt, minh bạch và tiện lợi tối đa."
-            : "Hàng trăm phòng trọ, căn hộ chất lượng dành cho mọi người có nhu cầu thuê tại Cần Thơ. Minh bạch giá cả, an toàn tuyệt đối."}
+            ? "Tiếp cận trực tiếp hàng nghìn người có nhu cầu thuê tại Cần Thơ. Quản lý phòng trọ nghiêm ngặt, an toàn và tiện lợi tối đa."
+            : "Hàng trăm phòng trọ, căn hộ chất lượng dành cho mọi người có nhu cầu thuê tại Cần Thơ. Thông tin rõ ràng, an toàn tuyệt đối."}
         </p>
       </div>
 

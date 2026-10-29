@@ -39,7 +39,7 @@ export default function Footer() {
                         <span className="font-heading font-bold text-lg">SmartStay</span>
                     </div>
                     <p className="mt-3 text-sm text-background/70 max-w-xs">
-                        Nền tảng thuê trọ & quản lý minh bạch tại Cần Thơ — an toàn cho người thuê, tiện lợi cho chủ trọ.
+                        Nền tảng hỗ trợ tìm phòng & quản lí phòng trọ tại Cần Thơ — an toàn cho người thuê, tiện lợi cho chủ trọ.
                     </p>
                     <div className="mt-4 flex gap-3">
                         {[FacebookIcon, TwitterIcon, InstagramIcon].map((Icon, i) => (

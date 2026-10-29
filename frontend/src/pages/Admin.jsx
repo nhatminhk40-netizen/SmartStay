@@ -895,7 +895,7 @@ export default function Admin() {
                     Chào mừng, {user?.name || "Administrator"}!
                   </h2>
                   <p className="text-white/80 text-sm">
-                    Quản lý hệ thống phòng trọ & thuê nhà minh bạch tại TP. Cần Thơ.
+                    Quản lý hệ thống phòng trọ & quản lí nhà trọ tại TP. Cần Thơ.
                   </p>
                 </div>
                 <button
@@ -1890,7 +1890,7 @@ export default function Admin() {
                 <div className="p-6 rounded-xl border space-y-4" style={{ background: "#f8fafc", borderColor: "#e2e8f0" }}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                      ⚡ Chi phí điện, nước & Dịch vụ (Minh bạch)
+                      ⚡ Chi phí điện, nước & Dịch vụ
                     </span>
                     <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200">
                       Hiển thị rõ ràng cho người thuê

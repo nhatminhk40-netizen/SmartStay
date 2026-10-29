@@ -10,7 +10,7 @@ function trustColor(score) {
 }
 
 function getElecLabel(type) {
-  if (!type || type === 'nha_nuoc' || String(type).includes('nhà nước')) return 'Điện giá nhà nước (minh bạch)';
+  if (!type || type === 'nha_nuoc' || String(type).includes('nhà nước')) return 'Điện giá nhà nước (chuẩn quy định)';
   if (type === 'kinh_doanh') return 'Điện giá kinh doanh (~3.500 - 4.000đ/kWh)';
   if (type === 'gia_co_dinh') return 'Điện khoán cố định';
   if (!isNaN(type)) return `${Number(type).toLocaleString('vi-VN')} đ / kWh`;
@@ -156,11 +156,11 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
             </div>
           )}
 
-          {/* BẢNG KIỂM KÊ CHI PHÍ MINH BẠCH (TRỌNG TÂM SMARTSTAY) */}
+          {/* BẢNG KIỂM KÊ CHI PHÍ CHI TIẾT */}
           <div className="mb-5 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200">
             <div className="flex items-center gap-2 mb-3">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <h3 className="font-display font-bold text-slate-900 text-sm">Bảng chi phí minh bạch</h3>
+              <h3 className="font-display font-bold text-slate-900 text-sm">Bảng chi phí chi tiết</h3>
             </div>
 
             <div className="space-y-2 text-xs">
@@ -209,7 +209,7 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="font-display font-bold text-slate-900 text-sm">Đánh giá từ người thuê ({reviews.length})</h3>
-                <p className="text-[11px] text-slate-400">Công khai minh bạch · Có xác thực đã ở</p>
+                <p className="text-[11px] text-slate-400">Đánh giá thực tế · Có xác thực đã ở</p>
               </div>
               <button
                 onClick={() => setShowAddReview(!showAddReview)}
@@ -222,7 +222,7 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
             {reviewSuccess && (
               <div className="mb-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Đánh giá của bạn đã được đăng công khai minh bạch!</span>
+                <span>Đánh giá của bạn đã được đăng công khai!</span>
               </div>
             )}
 

@@ -61,7 +61,7 @@ export default function FilterBar({
                             <SlidersHorizontal className="w-5 h-5 text-accent" />
                         </div>
                         <div>
-                            <h2 className="font-heading font-bold text-lg text-foreground">Bộ lọc minh bạch SmartStay</h2>
+                            <h2 className="font-heading font-bold text-lg text-foreground">Bộ lọc phòng trọ SmartStay</h2>
                             <p className="text-xs text-muted-foreground">Lọc theo chi phí thực tế & tiêu chuẩn sống</p>
                         </div>
                     </div>

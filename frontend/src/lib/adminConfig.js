@@ -9,12 +9,12 @@ const QUICK_ACTIONS_KEY = "smartstay_quick_actions_config";
 
 export const DEFAULT_HERO = {
   title: "Thuê trọ",
-  highlight: "minh bạch",
+  highlight: "tiện lợi",
   titleSuffix: "cho mọi người thuê tại Cần Thơ",
-  description: "Nền tảng thuê trọ & quản lý minh bạch — bảo vệ người thuê bằng hợp đồng chuẩn, quản lý nghiêm ngặt nhưng dễ dùng cho chủ trọ.",
+  description: "Nền tảng hỗ trợ tìm phòng & quản lí phòng trọ tại Cần Thơ — bảo vệ người thuê bằng hợp đồng chuẩn, quản lý nghiêm ngặt nhưng dễ dàng cho chủ trọ.",
   badge1: "100% kiểm duyệt phòng trọ",
   badge2: "Sang nhượng cọc an toàn",
-  badge3: "Hợp đồng & Đặt cọc minh bạch",
+  badge3: "Hợp đồng & Đặt cọc an toàn",
   ctaSafeText: "Đăng tin Safe",
   ctaQuizText: "Tìm bạn ở ghép",
   showBadges: true,

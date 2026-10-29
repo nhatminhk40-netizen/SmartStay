@@ -704,7 +704,7 @@ export default function Roommates() {
             <PageHero
                 icon={UserPlus}
                 title="Ghép bạn cùng phòng"
-                subtitle="Tìm bạn cùng phòng văn minh — đồng điệu campus, thói quen sinh hoạt và chi phí minh bạch."
+                subtitle="Tìm bạn cùng phòng văn minh — đồng điệu campus, thói quen sinh hoạt và ngân sách phù hợp."
                 actionLabel={showForm ? "Đóng form" : "Đăng tìm bạn"}
                 onAction={() => {
                     if (user?.role === "transporter") {

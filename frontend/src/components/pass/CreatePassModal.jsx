@@ -257,7 +257,7 @@ export default function CreatePassModal({ open, onClose, onSuccess }) {
                   <h2 className="font-heading font-black text-xl text-slate-900">Đăng pass phòng trọ</h2>
                   <p className="text-xs text-slate-500 font-medium">
                     {step === 1 && "Bước 1: Thông tin phòng & Khu vực trường"}
-                    {step === 2 && "Bước 2: Chi phí minh bạch & Khoản tiền tiết kiệm"}
+                    {step === 2 && "Bước 2: Chi tiết chi phí & Khoản tiền tiết kiệm"}
                     {step === 3 && "Bước 3: Tiện ích, Nội quy & Hình ảnh thực tế"}
                     {step === 4 && "Bước 4: Thông tin Chủ trọ & Cam kết"}
                   </p>
@@ -377,7 +377,7 @@ export default function CreatePassModal({ open, onClose, onSuccess }) {
                   <div className="bg-[#fff9f2] border border-[#fdecdb] rounded-2xl p-4 flex items-start gap-3 text-xs text-[#ea580c]">
                     <Sparkles className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                      <strong>Công thức minh bạch:</strong> Nếu bạn nhượng lại giá pass thấp hơn tiền cọc gốc đã đóng, hệ thống sẽ tự động gắn huy hiệu <em>"Tiết kiệm Xđ"</em> giúp phòng của bạn thu hút người nhận nhanh gấp 3 lần!
+                      <strong>Công thức:</strong> Nếu bạn nhượng lại giá pass thấp hơn tiền cọc gốc đã đóng, hệ thống sẽ tự động gắn huy hiệu <em>"Tiết kiệm Xđ"</em> giúp phòng của bạn thu hút người nhận nhanh gấp 3 lần!
                     </div>
                   </div>
 

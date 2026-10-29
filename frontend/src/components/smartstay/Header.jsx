@@ -210,7 +210,7 @@ export default function Header() {
                 SmartStay
               </div>
               <div className="text-[10px] tracking-wider text-muted-foreground uppercase font-semibold">
-                Cần Thơ · Người thuê & Chủ trọ
+                Cần Thơ · Hỗ trợ tìm phòng & Quản lí phòng trọ
               </div>
             </div>
           </Link>
@@ -399,7 +399,7 @@ export default function Header() {
                   </div>
 
                   <div className="p-2.5 text-center bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500">
-                    SmartStay Cần Thơ · Minh bạch cùng Người thuê & Chủ trọ
+                    SmartStay Cần Thơ — Hỗ trợ tìm phòng & Quản lí phòng trọ
                   </div>
                 </div>
               )}
