@@ -21,8 +21,9 @@ import {
 } from 'lucide-react';
 import { base44 } from '../../api/base44Client';
 
-export default function LandlordStayManager({ rooms = [] }) {
-  const [activeSubTab, setActiveSubTab] = useState('pending'); // 'pending' | 'active' | 'codes'
+export default function LandlordStayManager({ rooms = [], defaultSubTab = 'codes' }) {
+  const [activeSubTab, setActiveSubTab] = useState(defaultSubTab); // 'codes' | 'pending' | 'active'
+  const [internalRooms, setInternalRooms] = useState(rooms);
 
   // State for Pending Stays
   const [pendingStays, setPendingStays] = useState([]);
@@ -96,12 +97,24 @@ export default function LandlordStayManager({ rooms = [] }) {
     loadActiveStays();
   }, []);
 
-  useEffect(() => {
-    if (rooms.length > 0 && !selectedRoomId) {
-      const firstId = rooms[0]._id || rooms[0].id;
-      setSelectedRoomId(firstId);
+    useEffect(() => {
+    if (rooms && rooms.length > 0) {
+      setInternalRooms(rooms);
+    } else {
+      base44.entities.Room.getAll().then(res => {
+        if (res && res.data && Array.isArray(res.data)) {
+          setInternalRooms(res.data);
+        }
+      }).catch(err => console.warn('Lỗi tải danh sách phòng fallback:', err));
     }
   }, [rooms]);
+
+  useEffect(() => {
+    if (internalRooms.length > 0 && !selectedRoomId) {
+      const firstId = internalRooms[0]._id || internalRooms[0].id;
+      setSelectedRoomId(firstId);
+    }
+  }, [internalRooms]);
 
   useEffect(() => {
     if (selectedRoomId) {
@@ -270,7 +283,20 @@ export default function LandlordStayManager({ rooms = [] }) {
       )}
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs max-w-xl">
+      <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs max-w-2xl">
+        <button
+          onClick={() => setActiveSubTab('codes')}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+            activeSubTab === 'codes'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Key className="w-4 h-4 text-orange-500" />
+          <span>Tạo mã nhận phòng (6 số)</span>
+          <span className="text-[9px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full uppercase ml-1">Hot</span>
+        </button>
+
         <button
           onClick={() => setActiveSubTab('pending')}
           className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
@@ -299,18 +325,6 @@ export default function LandlordStayManager({ rooms = [] }) {
           <Users className="w-4 h-4 text-emerald-400" />
           <span>Khách đang thuê</span>
           <span className="text-[11px] opacity-70 ml-1">({activeStays.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('codes')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-            activeSubTab === 'codes'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Key className="w-4 h-4 text-amber-400" />
-          <span>Mã nhận phòng</span>
         </button>
       </div>
 
@@ -524,7 +538,7 @@ export default function LandlordStayManager({ rooms = [] }) {
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
                   required
                 >
-                  {rooms.map((r) => (
+                  {(internalRooms.length > 0 ? internalRooms : rooms).map((r) => (
                     <option key={r._id || r.id} value={r._id || r.id}>
                       {r.title} ({Number(r.price).toLocaleString('vi-VN')} đ)
                     </option>

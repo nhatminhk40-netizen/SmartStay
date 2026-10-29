@@ -3264,6 +3264,7 @@ export default function EmployeeDashboard() {
 
   const sidebarTabs = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
+    { id: "stays", label: "Quản lý Nhận phòng", icon: Key, badge: "Mới" },
     { id: "meter-grid", label: "Chốt điện nước (Excel)", icon: FileSpreadsheet, badge: "Excel" },
     { id: "rooms", label: "Phòng của tôi", icon: HomeIcon },
     { id: "contracts", label: "Hợp đồng & Cọc", icon: FileCheck },
@@ -3430,6 +3431,22 @@ export default function EmployeeDashboard() {
               <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
                 <h3 className="font-heading font-black text-slate-900 text-base mb-4">Lối tắt thao tác quản lý nhanh</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("stays")}
+                    className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-orange-300 hover:border-orange-500 hover:shadow-md transition-all text-left flex items-start gap-3.5 group relative overflow-hidden"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-[#ea580c] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                      <Key className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-bold text-slate-900 text-sm">Tạo mã Check-in & Nhận phòng</h4>
+                        <span className="text-[9px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full uppercase">Mới</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">Cấp mã 6 chữ số (SS-XXXXXX) cho khách kích hoạt đợt ở & đánh giá</p>
+                    </div>
+                  </button>
                   <button
                     type="button"
                     onClick={handleOpenAddSubRoom}

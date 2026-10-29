@@ -18,9 +18,28 @@ router.use(authorize('landlord', 'admin', 'employee'));
 router.get('/pending', async (req, res) => {
     try {
         const landlordId = req.user._id || req.user.id;
-        const query = req.user.role === 'admin'
-            ? { status: 'requested' }
-            : { landlordId, status: 'requested' };
+        
+        let query;
+        if (req.user.role === 'admin') {
+            query = { status: 'requested' };
+        } else {
+            const myRooms = await Room.find({
+                $or: [
+                    { owner: landlordId },
+                    ...(req.user.phone ? [{ contactPhone: req.user.phone }] : [])
+                ]
+            }).select('_id');
+            const myRoomIds = myRooms.map(r => r._id);
+
+            query = {
+                status: 'requested',
+                $or: [
+                    { landlordId },
+                    { roomId: { $in: myRoomIds } },
+                    { landlordId: null }
+                ]
+            };
+        }
 
         const pendingStays = await Stay.find(query)
             .populate('tenantId', 'fullName email phone avatar campus studentId')
@@ -44,9 +63,28 @@ router.get('/pending', async (req, res) => {
 router.get('/active', async (req, res) => {
     try {
         const landlordId = req.user._id || req.user.id;
-        const query = req.user.role === 'admin'
-            ? { status: 'active' }
-            : { landlordId, status: 'active' };
+
+        let query;
+        if (req.user.role === 'admin') {
+            query = { status: 'active' };
+        } else {
+            const myRooms = await Room.find({
+                $or: [
+                    { owner: landlordId },
+                    ...(req.user.phone ? [{ contactPhone: req.user.phone }] : [])
+                ]
+            }).select('_id');
+            const myRoomIds = myRooms.map(r => r._id);
+
+            query = {
+                status: 'active',
+                $or: [
+                    { landlordId },
+                    { roomId: { $in: myRoomIds } },
+                    { landlordId: null }
+                ]
+            };
+        }
 
         const activeStays = await Stay.find(query)
             .populate('tenantId', 'fullName email phone avatar campus studentId')
@@ -101,8 +139,12 @@ router.post('/:id/confirm-checkin', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đợt lưu trú.' });
         }
 
-        if (req.user.role !== 'admin' && String(stay.landlordId) !== String(landlordId)) {
+        if (req.user.role !== 'admin' && stay.landlordId && String(stay.landlordId) !== String(landlordId)) {
             return res.status(403).json({ success: false, message: 'Bạn không có quyền duyệt phòng của chủ trọ khác.' });
+        }
+
+        if (!stay.landlordId) {
+            stay.landlordId = landlordId;
         }
 
         stay.status = 'active';
@@ -148,8 +190,12 @@ router.post('/:id/reject', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đợt lưu trú.' });
         }
 
-        if (req.user.role !== 'admin' && String(stay.landlordId) !== String(landlordId)) {
+        if (req.user.role !== 'admin' && stay.landlordId && String(stay.landlordId) !== String(landlordId)) {
             return res.status(403).json({ success: false, message: 'Bạn không có quyền thao tác trên phòng này.' });
+        }
+
+        if (!stay.landlordId) {
+            stay.landlordId = landlordId;
         }
 
         stay.status = 'cancelled';
@@ -193,8 +239,12 @@ router.post('/:id/confirm-checkout', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đợt lưu trú.' });
         }
 
-        if (req.user.role !== 'admin' && String(stay.landlordId) !== String(landlordId)) {
+        if (req.user.role !== 'admin' && stay.landlordId && String(stay.landlordId) !== String(landlordId)) {
             return res.status(403).json({ success: false, message: 'Bạn không có quyền thao tác trên phòng này.' });
+        }
+
+        if (!stay.landlordId) {
+            stay.landlordId = landlordId;
         }
 
         stay.status = 'completed';
@@ -240,8 +290,18 @@ router.post('/rooms/:roomId/checkin-codes', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
         }
 
-        if (req.user.role !== 'admin' && String(room.owner) !== String(landlordId)) {
-            return res.status(403).json({ success: false, message: 'Bạn không có quyền tạo mã cho phòng của chủ khác.' });
+        // Quyền: Admin hoặc chủ sở hữu phòng, hoặc phòng chưa có chủ, hoặc SĐT liên hệ trùng với chủ trọ
+        if (req.user.role !== 'admin' && room.owner && String(room.owner) !== String(landlordId)) {
+            const isContactPhone = req.user.phone && room.contactPhone && req.user.phone === room.contactPhone;
+            if (!isContactPhone) {
+                return res.status(403).json({ success: false, message: 'Bạn không có quyền tạo mã cho phòng của chủ khác.' });
+            }
+        }
+
+        // Nếu phòng chưa có owner, tự động gán chủ trọ hiện tại làm owner
+        if (!room.owner) {
+            room.owner = landlordId;
+            await room.save().catch(e => console.warn('Không thể cập nhật room owner:', e.message));
         }
 
         // Sinh mã ngẫu nhiên 6 ký tự gồm chữ hoa và số (dễ đọc cho người dùng)
