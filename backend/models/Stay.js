@@ -14,7 +14,7 @@ const staySchema = new mongoose.Schema({
     landlordId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: [true, 'Vui lòng cung cấp thông tin chủ trọ']
+        default: null
     },
     bookingId: {
         type: mongoose.Schema.Types.ObjectId,

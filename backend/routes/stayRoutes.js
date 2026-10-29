@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 
 const Stay = require('../models/Stay');
 const Room = require('../models/Room');
+const User = require('../models/User');
 const CheckinCode = require('../models/CheckinCode');
 const { protect } = require('../middleware/auth');
 const { uploadContract } = require('../middleware/contractUpload');
@@ -24,6 +25,22 @@ const redeemCodeRateLimiter = rateLimit({
     }
 });
 
+// Hàm hỗ trợ tìm hoặc gán landlordId mặc định cho phòng chưa có owner
+async function resolveLandlordId(room) {
+    if (room && room.owner) return room.owner;
+    try {
+        if (room && room.contactPhone) {
+            const foundUser = await User.findOne({ phone: room.contactPhone });
+            if (foundUser) return foundUser._id;
+        }
+        const defaultLandlord = await User.findOne({ role: { $in: ['landlord', 'admin'] } });
+        if (defaultLandlord) return defaultLandlord._id;
+    } catch (e) {
+        console.warn('Lỗi tìm default landlord:', e.message);
+    }
+    return null;
+}
+
 // ==========================================
 // 1. NGƯỜI THUÊ GỬI YÊU CẦU NHẬN PHÒNG (landlord_confirm)
 // ==========================================
@@ -36,12 +53,18 @@ router.post('/request-checkin', protect, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Vui lòng chọn phòng cần nhận.' });
         }
 
-        const room = await Room.findById(roomId);
-        if (!room) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
+        let room = null;
+        try {
+            room = await Room.findById(roomId);
+        } catch (err) {
+            // Trường hợp ID phòng dạng chuỗi khác
         }
 
-        // Không cho chủ trọ tự nhận phòng của mình
+        if (!room) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ tương ứng.' });
+        }
+
+        // Không cho chủ trọ tự nhận phòng của chính mình
         if (room.owner && String(room.owner) === String(tenantId)) {
             return res.status(400).json({ success: false, message: 'Bạn là chủ sở hữu của phòng này, không thể gửi yêu cầu nhận phòng.' });
         }
@@ -68,7 +91,17 @@ router.post('/request-checkin', protect, async (req, res) => {
             });
         }
 
-        const landlordId = room.owner;
+        const landlordId = await resolveLandlordId(room);
+
+        // Xử lý ngày nhận phòng an toàn (tránh Invalid Date)
+        let parsedCheckInDate = new Date();
+        if (checkInDate) {
+            const d = new Date(checkInDate);
+            if (!isNaN(d.getTime())) {
+                parsedCheckInDate = d;
+            }
+        }
+
         const stay = await Stay.create({
             tenantId,
             roomId,
@@ -76,19 +109,23 @@ router.post('/request-checkin', protect, async (req, res) => {
             status: 'requested',
             verificationMethod: 'landlord_confirm',
             tenantNote: tenantNote || '',
-            checkInDate: checkInDate ? new Date(checkInDate) : null
+            checkInDate: parsedCheckInDate
         });
 
-        // Gửi thông báo cho chủ trọ
+        // Gửi thông báo cho chủ trọ nếu có tài khoản chủ trọ
         if (landlordId) {
-            await createNotification({
-                userId: landlordId,
-                title: '🔔 Yêu cầu xác nhận nhận phòng mới',
-                message: `Khách thuê ${req.user.fullName || 'Người thuê'} đã gửi yêu cầu xác nhận đang ở tại phòng "${room.title}". Vui lòng kiểm tra và duyệt.`,
-                type: 'stay_request',
-                referenceId: stay._id,
-                link: '/chu-tro'
-            });
+            try {
+                await createNotification({
+                    userId: landlordId,
+                    title: '🔔 Yêu cầu xác nhận nhận phòng mới',
+                    message: `Khách thuê ${req.user.fullName || 'Người thuê'} đã gửi yêu cầu xác nhận đang ở tại phòng "${room.title}". Vui lòng kiểm tra và duyệt.`,
+                    type: 'stay_request',
+                    referenceId: stay._id,
+                    link: '/chu-tro'
+                });
+            } catch (notifErr) {
+                console.warn('Lỗi gửi notification:', notifErr.message);
+            }
         }
 
         res.status(201).json({
@@ -98,7 +135,11 @@ router.post('/request-checkin', protect, async (req, res) => {
         });
     } catch (error) {
         console.error('Lỗi request-checkin:', error);
-        res.status(500).json({ success: false, message: 'Lỗi gửi yêu cầu nhận phòng', error: error.message });
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Lỗi gửi yêu cầu nhận phòng',
+            error: error.message
+        });
     }
 });
 
@@ -144,7 +185,7 @@ router.post('/redeem-code', protect, redeemCodeRateLimiter, async (req, res) => 
             return res.status(404).json({ success: false, message: 'Phòng trọ tương ứng không tồn tại.' });
         }
 
-        // Không cho chủ trọ dùng mã của mình
+        // Không cho chủ trọ dùng mã của chính mình
         if (room.owner && String(room.owner) === String(tenantId)) {
             return res.status(400).json({ success: false, message: 'Chủ trọ không thể tự kích hoạt lưu trú bằng mã của mình.' });
         }
@@ -154,6 +195,8 @@ router.post('/redeem-code', protect, redeemCodeRateLimiter, async (req, res) => 
         checkinCode.redeemedBy = tenantId;
         checkinCode.redeemedAt = new Date();
         await checkinCode.save();
+
+        const landlordId = await resolveLandlordId(room);
 
         // Kiểm tra xem đã có Stay nào chưa, nếu có thì kích hoạt, nếu chưa thì tạo mới active
         let stay = await Stay.findOne({
@@ -167,12 +210,13 @@ router.post('/redeem-code', protect, redeemCodeRateLimiter, async (req, res) => 
             stay.checkInDate = stay.checkInDate || new Date();
             stay.verificationMethod = 'checkin_code';
             stay.checkInConfirmedBy = 'system_code';
+            if (landlordId && !stay.landlordId) stay.landlordId = landlordId;
             await stay.save();
         } else {
             stay = await Stay.create({
                 tenantId,
                 roomId: room._id,
-                landlordId: room.owner,
+                landlordId,
                 status: 'active',
                 verificationMethod: 'checkin_code',
                 checkInDate: new Date(),
@@ -181,25 +225,29 @@ router.post('/redeem-code', protect, redeemCodeRateLimiter, async (req, res) => 
         }
 
         // Gửi thông báo cho chủ trọ và người thuê
-        if (room.owner) {
-            await createNotification({
-                userId: room.owner,
-                title: '🔑 Khách đã kích hoạt nhận phòng bằng Mã Check-in',
-                message: `Khách thuê ${req.user.fullName || 'Người thuê'} đã nhập mã nhận phòng thành công cho phòng "${room.title}".`,
-                type: 'stay_code_redeemed',
-                referenceId: stay._id,
-                link: '/chu-tro'
-            });
+        if (landlordId) {
+            try {
+                await createNotification({
+                    userId: landlordId,
+                    title: '🔑 Khách đã kích hoạt nhận phòng bằng Mã Check-in',
+                    message: `Khách thuê ${req.user.fullName || 'Người thuê'} đã nhập mã nhận phòng thành công cho phòng "${room.title}".`,
+                    type: 'stay_code_redeemed',
+                    referenceId: stay._id,
+                    link: '/chu-tro'
+                });
+            } catch (e) {}
         }
 
-        await createNotification({
-            userId: tenantId,
-            title: '🎉 Nhận phòng thành công!',
-            message: `Bạn đã kích hoạt thành công lưu trú tại "${room.title}". Bạn sẽ đủ điều kiện gửi đánh giá sau 14 ngày sinh sống.`,
-            type: 'stay_activated',
-            referenceId: stay._id,
-            link: `/phong/${room._id}`
-        });
+        try {
+            await createNotification({
+                userId: tenantId,
+                title: '🎉 Nhận phòng thành công!',
+                message: `Bạn đã kích hoạt thành công lưu trú tại "${room.title}". Bạn sẽ đủ điều kiện gửi đánh giá sau 14 ngày sinh sống.`,
+                type: 'stay_activated',
+                referenceId: stay._id,
+                link: `/phong/${room._id}`
+            });
+        } catch (e) {}
 
         res.status(200).json({
             success: true,
@@ -208,7 +256,11 @@ router.post('/redeem-code', protect, redeemCodeRateLimiter, async (req, res) => 
         });
     } catch (error) {
         console.error('Lỗi redeem-code:', error);
-        res.status(500).json({ success: false, message: 'Lỗi xác thực mã nhận phòng', error: error.message });
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Lỗi xác thực mã nhận phòng',
+            error: error.message
+        });
     }
 });
 
@@ -248,14 +300,16 @@ router.post('/:id/contract', protect, uploadContract.single('contractFile'), asy
 
         // Gửi thông báo kèm link xác thực cho chủ trọ
         if (stay.landlordId) {
-            await createNotification({
-                userId: stay.landlordId,
-                title: '📄 Người thuê đã tải lên Hợp đồng lưu trú',
-                message: `Người thuê ${req.user.fullName || 'Người thuê'} đã đính kèm hợp đồng thuê cho phòng "${room?.title || 'Phòng'}". Nhấn vào để đối chiếu và xác nhận.`,
-                type: 'stay_contract_uploaded',
-                referenceId: stay._id,
-                link: `/xac-nhan-luu-tru/${rawToken}`
-            });
+            try {
+                await createNotification({
+                    userId: stay.landlordId,
+                    title: '📄 Người thuê đã tải lên Hợp đồng lưu trú',
+                    message: `Người thuê ${req.user.fullName || 'Người thuê'} đã đính kèm hợp đồng thuê cho phòng "${room?.title || 'Phòng'}". Nhấn vào để đối chiếu và xác nhận.`,
+                    type: 'stay_contract_uploaded',
+                    referenceId: stay._id,
+                    link: `/xac-nhan-luu-tru/${rawToken}`
+                });
+            } catch (e) {}
         }
 
         res.status(200).json({
@@ -269,7 +323,11 @@ router.post('/:id/contract', protect, uploadContract.single('contractFile'), asy
         });
     } catch (error) {
         console.error('Lỗi upload contract:', error);
-        res.status(500).json({ success: false, message: 'Lỗi tải tệp hợp đồng', error: error.message });
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Lỗi tải tệp hợp đồng',
+            error: error.message
+        });
     }
 });
 
