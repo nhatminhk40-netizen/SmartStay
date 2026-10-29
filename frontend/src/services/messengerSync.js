@@ -158,6 +158,10 @@ export const isSameMessage = (msgA, msgB) => {
   const senderB = (msgB.senderName || msgB.senderId || "").trim().toLowerCase();
   if (senderA && senderB && senderA !== senderB) return false;
 
+  // Lọc trùng các tin nhắn chào mẫu intro tự động trong hội thoại
+  const isIntroText = (t) => typeof t === "string" && t.includes("mình thấy hai đứa cùng") && t.includes("ở ghép");
+  if (isIntroText(textA) && isIntroText(textB)) return true;
+
   // Kiểm tra thời gian gửi
   const tA = msgA.createdAt ? new Date(msgA.createdAt).getTime() : 0;
   const tB = msgB.createdAt ? new Date(msgB.createdAt).getTime() : 0;

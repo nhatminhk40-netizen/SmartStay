@@ -601,8 +601,7 @@ export default function Roommates() {
     // Mở hộp thoại nhắn tin
     const handleOpenConnect = (person) => {
         setSelectedRoommate(person);
-        const msg = generateConnectMessage(person);
-        setCustomMessage(msg.slice(0, 300));
+        setCustomMessage(""); // Không tự động chèn tin nhắn mẫu
         setCopiedMessage(false);
         setSentStatus(false);
     };
@@ -1404,7 +1403,7 @@ export default function Roommates() {
                                 maxLength={300}
                                 value={customMessage}
                                 onChange={(e) => setCustomMessage(e.target.value.slice(0, 300))}
-                                placeholder="Nhập lời nhắn kết nối..."
+                                placeholder="Nhập lời nhắn gửi đến bạn ấy (tùy chọn)..."
                                 className="w-full px-3 py-2.5 rounded-2xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none leading-relaxed resize-none"
                             />
                         </div>
@@ -1476,7 +1475,7 @@ export default function Roommates() {
                                         </>
                                     ) : (
                                         <>
-                                            <MessageCircle className="w-3.5 h-3.5" /> Gửi & Mở Chat SmartStay
+                                            <MessageCircle className="w-3.5 h-3.5" /> Mở Chat SmartStay
                                         </>
                                     )}
                                 </button>

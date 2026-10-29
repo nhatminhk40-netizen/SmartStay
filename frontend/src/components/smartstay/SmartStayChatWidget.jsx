@@ -351,7 +351,7 @@ export default function SmartStayChatWidget() {
       setActiveConversation(resolvedConv);
 
       if (initialMessage && initialMessage.trim()) {
-        await executeSendMessage(initialMessage.trim(), resolvedConv, baseIdentity, contactData);
+        setInputText(initialMessage.trim());
       }
     };
 
