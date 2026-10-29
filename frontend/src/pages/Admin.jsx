@@ -160,27 +160,103 @@ export default function Admin() {
     }
   }, [activeTab]);
 
-  // ==================== QUẢN LÝ ĐỐI TÁC VẬN TẢI / TÀI XẾ ====================
-  const [adminTransporters, setAdminTransporters] = useState([]);
-  const [loadingTransporters, setLoadingTransporters] = useState(false);
+  // ==================== QUẢN LÝ & DUYỆT TIN PASS PHÒNG ====================
+  const [adminPassRooms, setAdminPassRooms] = useState([]);
+  const [loadingPassRooms, setLoadingPassRooms] = useState(false);
+  const [passFilterStatus, setPassFilterStatus] = useState("all"); // 'all' | 'pending_landlord' | 'verified' | 'rejected'
+  const [passSearchTerm, setPassSearchTerm] = useState("");
+  const [selectedPassDetail, setSelectedPassDetail] = useState(null);
+  const [rejectPassModal, setRejectPassModal] = useState({ open: false, room: null, reason: "" });
 
-  const fetchTransporters = async () => {
-    setLoadingTransporters(true);
+  const fetchAdminPassRooms = async () => {
+    setLoadingPassRooms(true);
     try {
-      const list = await base44.entities.Logistics.getTransporters();
-      setAdminTransporters(Array.isArray(list) ? list : []);
+      const list = await base44.entities.PassRoom.adminList();
+      if (Array.isArray(list) && list.length > 0) {
+        setAdminPassRooms(list);
+      } else {
+        const fallback = await base44.entities.PassRoom.list({ limit: 100 });
+        if (fallback && Array.isArray(fallback.data)) {
+          setAdminPassRooms(fallback.data);
+        }
+      }
     } catch (err) {
-      console.error("Lỗi tải danh sách tài xế:", err);
+      console.error("Lỗi tải danh sách pass phòng:", err);
     } finally {
-      setLoadingTransporters(false);
+      setLoadingPassRooms(false);
     }
   };
 
   useEffect(() => {
-    if (activeTab === "transporters") {
-      fetchTransporters();
+    fetchAdminPassRooms();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "pass_rooms" || activeTab === "dashboard") {
+      fetchAdminPassRooms();
     }
   }, [activeTab]);
+
+  const handleApprovePassRoom = async (id, title) => {
+    try {
+      const res = await base44.entities.PassRoom.adminReview(id, "approve", "Đã được phê duyệt bởi Quản trị viên (Admin)");
+      if (res.success) {
+        showToast(`Đã duyệt tin Pass phòng "${title || 'Phòng'}" thành công!`);
+        fetchAdminPassRooms();
+        if (selectedPassDetail && (selectedPassDetail._id === id || selectedPassDetail.id === id)) {
+          setSelectedPassDetail(null);
+        }
+      } else {
+        showToast(res.message || "Không thể duyệt tin pass phòng", "error");
+      }
+    } catch (err) {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
+  };
+
+  const handleOpenRejectPassModal = (room) => {
+    setRejectPassModal({
+      open: true,
+      room,
+      reason: "Chủ trọ chưa xác nhận chuyển cọc hoặc thông tin cọc chưa trùng khớp."
+    });
+  };
+
+  const handleRejectPassSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!rejectPassModal.room) return;
+    try {
+      const id = rejectPassModal.room._id || rejectPassModal.room.id;
+      const res = await base44.entities.PassRoom.adminReview(id, "reject", rejectPassModal.reason.trim() || "Thông tin phòng chưa hợp lệ");
+      if (res.success) {
+        showToast(`Đã từ chối tin Pass phòng "${rejectPassModal.room.title}".`);
+        setRejectPassModal({ open: false, room: null, reason: "" });
+        fetchAdminPassRooms();
+        if (selectedPassDetail && (selectedPassDetail._id === id || selectedPassDetail.id === id)) {
+          setSelectedPassDetail(null);
+        }
+      } else {
+        showToast(res.message || "Không thể từ chối tin", "error");
+      }
+    } catch (err) {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
+  };
+
+  const handleDeletePassRoom = async (id, title) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa vĩnh viễn tin pass "${title || 'này'}"?`)) return;
+    try {
+      const res = await base44.entities.PassRoom.delete(id);
+      if (res.success) {
+        showToast("Đã xóa tin pass phòng thành công!");
+        fetchAdminPassRooms();
+      } else {
+        showToast(res.message || "Lỗi khi xóa tin", "error");
+      }
+    } catch (err) {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
+  };
 
   // Phê duyệt hồ sơ Chủ trọ
   const handleApproveLandlord = async (id, name) => {
@@ -770,9 +846,13 @@ export default function Admin() {
   };
 
   // Danh mục menu bên sidebar
+  const pendingPassCount = adminPassRooms.filter(r => r.status === 'pending_landlord').length;
+  const pendingLandlordCount = landlords.filter(l => l.verificationStatus === 'PENDING').length;
+
   const menuItems = [
     { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
-    { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users },
+    { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users, badge: pendingLandlordCount },
+    { id: "pass_rooms", label: "Duyệt & Quản lý Pass phòng", icon: KeyRound, badge: pendingPassCount },
     { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2 },
     { id: "hero", label: "Quản lý banner (Hero)", icon: ImageIcon },
     { id: "campuses", label: "Danh mục khu vực / Campus", icon: GraduationCap },
@@ -815,19 +895,24 @@ export default function Admin() {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={cn(
-                  "w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all text-left",
+                  "w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left flex items-center justify-between group",
                   active
-                    ? "text-white shadow-md"
-                    : "text-slate-600"
+                    ? "bg-[#f97316] text-white shadow-md font-bold"
+                    : "text-slate-600 hover:bg-[#f4ebd9] hover:text-[#f97316]"
                 )}
-                style={{
-                  background: active ? "#f97316" : "transparent",
-                  ...( !active && { ":hover": { background: "#f4ebd9", color: "#f97316" } } )
-                }}
-                onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "#f4ebd9"; e.currentTarget.style.color = "#f97316"; } }}
-                onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = ""; } }}
               >
-                {item.label}
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {item.icon && <item.icon className={cn("w-4 h-4 shrink-0 transition-transform group-hover:scale-110", active ? "text-white" : "text-slate-400 group-hover:text-[#f97316]")} />}
+                  <span className="truncate">{item.label}</span>
+                </div>
+                {item.badge > 0 && (
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ml-1.5 shadow-xs",
+                    active ? "bg-white text-[#f97316]" : "bg-amber-100 text-amber-800 border border-amber-300"
+                  )}>
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}

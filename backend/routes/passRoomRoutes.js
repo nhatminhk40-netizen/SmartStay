@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 
 const PassRoom = require('../models/PassRoom');
 const User = require('../models/User');
-const { protect, checkRoomOwnership } = require('../middleware/auth');
+const { protect, authorize, checkRoomOwnership } = require('../middleware/auth');
 const { uploadPassImages } = require('../middleware/passUpload');
 const { generateConfirmationToken, hashToken } = require('../utils/passToken');
 const { sendLandlordPassEmail } = require('../utils/sendEmail');
@@ -236,6 +236,114 @@ router.get('/my/listings', protect, async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi tải danh sách tin của bạn', error: error.message });
+    }
+});
+
+// ==========================================
+// 2.1. DANH SÁCH TẤT CẢ PASS PHÒNG CHO ADMIN (KÈM THÔNG TIN LIÊN HỆ & CHỦ TRỌ)
+// ==========================================
+router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
+    try {
+        const isDbConnected = req.app.locals.isDbConnected;
+        if (isDbConnected) {
+            const rooms = await PassRoom.find()
+                .populate('owner', 'fullName email phone avatar')
+                .sort({ createdAt: -1 });
+            return res.status(200).json({
+                success: true,
+                count: rooms.length,
+                data: rooms
+            });
+        }
+        const fallbackList = loadFallbackPassRooms();
+        res.status(200).json({
+            success: true,
+            count: fallbackList.length,
+            data: fallbackList
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi tải danh sách pass phòng cho admin', error: error.message });
+    }
+});
+
+// ==========================================
+// 2.2. ADMIN PHÊ DUYỆT HOẶC TỪ CHỐI TIN PASS PHÒNG
+// ==========================================
+router.patch('/:id/admin-review', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { action, note } = req.body; // 'approve' | 'reject'
+        const isDbConnected = req.app.locals.isDbConnected;
+
+        if (!['approve', 'reject'].includes(action)) {
+            return res.status(400).json({ success: false, message: 'Hành động không hợp lệ (chọn approve hoặc reject).' });
+        }
+
+        const isApproved = action === 'approve';
+        const newStatus = isApproved ? 'verified' : 'rejected';
+        const updateFields = {
+            status: newStatus,
+            'landlordConfirmation.isConfirmed': isApproved,
+            'landlordConfirmation.confirmedAt': isApproved ? new Date() : null,
+            'landlordConfirmation.rejectedAt': !isApproved ? new Date() : null,
+            'landlordConfirmation.note': note || (isApproved ? 'Đã được phê duyệt bởi Quản trị viên (Admin)' : 'Từ chối bởi Quản trị viên (Admin)')
+        };
+
+        let updatedRoom = null;
+        if (isDbConnected && mongoose.isValidObjectId(id)) {
+            updatedRoom = await PassRoom.findByIdAndUpdate(id, updateFields, { new: true }).populate('owner', 'fullName email phone');
+        }
+
+        const fallbackList = loadFallbackPassRooms();
+        const idx = fallbackList.findIndex(r => String(r._id) === id || String(r.id) === id);
+        if (idx !== -1) {
+            fallbackList[idx] = {
+                ...fallbackList[idx],
+                status: newStatus,
+                landlordConfirmation: {
+                    ...fallbackList[idx].landlordConfirmation,
+                    isConfirmed: isApproved,
+                    confirmedAt: isApproved ? new Date() : null,
+                    rejectedAt: !isApproved ? new Date() : null,
+                    note: updateFields['landlordConfirmation.note']
+                },
+                updatedAt: new Date()
+            };
+            saveFallbackPassRooms(fallbackList);
+            if (!updatedRoom) updatedRoom = fallbackList[idx];
+        }
+
+        if (!updatedRoom) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng cần duyệt.' });
+        }
+
+        // Tạo thông báo cho người đăng tin pass phòng
+        try {
+            const ownerId = updatedRoom.owner?._id || updatedRoom.owner;
+            if (ownerId) {
+                await createNotification({
+                    userId: ownerId,
+                    title: isApproved ? '🎉 Tin Pass phòng của bạn đã được phê duyệt!' : '⚠️ Tin Pass phòng bị từ chối duyệt',
+                    message: isApproved
+                        ? `Tin pass phòng "${updatedRoom.title}" của bạn đã được Admin duyệt và hiển thị công khai trên SmartStay!`
+                        : `Tin pass phòng "${updatedRoom.title}" bị từ chối. Lý do: ${note || 'Thông tin chưa hợp lệ'}`,
+                    type: isApproved ? 'pass_approved' : 'pass_rejected',
+                    referenceId: updatedRoom._id || updatedRoom.id,
+                    referenceModel: 'PassRoom',
+                    actionUrl: `/pass-phong/${updatedRoom._id || updatedRoom.id}`
+                }, req.app.locals);
+            }
+        } catch (notifErr) {
+            console.warn('Lỗi gửi thông báo duyệt pass:', notifErr.message);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: isApproved ? 'Đã phê duyệt tin Pass phòng thành công!' : 'Đã từ chối tin Pass phòng!',
+            data: updatedRoom
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi duyệt tin pass phòng', error: error.message });
     }
 });
 

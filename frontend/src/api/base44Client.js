@@ -556,6 +556,34 @@ export const base44 = {
         });
         return await res.json();
       },
+      adminList: async () => {
+        try {
+          const token = localStorage.getItem('smartstay_token');
+          const res = await fetch(`${API_BASE}/pass-rooms/admin/all`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const json = await res.json();
+          if (json.success && json.data) return json.data;
+          return [];
+        } catch (e) {
+          console.warn('PassRoom.adminList error:', e);
+          return [];
+        }
+      },
+
+      adminReview: async (id, action, note = '') => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/pass-rooms/${id}/admin-review`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ action, note })
+        });
+        return await res.json();
+      },
+
 
       update: async (id, payload) => {
         const token = localStorage.getItem('smartstay_token');
