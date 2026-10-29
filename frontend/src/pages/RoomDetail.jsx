@@ -7,6 +7,7 @@ import {
     MapPin,
     ArrowLeft,
     ShieldCheck,
+    Loader2,
     BadgeCheck,
     CheckCircle2,
     XCircle,
@@ -128,12 +129,8 @@ export default function RoomDetail() {
         }
     };
 
-    useEffect(() => {
-        fetchRoomData();
-    }, [id]);
-
-        const fetchReviewEligibility = async () => {
-        const token = base44.auth.getToken() || localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+    const fetchReviewEligibility = async () => {
+        const token = base44.auth?.getToken?.() || localStorage.getItem("smartstay_token") || localStorage.getItem("token") || sessionStorage.getItem("token");
         if (!token) {
             setReviewEligibility({ eligible: false, code: 'NOT_LOGGED_IN', message: 'Vui lòng đăng nhập để gửi đánh giá trải nghiệm thực tế.' });
             return;
@@ -144,14 +141,20 @@ export default function RoomDetail() {
             if (res && res.data) {
                 setReviewEligibility(res.data);
             } else {
-                setReviewEligibility(res || { eligible: false, code: 'NO_VERIFIED_STAY', message: 'Chưa có thông tin lưu trú.' });
+                setReviewEligibility({ eligible: false, code: 'NO_VERIFIED_STAY', message: 'Chưa có thông tin lưu trú.' });
             }
         } catch (err) {
             console.warn('Lỗi kiểm tra review eligibility:', err);
+            setReviewEligibility({ eligible: false, code: 'NO_VERIFIED_STAY', message: 'Chưa có thông tin lưu trú.' });
         } finally {
             setCheckingEligibility(false);
         }
     };
+
+    useEffect(() => {
+        fetchRoomData();
+        fetchReviewEligibility();
+    }, [id, user]);
 
     const handleShare = () => {
         navigator.clipboard.writeText(window.location.href);
@@ -957,7 +960,7 @@ export default function RoomDetail() {
                                 )}
 
                                 {/* CASE 1: Chưa đăng nhập */}
-                                {(!user || reviewEligibility?.code === 'NOT_LOGGED_IN') && (
+                                {!user || reviewEligibility?.code === 'NOT_LOGGED_IN' ? (
                                     <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-center space-y-2.5">
                                         <p className="text-xs text-amber-900 font-medium">
                                             Chỉ người thuê đã thực sự sinh sống tại phòng này qua SmartStay mới có thể gửi đánh giá.
@@ -965,82 +968,18 @@ export default function RoomDetail() {
                                         <button
                                             type="button"
                                             onClick={() => navigate('/login')}
-                                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
                                         >
                                             Đăng nhập ngay
                                         </button>
                                     </div>
-                                )}
-
-                                {/* CASE 2: Chưa có Stay xác thực */}
-                                {user && reviewEligibility?.code === 'NO_VERIFIED_STAY' && (
-                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
-                                        <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                                            Chỉ tài khoản đã thực sự sinh sống tại phòng này qua SmartStay mới đánh giá được.
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowCheckinDialog(true)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-1.5 mx-auto"
-                                        >
-                                            <ShieldCheck className="w-4 h-4" />
-                                            <span>Tôi đã ở phòng này</span>
-                                        </button>
+                                ) : checkingEligibility && !reviewEligibility ? (
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                                        <span>Đang kiểm tra thông tin lưu trú...</span>
                                     </div>
-                                )}
-
-                                {/* CASE 3: Stay đang chờ duyệt */}
-                                {user && reviewEligibility?.code === 'STAY_PENDING_CONFIRMATION' && (
-                                    <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1">
-                                        <div className="font-bold flex items-center gap-1.5 text-blue-800">
-                                            <Clock className="w-4 h-4 text-blue-600" />
-                                            Đang chờ chủ trọ xác nhận nhận phòng
-                                        </div>
-                                        <p className="text-blue-700 leading-relaxed">
-                                            Yêu cầu nhận phòng của bạn đã được gửi tới chủ trọ. Sau khi chủ trọ xác nhận và bạn lưu trú tối thiểu 14 ngày, bạn sẽ có thể gửi đánh giá.
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* CASE 4: Stay chưa đủ 14 ngày */}
-                                {user && reviewEligibility?.code === 'STAY_TOO_SHORT' && (
-                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-                                        <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                                            <ShieldCheck className="w-4 h-4 text-amber-600" />
-                                            Đã xác nhận đang ở ({reviewEligibility.daysStayed || 0}/14 ngày)
-                                        </div>
-                                        <p className="text-amber-800 leading-relaxed">
-                                            Để đảm bảo tính khách quan và trải nghiệm thực tế, bạn sẽ có thể gửi đánh giá sau <strong>{reviewEligibility.availableDate ? new Date(reviewEligibility.availableDate).toLocaleDateString('vi-VN') : '14 ngày'}</strong> (còn <strong>{reviewEligibility.daysLeft || 14} ngày</strong> nữa).
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* CASE 5: Đã review rồi */}
-                                {user && reviewEligibility?.code === 'ALREADY_REVIEWED' && (
-                                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
-                                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                                        <span>Bạn đã gửi đánh giá trải nghiệm thực tế cho đợt lưu trú này. Cảm ơn đóng góp của bạn!</span>
-                                    </div>
-                                )}
-
-                                {/* CASE 6: Quá hạn review 90 ngày */}
-                                {user && reviewEligibility?.code === 'REVIEW_WINDOW_EXPIRED' && (
-                                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2">
-                                        <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-                                        <span>Thời hạn gửi đánh giá đã kết thúc (&gt; 90 ngày kể từ ngày kết thúc lưu trú).</span>
-                                    </div>
-                                )}
-
-                                {/* CASE 7: Chủ trọ của phòng */}
-                                {user && reviewEligibility?.code === 'LANDLORD_CANNOT_REVIEW' && (
-                                    <div className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-center gap-2">
-                                        <Info className="w-4 h-4 text-slate-500 shrink-0" />
-                                        <span>Bạn là chủ trọ của phòng này. Chủ nhà trọ không thể tự gửi đánh giá phòng của chính mình.</span>
-                                    </div>
-                                )}
-
-                                {/* CASE 8: Đủ điều kiện -> HIỆN FORM ĐÁNH GIÁ */}
-                                {user && reviewEligibility?.eligible === true && (
+                                ) : reviewEligibility?.eligible === true ? (
+                                    /* CASE 8: ĐỦ ĐIỀU KIỆN -> HIỆN FORM ĐÁNH GIÁ */
                                     <form onSubmit={handleReviewSubmit} className="space-y-3">
                                         <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs flex items-center gap-2">
                                             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1109,11 +1048,66 @@ export default function RoomDetail() {
                                         <button
                                             type="submit"
                                             disabled={submittingReview}
-                                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                                         >
                                             <Send className="w-3.5 h-3.5" /> {submittingReview ? "Đang gửi..." : "Gửi đánh giá xác minh (✓ Đã ở thật)"}
                                         </button>
                                     </form>
+                                ) : reviewEligibility?.code === 'STAY_PENDING_CONFIRMATION' ? (
+                                    /* CASE 3: CHỜ DUYỆT */
+                                    <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1">
+                                        <div className="font-bold flex items-center gap-1.5 text-blue-800">
+                                            <Clock className="w-4 h-4 text-blue-600" />
+                                            Đang chờ chủ trọ xác nhận nhận phòng
+                                        </div>
+                                        <p className="text-blue-700 leading-relaxed">
+                                            Yêu cầu nhận phòng của bạn đã được gửi tới chủ trọ. Sau khi chủ trọ xác nhận và bạn lưu trú tối thiểu 14 ngày, bạn sẽ có thể gửi đánh giá.
+                                        </p>
+                                    </div>
+                                ) : reviewEligibility?.code === 'STAY_TOO_SHORT' ? (
+                                    /* CASE 4: CHƯA ĐỦ 14 NGÀY */
+                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                                        <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                                            <ShieldCheck className="w-4 h-4 text-amber-600" />
+                                            Đã xác nhận đang ở ({reviewEligibility.daysStayed || 0}/14 ngày)
+                                        </div>
+                                        <p className="text-amber-800 leading-relaxed">
+                                            Để đảm bảo tính khách quan và trải nghiệm thực tế, bạn sẽ có thể gửi đánh giá sau <strong>{reviewEligibility.availableDate ? new Date(reviewEligibility.availableDate).toLocaleDateString('vi-VN') : '14 ngày'}</strong> (còn <strong>{reviewEligibility.daysLeft || 14} ngày</strong> nữa).
+                                        </p>
+                                    </div>
+                                ) : reviewEligibility?.code === 'ALREADY_REVIEWED' ? (
+                                    /* CASE 5: ĐÃ ĐÁNH GIÁ */
+                                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        <span>Bạn đã gửi đánh giá trải nghiệm thực tế cho đợt lưu trú này. Cảm ơn đóng góp của bạn!</span>
+                                    </div>
+                                ) : reviewEligibility?.code === 'REVIEW_WINDOW_EXPIRED' ? (
+                                    /* CASE 6: QUÁ HẠN 90 NGÀY */
+                                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2">
+                                        <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                                        <span>Thời hạn gửi đánh giá đã kết thúc (&gt; 90 ngày kể từ ngày kết thúc lưu trú).</span>
+                                    </div>
+                                ) : reviewEligibility?.code === 'LANDLORD_CANNOT_REVIEW' ? (
+                                    /* CASE 7: CHỦ TRỌ */
+                                    <div className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-center gap-2">
+                                        <Info className="w-4 h-4 text-slate-500 shrink-0" />
+                                        <span>Bạn là chủ trọ của phòng này. Chủ nhà trọ không thể tự gửi đánh giá phòng của chính mình.</span>
+                                    </div>
+                                ) : (
+                                    /* CASE 2 (FALLBACK AN TOÀN CHO TẤT CẢ CÁC TRƯỜNG HỢP CÒN LẠI) -> LUÔN HIỆN NÚT "TÔI ĐÃ Ở PHÒNG NÀY" */
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                                        <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                                            Chỉ tài khoản đã thực sự sinh sống tại phòng này qua SmartStay mới đánh giá được.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCheckinDialog(true)}
+                                            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+                                        >
+                                            <ShieldCheck className="w-4 h-4" />
+                                            <span>Tôi đã ở phòng này</span>
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
