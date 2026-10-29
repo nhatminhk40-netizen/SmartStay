@@ -225,7 +225,27 @@ testServer.listen(0, async () => {
         console.log('✓ Chủ trọ mới nhận mảng rỗng [] an toàn.');
         console.log('✅ TEST 4 THÀNH CÔNG: Đã ngăn chặn triệt để việc nhồi nhét phòng mẫu Bác Ba cho tài khoản mới!\n');
 
-        console.log('🎉 TẤT CẢ 4 BỘ TEST CÁCH LY TÀI KHOẢN VÀ BẢO MẬT ĐỀU ĐẠT 100%!');
+                // --- TEST 5: Cách ly Hợp đồng & Cọc phòng: Chủ trọ chưa có hợp đồng nhận mảng rỗng [] & stats = 0 ---
+        console.log('--- TEST 5: Chủ trọ chưa có hợp đồng -> Trả về mảng rỗng [] và stats = 0 ---');
+        const contractsMinhRes = await makeRequest({
+            hostname: '127.0.0.1',
+            port,
+            path: '/api/contracts?page=1&limit=10',
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${tokenMinh}`
+            }
+        });
+        assert.strictEqual(contractsMinhRes.status, 200);
+        assert.strictEqual(contractsMinhRes.body.success, true);
+        assert.deepStrictEqual(contractsMinhRes.body.data, [], 'Chủ trọ Minh Minh chưa có hợp đồng phải nhận mảng rỗng []');
+        assert.strictEqual(contractsMinhRes.body.stats.totalContracts, 0, 'Minh Minh phải có totalContracts = 0');
+        assert.strictEqual(contractsMinhRes.body.stats.activeCount, 0, 'Minh Minh phải có activeCount = 0');
+        assert.strictEqual(contractsMinhRes.body.stats.totalHoldingDeposit, 0, 'Minh Minh phải có totalHoldingDeposit = 0');
+        console.log('✓ Minh Minh nhận danh sách hợp đồng rỗng [] và toàn bộ stats = 0 chuẩn xác.');
+        console.log('✅ TEST 5 THÀNH CÔNG: Cách ly danh sách Hợp đồng & Tiền cọc an toàn tuyệt đối!\n');
+
+        console.log('🎉 TẤT CẢ 5 BỘ TEST CÁCH LY TÀI KHOẢN VÀ BẢO MẬT ĐỀU ĐẠT 100%!');
         testServer.close();
         process.exit(0);
     } catch (err) {

@@ -53,6 +53,7 @@ router.get('/lookup/rooms', protect, authorize('landlord', 'admin', 'employee'),
     try {
         const isDbConnected = req.app.locals.isDbConnected;
         const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = (req.user.email || '').toLowerCase();
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
 
         if (isDbConnected) {
@@ -125,7 +126,12 @@ router.get('/', protect, async (req, res) => {
             if (isStudent) {
                 filter = { tenant: currentUserId };
             } else if (!isAdmin) {
-                filter = { landlord: currentUserId };
+                filter = {
+                    $or: [
+                        { landlord: currentUserId },
+                        ...(currentUserEmail ? [{ landlordEmail: currentUserEmail }] : [])
+                    ]
+                };
             }
 
             // Lọc theo trạng thái
@@ -169,7 +175,12 @@ router.get('/', protect, async (req, res) => {
             }
 
             // Tính thống kê nhanh cho chủ trọ
-            const allMyContracts = await Contract.find(isAdmin ? {} : { landlord: currentUserId });
+            const allMyContracts = await Contract.find(isAdmin ? {} : {
+                $or: [
+                    { landlord: currentUserId },
+                    ...(currentUserEmail ? [{ landlordEmail: currentUserEmail }] : [])
+                ]
+            });
             const now = Date.now();
             const in30Days = now + 30 * 24 * 60 * 60 * 1000;
 

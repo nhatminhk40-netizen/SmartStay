@@ -1480,14 +1480,71 @@ export const base44 = {
           }
         });
         const data = await res.json();
-        if (res.ok && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          return data;
+        const savedUser = localStorage.getItem('smartstay_user');
+        const currentUser = savedUser ? JSON.parse(savedUser) : null;
+        const isDemoLandlord = currentUser?.email === 'chutro@smartstay.vn';
+
+        if (res.ok && data.success) {
+          if (Array.isArray(data.data) && data.data.length > 0) {
+            return data;
+          }
+          if (isDemoLandlord) {
+            return getFallbackContractsResponse(params);
+          }
+          // Chủ trọ thật chưa có hợp đồng: trả về mảng rỗng [] và stats = 0, tuyệt đối không gán hợp đồng Bác Ba
+          return {
+            success: true,
+            data: [],
+            total: 0,
+            page: 1,
+            totalPages: 1,
+            stats: {
+              totalContracts: 0,
+              activeCount: 0,
+              expiringSoonCount: 0,
+              totalHoldingDeposit: 0,
+              unpaidDepositCount: 0
+            }
+          };
         }
-        // Nếu API trả về lỗi hoặc phiên hết hạn hoặc danh sách rỗng, sử dụng fallback hợp đồng an toàn
-        return getFallbackContractsResponse(params);
+        if (isDemoLandlord) {
+          return getFallbackContractsResponse(params);
+        }
+        return {
+          success: true,
+          data: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+          stats: {
+            totalContracts: 0,
+            activeCount: 0,
+            expiringSoonCount: 0,
+            totalHoldingDeposit: 0,
+            unpaidDepositCount: 0
+          }
+        };
       } catch (err) {
-        console.warn('Lỗi gọi API /contracts, chuyển sang dữ liệu mẫu an toàn:', err);
-        return getFallbackContractsResponse(params);
+        console.warn('Lỗi gọi API /contracts, chuyển sang dữ liệu an toàn:', err);
+        const savedUser = localStorage.getItem('smartstay_user');
+        const currentUser = savedUser ? JSON.parse(savedUser) : null;
+        if (currentUser?.email === 'chutro@smartstay.vn') {
+          return getFallbackContractsResponse(params);
+        }
+        return {
+          success: true,
+          data: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+          stats: {
+            totalContracts: 0,
+            activeCount: 0,
+            expiringSoonCount: 0,
+            totalHoldingDeposit: 0,
+            unpaidDepositCount: 0
+          }
+        };
       }
     },
     myContracts: async () => {
