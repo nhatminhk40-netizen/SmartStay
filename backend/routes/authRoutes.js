@@ -9,7 +9,17 @@ const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const Otp = require('../models/Otp');
 const { sendOtpEmail } = require('../utils/sendEmail');
-const { protect, generateToken } = require('../middleware/auth');
+const { protect, generateToken, authorize } = require('../middleware/auth');
+const {
+    getClientIp,
+    isIpWhitelisted,
+    checkAdminLockout,
+    recordFailedAdminLogin,
+    recordSuccessfulAdminLogin,
+    generateTotpSetup,
+    verifyTotpCode,
+    getAdminMasterPin
+} = require('../utils/adminSecurity');
 
 // Đường dẫn lưu trữ tài khoản fallback offline
 const FALLBACK_USERS_FILE = path.join(__dirname, '../fallback_users.json');
@@ -229,11 +239,58 @@ router.post('/send-otp', sendOtpLimiter, async (req, res) => {
                 return res.status(400).json({ success: false, message: 'Địa chỉ email không hợp lệ.' });
             }
 
-            // Nếu là mục đích ĐĂNG KÝ: kiểm tra email đã được dùng chưa
-            if (purpose === 'REGISTER' && req.app.locals.isDbConnected) {
-                const userExists = await User.findOne({ email: cleanEmail });
+            // 1. Nếu là mục đích ĐĂNG KÝ (REGISTER): kiểm tra email đã được dùng chưa
+            if (purpose === 'REGISTER') {
+                let userExists = false;
+                if (req.app.locals.isDbConnected) {
+                    userExists = await User.findOne({ email: cleanEmail });
+                }
+                if (!userExists) {
+                    const fallbackUsers = getFallbackUsers(req.app);
+                    userExists = fallbackUsers.some(u => u.email === cleanEmail);
+                }
                 if (userExists) {
-                    return res.status(400).json({ success: false, message: 'Email này đã được sử dụng trên hệ thống.' });
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: 'Email này đã được sử dụng để đăng ký tài khoản trên hệ thống. Vui lòng chuyển sang trang Đăng nhập hoặc sử dụng email khác!' 
+                    });
+                }
+            }
+
+            // 2. Nếu là mục đích QUÊN MẬT KHẨU (RESET_PASSWORD):
+            // CHỈ KHI NGƯỜI DÙNG NHẬP ĐÚNG EMAIL ĐÃ ĐĂNG KÝ MỚI GỬI MÃ OTP VỀ EMAIL ĐÓ
+            if (purpose === 'RESET_PASSWORD') {
+                let targetUser = null;
+                if (req.app.locals.isDbConnected) {
+                    targetUser = await User.findOne({ email: cleanEmail });
+                }
+                if (!targetUser) {
+                    const fallbackUsers = getFallbackUsers(req.app);
+                    targetUser = fallbackUsers.find(u => u.email === cleanEmail);
+                }
+
+                // Nếu KHÔNG tìm thấy tài khoản nào khớp với email -> Từ chối ngay lập tức, KHÔNG gửi mã OTP
+                if (!targetUser) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Email này chưa được đăng ký tài khoản trên hệ thống SmartStay. Vui lòng kiểm tra lại chính xác email bạn đã dùng để đăng ký!'
+                    });
+                }
+
+                // Bảo mật đặc biệt cho tài khoản Quản trị viên (Admin): Không cho phép đặt lại mật khẩu qua Email công cộng
+                if (targetUser.role === 'admin') {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Tài khoản Quản trị viên (Admin) được bảo vệ đặc biệt và không hỗ trợ đặt lại mật khẩu qua Email công cộng. Vui lòng liên hệ Kỹ thuật viên hệ thống hoặc sử dụng Console Recovery Key!'
+                    });
+                }
+
+                // Kiểm tra nếu tài khoản bị khóa / vô hiệu hóa
+                if (targetUser.isBlocked || targetUser.status === 'blocked' || targetUser.verificationStatus === 'BLOCKED') {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Tài khoản này hiện đang bị tạm khóa. Vui lòng liên hệ hỗ trợ SmartStay để được trợ giúp.'
+                    });
                 }
             }
 
@@ -732,6 +789,25 @@ router.post('/login', loginLimiter, async (req, res) => {
                 return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
             }
 
+            // Kiểm tra IP Whitelist và Khóa Brute-Force đối với tài khoản Admin
+            if (user.role === 'admin') {
+                const clientIp = getClientIp(req);
+                if (!isIpWhitelisted(clientIp)) {
+                    return res.status(403).json({
+                        success: false,
+                        message: `Địa chỉ IP [${clientIp}] không nằm trong danh sách được phép đăng nhập Quản trị viên (Admin IP Whitelist).`
+                    });
+                }
+
+                const lockout = checkAdminLockout(user);
+                if (lockout.isLocked) {
+                    return res.status(429).json({
+                        success: false,
+                        message: lockout.message
+                    });
+                }
+            }
+
             // So khớp mật khẩu an toàn
             let isMatch = false;
             try {
@@ -746,7 +822,45 @@ router.post('/login', loginLimiter, async (req, res) => {
             }
 
             if (!isMatch) {
+                if (user.role === 'admin') {
+                    const failStat = await recordFailedAdminLogin(user, async (u) => {
+                        try { if (typeof u.save === 'function') await u.save(); } catch (_) {}
+                    });
+                    if (failStat.isLocked) {
+                        return res.status(429).json({
+                            success: false,
+                            message: `Mật khẩu không chính xác. Bạn đã nhập sai ${failStat.attempts} lần liên tiếp. Tài khoản Quản trị viên đã bị tạm khóa an toàn 30 phút!`
+                        });
+                    }
+                    return res.status(401).json({
+                        success: false,
+                        message: `Mật khẩu không chính xác. Cảnh báo bảo mật Admin: Bạn còn ${failStat.remainingAttempts} lần thử trước khi tài khoản bị khóa 30 phút!`
+                    });
+                }
                 return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
+            }
+
+            // Đăng nhập đúng: Reset số lần thử sai của Admin
+            if (user.role === 'admin') {
+                await recordSuccessfulAdminLogin(user, async (u) => {
+                    try { if (typeof u.save === 'function') await u.save(); } catch (_) {}
+                });
+
+                // Kiểm tra Xác thực 2 bước TOTP (Google Authenticator)
+                if (user.twoFactorEnabled && user.twoFactorSecret) {
+                    const tempToken = jwt.sign(
+                        { id: user._id, email: user.email, role: 'admin', action: 'ADMIN_2FA_PENDING' },
+                        process.env.JWT_SECRET || 'smartstay_jwt_secret_dev_2026',
+                        { expiresIn: '5m' }
+                    );
+                    return res.status(200).json({
+                        success: true,
+                        require2FA: true,
+                        tempToken,
+                        user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role },
+                        message: 'Yêu cầu xác thực 2 bước (Google Authenticator). Vui lòng nhập mã 6 số từ ứng dụng trên điện thoại.'
+                    });
+                }
             }
 
             const token = generateToken({
@@ -789,9 +903,66 @@ router.post('/login', loginLimiter, async (req, res) => {
             return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
         }
 
+        // Kiểm tra IP Whitelist và Khóa Brute-Force đối với tài khoản Admin (Fallback)
+        if (user.role === 'admin') {
+            const clientIp = getClientIp(req);
+            if (!isIpWhitelisted(clientIp)) {
+                return res.status(403).json({
+                    success: false,
+                    message: `Địa chỉ IP [${clientIp}] không nằm trong danh sách được phép đăng nhập Quản trị viên (Admin IP Whitelist).`
+                });
+            }
+
+            const lockout = checkAdminLockout(user);
+            if (lockout.isLocked) {
+                return res.status(429).json({
+                    success: false,
+                    message: lockout.message
+                });
+            }
+        }
+
         const isMatch = await bcrypt.compare(password, user.passwordHash || user.password);
         if (!isMatch) {
+            if (user.role === 'admin') {
+                const failStat = await recordFailedAdminLogin(user, () => {
+                    saveFallbackUsers(fallbackUsers);
+                });
+                if (failStat.isLocked) {
+                    return res.status(429).json({
+                        success: false,
+                        message: `Mật khẩu không chính xác. Bạn đã nhập sai ${failStat.attempts} lần liên tiếp. Tài khoản Quản trị viên đã bị tạm khóa an toàn 30 phút!`
+                    });
+                }
+                return res.status(401).json({
+                    success: false,
+                    message: `Mật khẩu không chính xác. Cảnh báo bảo mật Admin: Bạn còn ${failStat.remainingAttempts} lần thử trước khi tài khoản bị khóa 30 phút!`
+                });
+            }
             return res.status(401).json({ success: false, message: 'Email/Số điện thoại hoặc mật khẩu không chính xác.' });
+        }
+
+        // Đăng nhập đúng: Reset số lần thử sai của Admin (Fallback)
+        if (user.role === 'admin') {
+            await recordSuccessfulAdminLogin(user, () => {
+                saveFallbackUsers(fallbackUsers);
+            });
+
+            // Kiểm tra Xác thực 2 bước TOTP (Google Authenticator)
+            if (user.twoFactorEnabled && user.twoFactorSecret) {
+                const tempToken = jwt.sign(
+                    { id: user._id, email: user.email, role: 'admin', action: 'ADMIN_2FA_PENDING' },
+                    process.env.JWT_SECRET || 'smartstay_jwt_secret_dev_2026',
+                    { expiresIn: '5m' }
+                );
+                return res.status(200).json({
+                    success: true,
+                    require2FA: true,
+                    tempToken,
+                    user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role },
+                    message: 'Yêu cầu xác thực 2 bước (Google Authenticator). Vui lòng nhập mã 6 số từ ứng dụng trên điện thoại.'
+                });
+            }
         }
 
         const token = generateToken({
@@ -1078,6 +1249,12 @@ router.post('/reset-password', async (req, res) => {
                     message: 'Không tìm thấy tài khoản với email này.'
                 });
             }
+            if (user.role === 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Tài khoản Quản trị viên (Admin) không thể đổi mật khẩu qua tính năng này.'
+                });
+            }
             user.password = newPassword;
             await user.save();
         } else {
@@ -1087,6 +1264,12 @@ router.post('/reset-password', async (req, res) => {
                 return res.status(404).json({
                     success: false,
                     message: 'Không tìm thấy tài khoản với email này.'
+                });
+            }
+            if (user.role === 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Tài khoản Quản trị viên (Admin) không thể đổi mật khẩu qua tính năng này.'
                 });
             }
             user.passwordHash = await bcrypt.hash(newPassword, 10);
@@ -1100,6 +1283,213 @@ router.post('/reset-password', async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
+});
+
+
+// ── 8. XÁC THỰC MÃ 2FA GOOGLE AUTHENTICATOR KHI ĐĂNG NHẬP ADMIN ──
+router.post('/verify-admin-2fa', async (req, res) => {
+    try {
+        const { tempToken, code } = req.body;
+        if (!tempToken || !code) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp mã xác thực 2 bước.' });
+        }
+
+        const secret = process.env.JWT_SECRET || 'smartstay_jwt_secret_dev_2026';
+        let decoded;
+        try {
+            decoded = jwt.verify(tempToken, secret);
+        } catch (jwtErr) {
+            return res.status(401).json({ success: false, message: 'Phiên xác thực 2 bước đã hết hạn. Vui lòng đăng nhập lại!' });
+        }
+
+        if (decoded.action !== 'ADMIN_2FA_PENDING') {
+            return res.status(400).json({ success: false, message: 'Yêu cầu xác thực không hợp lệ.' });
+        }
+
+        let user;
+        if (req.app.locals.isDbConnected) {
+            user = await User.findById(decoded.id);
+        } else {
+            const fallbackUsers = getFallbackUsers(req.app);
+            user = fallbackUsers.find(u => String(u._id) === String(decoded.id) || u.email === decoded.email);
+        }
+
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Tài khoản không có quyền Quản trị viên.' });
+        }
+
+        const verifyRes = verifyTotpCode(code, user.twoFactorSecret, user.twoFactorBackupCodes || []);
+        if (!verifyRes.valid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã xác thực Google Authenticator không chính xác hoặc đã hết hạn (mã mới sinh mỗi 30 giây). Vui lòng thử lại!'
+            });
+        }
+
+        // Nếu người dùng dùng mã Backup code, hủy mã đó để không dùng lại lần hai
+        if (verifyRes.isBackupCode && verifyRes.matchedIndex !== undefined) {
+            user.twoFactorBackupCodes.splice(verifyRes.matchedIndex, 1);
+            if (req.app.locals.isDbConnected) {
+                await user.save();
+            } else {
+                saveFallbackUsers(req.app.locals.fallbackUsers);
+            }
+        }
+
+        const token = generateToken({
+            id: user._id,
+            email: user.email,
+            role: user.role,
+            fullName: user.fullName
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Xác thực 2 bước thành công! Đang chuyển hướng vào Bảng Quản Trị...',
+            access_token: token,
+            user: {
+                id: user._id,
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role,
+                campus: user.campus,
+                twoFactorEnabled: true
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ── 9. QUẢN LÝ THIẾT LẬP 2FA CHO ADMIN ──
+router.get('/admin-2fa/status', protect, authorize('admin'), async (req, res) => {
+    return res.status(200).json({
+        success: true,
+        twoFactorEnabled: Boolean(req.user.twoFactorEnabled),
+        hasBackupCodes: Boolean(req.user.twoFactorBackupCodes && req.user.twoFactorBackupCodes.length > 0)
+    });
+});
+
+router.get('/admin-2fa/setup', protect, authorize('admin'), async (req, res) => {
+    try {
+        const setupData = await generateTotpSetup(req.user.email || 'admin@smartstay.vn');
+        return res.status(200).json({
+            success: true,
+            ...setupData
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Lỗi khởi tạo cấu hình 2FA: ' + err.message });
+    }
+});
+
+router.post('/admin-2fa/enable', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { secret, code, backupCodes } = req.body;
+        if (!secret || !code) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp mã bí mật và mã 6 số từ ứng dụng.' });
+        }
+
+        const verifyRes = verifyTotpCode(code, secret);
+        if (!verifyRes.valid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mã xác thực 6 số không chính xác. Vui lòng kiểm tra lại đồng hồ điện thoại và thử lại!'
+            });
+        }
+
+        if (req.app.locals.isDbConnected) {
+            const user = await User.findById(req.user._id || req.user.id);
+            if (!user) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
+            user.twoFactorEnabled = true;
+            user.twoFactorSecret = secret;
+            user.twoFactorBackupCodes = backupCodes || [];
+            await user.save();
+        } else {
+            const fallbackUsers = getFallbackUsers(req.app);
+            const user = fallbackUsers.find(u => String(u._id) === String(req.user._id || req.user.id));
+            if (user) {
+                user.twoFactorEnabled = true;
+                user.twoFactorSecret = secret;
+                user.twoFactorBackupCodes = backupCodes || [];
+                saveFallbackUsers(fallbackUsers);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: '🎉 Đã kích hoạt Xác thực 2 bước Google Authenticator thành công!'
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post('/admin-2fa/disable', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { code, adminPin } = req.body;
+        const requiredPin = getAdminMasterPin();
+
+        let authorizedToDisable = false;
+        if (adminPin && String(adminPin).trim() === requiredPin) {
+            authorizedToDisable = true;
+        } else if (code && req.user.twoFactorSecret) {
+            const verifyRes = verifyTotpCode(code, req.user.twoFactorSecret, req.user.twoFactorBackupCodes || []);
+            if (verifyRes.valid) authorizedToDisable = true;
+        }
+
+        if (!authorizedToDisable) {
+            return res.status(403).json({
+                success: false,
+                message: 'Mã xác thực 2 bước hoặc Mã PIN Quản trị cấp 2 không chính xác!'
+            });
+        }
+
+        if (req.app.locals.isDbConnected) {
+            const user = await User.findById(req.user._id || req.user.id);
+            if (user) {
+                user.twoFactorEnabled = false;
+                user.twoFactorSecret = '';
+                user.twoFactorBackupCodes = [];
+                await user.save();
+            }
+        } else {
+            const fallbackUsers = getFallbackUsers(req.app);
+            const user = fallbackUsers.find(u => String(u._id) === String(req.user._id || req.user.id));
+            if (user) {
+                user.twoFactorEnabled = false;
+                user.twoFactorSecret = '';
+                user.twoFactorBackupCodes = [];
+                saveFallbackUsers(fallbackUsers);
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Đã hủy kích hoạt Xác thực 2 bước cho tài khoản Admin.'
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ── 10. XÁC MINH MÃ PIN QUẢN TRỊ CẤP 2 (ADMIN MASTER PIN) ──
+router.post('/admin-pin/verify', protect, authorize('admin'), (req, res) => {
+    const { pin } = req.body;
+    const requiredPin = getAdminMasterPin();
+
+    if (!pin || String(pin).trim() !== requiredPin) {
+        return res.status(403).json({
+            success: false,
+            valid: false,
+            message: 'Mã PIN Quản trị cấp 2 không chính xác!'
+        });
+    }
+
+    return res.status(200).json({
+        success: true,
+        valid: true,
+        message: 'Xác thực Mã PIN Quản trị cấp 2 thành công!'
+    });
 });
 
 module.exports = router;

@@ -50,16 +50,15 @@ export default function ContractsManager() {
         limit: 10
       });
 
-      setContracts(res.data || []);
-      setStats(res.stats || {});
-      setTotalPages(res.totalPages || 1);
-      setTotalCount(res.total || 0);
+      if (res && (res.data || res.success)) {
+        setContracts(res.data || []);
+        setStats(res.stats || {});
+        setTotalPages(res.totalPages || 1);
+        setTotalCount(res.total || (res.data ? res.data.length : 0));
+      }
     } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Lỗi tải dữ liệu",
-        description: err.message || "Không thể tải danh sách hợp đồng."
-      });
+      console.warn("Lỗi tải danh sách hợp đồng:", err);
+      // Không hiện toast lỗi gây gián đoạn khi đang dùng dữ liệu fallback
     } finally {
       setLoading(false);
     }

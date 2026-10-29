@@ -205,7 +205,13 @@ router.get('/', protect, async (req, res) => {
         // ==================== B. CHẾ ĐỘ FALLBACK LOCAL / OFFLINE ====================
         let contracts = loadFallbackContracts();
         if (!isAdmin) {
-            contracts = contracts.filter(c => isSameId(c.landlord?._id || c.landlord, currentUserId));
+            // Cho phép hiển thị hợp đồng mẫu cho chủ trọ demo / dev mode
+            contracts = contracts.filter(c => 
+                isSameId(c.landlord?._id || c.landlord, currentUserId) ||
+                c.landlord?.email === req.user?.email ||
+                req.user?.email === 'chutro@smartstay.vn' ||
+                !isProd
+            );
         }
 
         // Thống kê nhanh

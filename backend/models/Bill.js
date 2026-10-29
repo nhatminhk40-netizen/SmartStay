@@ -9,12 +9,16 @@ const billSchema = new mongoose.Schema({
     contract: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Contract',
-        required: [true, 'Hóa đơn phải thuộc một hợp đồng cụ thể']
+        required: false
     },
     room: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Room',
         required: [true, 'Hóa đơn phải thuộc một phòng trọ cụ thể']
+    },
+    roomNumber: {
+        type: String,
+        default: ''
     },
     landlord: {
         type: mongoose.Schema.Types.ObjectId,
@@ -24,7 +28,11 @@ const billSchema = new mongoose.Schema({
     tenant: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        required: false
+    },
+    tenantName: {
+        type: String,
+        default: ''
     },
     month: {
         type: Number,
@@ -75,6 +83,11 @@ const billSchema = new mongoose.Schema({
         }
     },
     otherFees: [otherFeeSchema],
+    previousDebt: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
     totalAmount: {
         type: Number,
         required: true,
@@ -117,9 +130,10 @@ billSchema.pre('save', function (next) {
 
     // Tính phụ phí
     const otherTotal = (this.otherFees || []).reduce((acc, f) => acc + (Number(f.amount) || 0), 0);
+    const prevDebt = Number(this.previousDebt) || 0;
 
     // Tổng tiền
-    this.totalAmount = (Number(this.monthlyRent) || 0) + this.electric.total + this.water.total + otherTotal;
+    this.totalAmount = (Number(this.monthlyRent) || 0) + this.electric.total + this.water.total + otherTotal + prevDebt;
 
     if (typeof next === 'function') next();
 });

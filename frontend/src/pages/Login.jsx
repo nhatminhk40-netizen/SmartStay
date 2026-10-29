@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users, Building2, Truck } from "lucide-react";
+import { Mail, Lock, Loader2, Eye, EyeOff, Shield, Star, Users, Building2, Truck, ShieldCheck, ArrowLeft, AlertCircle } from "lucide-react";
 import GoogleIcon from "@/components/GoogleIcon";
 import GoogleClientIdDialog from "@/components/GoogleClientIdDialog";
 import { triggerGoogleSignIn } from "@/lib/googleAuth";
@@ -37,6 +37,40 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Trạng thái Xác thực 2 bước Google Authenticator
+  const [twoFactorData, setTwoFactorData] = useState({
+    required: false,
+    tempToken: "",
+    email: ""
+  });
+  const [totpCode, setTotpCode] = useState("");
+  const [totpLoading, setTotpLoading] = useState(false);
+
+  const handleVerify2FA = async (e) => {
+    e.preventDefault();
+    const cleanCode = totpCode.trim();
+    if (!cleanCode || cleanCode.length < 6) {
+      setError("Vui lòng nhập đầy đủ mã xác thực 6 chữ số từ app Google Authenticator.");
+      return;
+    }
+    setError("");
+    setTotpLoading(true);
+    try {
+      const res = await base44.auth.verifyAdmin2FA({
+        tempToken: twoFactorData.tempToken,
+        code: cleanCode
+      });
+      if (res?.access_token) {
+        base44.auth.setToken(res.access_token);
+      }
+      window.location.href = "/admin";
+    } catch (err) {
+      setError(err.message || "Mã xác thực không chính xác. Vui lòng kiểm tra lại.");
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated && user) {
       if (user.role === "admin") navigate("/admin");
@@ -53,6 +87,20 @@ export default function Login() {
 
     try {
       const result = await base44.auth.loginViaEmailPassword(email, password);
+
+      // Nếu tài khoản Admin yêu cầu Xác thực 2 bước (Google Authenticator)
+      if (result?.require2FA) {
+        setTwoFactorData({
+          required: true,
+          tempToken: result.tempToken,
+          email: email
+        });
+        setTotpCode("");
+        setError("");
+        setLoading(false);
+        return;
+      }
+
       if (result?.access_token) {
         base44.auth.setToken(result.access_token);
       }
@@ -298,8 +346,94 @@ export default function Login() {
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {/* Form Xác thực 2 bước Google Authenticator hoặc Đăng nhập thông thường */}
+          {twoFactorData.required ? (
+            <form onSubmit={handleVerify2FA} className="space-y-5 animate-in fade-in duration-200" noValidate>
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 rounded-2xl bg-orange-100 text-[#f97316] flex items-center justify-center mx-auto shadow-inner">
+                  <ShieldCheck className="w-8 h-8" />
+                </div>
+                <h3 className="font-heading font-black text-xl text-slate-900 tracking-tight">
+                  Xác thực 2 bước (Google Authenticator)
+                </h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  Nhập mã <strong>6 chữ số</strong> ngẫu nhiên từ ứng dụng Google Authenticator hoặc Authy trên điện thoại của Quản trị viên.
+                </p>
+              </div>
+
+              {error && (
+                <div
+                  className="flex items-start gap-2.5 p-3.5 rounded-xl text-sm"
+                  style={{
+                    background: "rgba(239,68,68,0.08)",
+                    border: "1px solid rgba(239,68,68,0.2)",
+                    color: "#ef4444",
+                  }}
+                >
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="totp-code" className="text-xs font-bold text-slate-700 block text-center uppercase tracking-wider">
+                  MÃ XÁC THỰC 6 CHỮ SỐ (TOTP)
+                </Label>
+                <Input
+                  id="totp-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={9}
+                  autoFocus
+                  placeholder="000 000"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9-]/g, ''))}
+                  className="h-14 text-center font-mono font-black text-2xl tracking-[0.3em] rounded-2xl border-orange-300 focus:border-[#f97316] focus:ring-2 focus:ring-orange-500/20"
+                  required
+                />
+                <p className="text-[11px] text-slate-400 text-center italic">
+                  💡 Bạn cũng có thể nhập mã dự phòng 8 số (Backup Code) nếu không mang theo điện thoại.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={totpLoading || totpCode.length < 6}
+                className="w-full h-12 rounded-xl font-bold text-white text-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-orange-500/20"
+                style={{
+                  background: "linear-gradient(135deg, #f97316, #ea580c)",
+                }}
+              >
+                {totpLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang xác thực 2FA...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Xác nhận & Vào Bảng Quản Trị</span>
+                  </>
+                )}
+              </button>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTwoFactorData({ required: false, tempToken: "", email: "" });
+                    setTotpCode("");
+                    setError("");
+                  }}
+                  className="text-xs font-bold text-slate-500 hover:text-orange-600 transition inline-flex items-center gap-1"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Quay lại nhập mật khẩu
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="login-email" className="text-sm font-medium text-foreground">
                 Email
@@ -381,6 +515,7 @@ export default function Login() {
               )}
             </button>
           </form>
+          )}
 
           {/* Register link */}
           <p className="text-center text-sm text-muted-foreground mt-7">

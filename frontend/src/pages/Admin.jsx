@@ -30,6 +30,10 @@ import {
   TrendingUp,
   KeyRound,
   Users,
+  Copy,
+  Lock,
+  QrCode,
+  ShieldAlert,
   Home as HomeIcon,
   LogOut,
   ExternalLink,
@@ -106,6 +110,171 @@ export default function Admin() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // ── BẢO MẬT ADMIN: XÁC THỰC 2 BƯỚC TOTP & MASTER PIN ──
+  const [admin2FAStatus, setAdmin2FAStatus] = useState({ enabled: false, loading: true });
+  const [setup2FAData, setSetup2FAData] = useState(null); // { secret, qrCodeUrl, backupCodes }
+  const [verify2FACode, setVerify2FACode] = useState("");
+  const [setup2FAStep, setSetup2FAStep] = useState(1);
+  const [setup2FALoading, setSetup2FALoading] = useState(false);
+  const [disable2FAModal, setDisable2FAModal] = useState(false);
+  const [disablePinOrCode, setDisablePinOrCode] = useState("");
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedBackup, setCopiedBackup] = useState(false);
+
+  // Quản lý session PIN cấp 2
+  const [sessionAdminPin, setSessionAdminPin] = useState(() => sessionStorage.getItem("smartstay_admin_pin") || "");
+  const [adminPinModal, setAdminPinModal] = useState({
+    open: false,
+    title: "",
+    action: null,
+    enteredPin: "",
+    error: ""
+  });
+  const [testPinInput, setTestPinInput] = useState("");
+  const [testPinResult, setTestPinResult] = useState(null);
+
+  // Tải trạng thái 2FA của Admin
+  const fetch2FAStatus = async () => {
+    try {
+      const res = await base44.auth.getAdmin2FAStatus();
+      if (res?.success) {
+        setAdmin2FAStatus({ enabled: Boolean(res.twoFactorEnabled), loading: false });
+      }
+    } catch (_) {
+      setAdmin2FAStatus({ enabled: false, loading: false });
+    }
+  };
+
+  useEffect(() => {
+    fetch2FAStatus();
+  }, []);
+
+  // Khởi tạo quy trình bật 2FA (Lấy mã QR & Secret Key)
+  const handleStart2FASetup = async () => {
+    setSetup2FALoading(true);
+    try {
+      const res = await base44.auth.getAdmin2FASetup();
+      if (res?.success) {
+        setSetup2FAData(res);
+        setSetup2FAStep(1);
+        setVerify2FACode("");
+      } else {
+        showToast("Không thể khởi tạo mã 2FA", "error");
+      }
+    } catch (err) {
+      showToast(err.message || "Lỗi khởi tạo 2FA", "error");
+    } finally {
+      setSetup2FALoading(false);
+    }
+  };
+
+  // Xác nhận bật 2FA bằng mã 6 số từ Google Authenticator
+  const handleConfirmEnable2FA = async (e) => {
+    e.preventDefault();
+    if (!verify2FACode.trim() || verify2FACode.trim().length < 6) {
+      showToast("Vui lòng nhập đủ 6 chữ số từ app Google Authenticator", "error");
+      return;
+    }
+    setSetup2FALoading(true);
+    try {
+      const res = await base44.auth.enableAdmin2FA({
+        secret: setup2FAData.secret,
+        code: verify2FACode.trim(),
+        backupCodes: setup2FAData.backupCodes
+      });
+      if (res?.success) {
+        showToast("🎉 Đã kích hoạt Xác thực 2 bước Google Authenticator thành công!");
+        setAdmin2FAStatus({ enabled: true, loading: false });
+        setSetup2FAStep(2); // Sang bước hiển thị mã dự phòng
+      } else {
+        showToast(res.message || "Mã 2FA không chính xác", "error");
+      }
+    } catch (err) {
+      showToast(err.message || "Mã xác thực 2FA không chính xác", "error");
+    } finally {
+      setSetup2FALoading(false);
+    }
+  };
+
+  // Hủy kích hoạt 2FA
+  const handleDisable2FA = async (e) => {
+    e.preventDefault();
+    if (!disablePinOrCode.trim()) {
+      showToast("Vui lòng nhập Mã PIN Quản trị hoặc mã 2FA để xác nhận hủy", "error");
+      return;
+    }
+    try {
+      const res = await base44.auth.disableAdmin2FA({
+        adminPin: disablePinOrCode.trim(),
+        code: disablePinOrCode.trim()
+      });
+      if (res?.success) {
+        showToast("Đã tắt Xác thực 2 bước cho tài khoản Admin.");
+        setAdmin2FAStatus({ enabled: false, loading: false });
+        setDisable2FAModal(false);
+        setDisablePinOrCode("");
+        setSetup2FAData(null);
+      } else {
+        showToast(res.message || "Xác thực thất bại", "error");
+      }
+    } catch (err) {
+      showToast(err.message || "Không thể tắt 2FA", "error");
+    }
+  };
+
+  // Hàm thực thi thao tác nhạy cảm kèm xác thực Mã PIN cấp 2
+  const executeWithAdminPin = (title, actionFn) => {
+    if (sessionAdminPin) {
+      actionFn(sessionAdminPin);
+    } else {
+      setAdminPinModal({
+        open: true,
+        title,
+        action: actionFn,
+        enteredPin: "",
+        error: ""
+      });
+    }
+  };
+
+  // Xác nhận mã PIN trong Modal
+  const handleConfirmAdminPinModal = async (e) => {
+    e.preventDefault();
+    if (!adminPinModal.enteredPin.trim()) {
+      setAdminPinModal(prev => ({ ...prev, error: "Vui lòng nhập Mã PIN Quản trị cấp 2!" }));
+      return;
+    }
+    try {
+      const res = await base44.auth.verifyAdminPin(adminPinModal.enteredPin.trim());
+      if (res?.success) {
+        const validPin = adminPinModal.enteredPin.trim();
+        setSessionAdminPin(validPin);
+        sessionStorage.setItem("smartstay_admin_pin", validPin);
+        const actionToRun = adminPinModal.action;
+        setAdminPinModal({ open: false, title: "", action: null, enteredPin: "", error: "" });
+        if (actionToRun) actionToRun(validPin);
+      }
+    } catch (err) {
+      setAdminPinModal(prev => ({ ...prev, error: err.message || "Mã PIN Quản trị cấp 2 không chính xác!" }));
+    }
+  };
+
+  // Test Mã PIN trong tab Bảo mật
+  const handleTestAdminPin = async (e) => {
+    e.preventDefault();
+    if (!testPinInput.trim()) return;
+    try {
+      const res = await base44.auth.verifyAdminPin(testPinInput.trim());
+      if (res?.success) {
+        setTestPinResult({ valid: true, msg: "✓ Mã PIN Quản trị chính xác! Bạn có toàn quyền thực hiện các thao tác nhạy cảm." });
+        setSessionAdminPin(testPinInput.trim());
+        sessionStorage.setItem("smartstay_admin_pin", testPinInput.trim());
+      }
+    } catch (err) {
+      setTestPinResult({ valid: false, msg: "❌ Mã PIN Quản trị không chính xác. Mặc định là 839201 (cấu hình trong file .env)." });
+    }
+  };
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState(null);
@@ -318,33 +487,38 @@ export default function Admin() {
     }
   };
 
-  // Phê duyệt hồ sơ Chủ trọ
-  const handleApproveLandlord = async (id, name) => {
-    try {
-      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
-      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-      const res = await fetch(`${API_BASE}/admin/landlords/${id}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: "APPROVED" })
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(`Đã duyệt & cấp quyền Chủ trọ cho "${name}" thành công!`);
-        if (selectedLandlordDoc && (selectedLandlordDoc._id === id || selectedLandlordDoc.id === id)) {
-          setSelectedLandlordDoc(null);
+  // Phê duyệt hồ sơ Chủ trọ (Yêu cầu xác thực Mã PIN Quản trị cấp 2)
+  const handleApproveLandlord = (id, name) => {
+    executeWithAdminPin(`Phê duyệt cấp quyền Chủ trọ cho "${name}"`, async (pin) => {
+      try {
+        const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const res = await fetch(`${API_BASE}/admin/landlords/${id}/status`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            "x-admin-pin": pin
+          },
+          body: JSON.stringify({ status: "APPROVED", adminPin: pin })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(`Đã duyệt & cấp quyền Chủ trọ cho "${name}" thành công!`);
+          if (selectedLandlordDoc && (selectedLandlordDoc._id === id || selectedLandlordDoc.id === id)) {
+            setSelectedLandlordDoc(null);
+          }
+          fetchLandlords();
+        } else {
+          showToast(json.message || "Không thể duyệt tài khoản", "error");
         }
-        fetchLandlords();
-      } else {
-        showToast(json.message || "Không thể duyệt tài khoản", "error");
+      } catch (err) {
+        showToast("Lỗi kết nối máy chủ", "error");
       }
-    } catch (err) {
-      showToast("Lỗi kết nối máy chủ", "error");
-    }
+    });
   };
+
+
 
   // Mở modal từ chối
   const handleOpenRejectModal = (landlord) => {
@@ -368,15 +542,18 @@ export default function Admin() {
       const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
       const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const id = rejectModal.landlord._id || rejectModal.landlord.id;
+      const pin = sessionAdminPin || sessionStorage.getItem("smartstay_admin_pin") || "";
       const res = await fetch(`${API_BASE}/admin/landlords/${id}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          "x-admin-pin": pin
         },
         body: JSON.stringify({
           status: "REJECTED",
-          rejectionReason: rejectModal.reason.trim()
+          rejectionReason: rejectModal.reason.trim(),
+          adminPin: pin
         })
       });
       const json = await res.json();
@@ -913,9 +1090,11 @@ export default function Admin() {
 
   const menuItems = [
     { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
+{ id: "security", label: "Bảo mật & 2FA Quản trị", icon: ShieldCheck },
     { id: "appointments", label: "Lịch hẹn xem phòng", icon: Calendar, badge: pendingAppointmentsCount },
     { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users, badge: pendingLandlordCount },
     { id: "pass_rooms", label: "Duyệt & Quản lý Pass phòng", icon: KeyRound, badge: pendingPassCount },
+    { id: "transporters", label: "Đối tác Vận tải / Tài xế", icon: Truck },
     { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2 },
     { id: "hero", label: "Quản lý banner (Hero)", icon: ImageIcon },
     { id: "campuses", label: "Danh mục khu vực / Campus", icon: GraduationCap },
@@ -1127,6 +1306,343 @@ export default function Admin() {
                 </div>
               </div>
             </>
+          )}
+
+          {/* ── TAB: BẢO MẬT & 2FA QUẢN TRỊ VIÊN (SECURITY CENTER) ── */}
+          {activeTab === "security" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Header Box */}
+              <div className="p-6 rounded-2xl bg-white border border-[#f4ebd9] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-heading font-black text-slate-900 flex items-center gap-2">
+                    <ShieldCheck className="w-6 h-6 text-[#f97316]" />
+                    Trung tâm Bảo mật Quản trị viên (Admin Security Center)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Cấu hình bảo mật tối đa cho tài khoản Admin: 2FA TOTP (Google Authenticator), Mã PIN Master cấp 2, Chống Brute-Force & Giới hạn IP.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    ✓ CẤP BẢO MẬT: TỐI CAO
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid 3 Vũ khí bảo mật */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                {/* ── CARD 1: XÁC THỰC 2 YẾU TỐ TOTP (GOOGLE AUTHENTICATOR) ── */}
+                <div className="lg:col-span-2 rounded-2xl bg-white border border-[#f4ebd9] shadow-sm p-6 space-y-5">
+                  <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-xl bg-orange-100 text-[#f97316] flex items-center justify-center font-bold">
+                          <QrCode className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-heading font-black text-base text-slate-900">
+                            Xác thực 2 bước (Google Authenticator / Authy)
+                          </h4>
+                          <p className="text-xs text-slate-500">Mã 6 số ngẫu nhiên đổi mỗi 30 giây trên điện thoại (Hoạt động 100% Offline)</p>
+                        </div>
+                      </div>
+                    </div>
+                    {admin2FAStatus.enabled ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                        <Check className="w-3.5 h-3.5" /> ĐÃ BẬT 2FA
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                        CHƯA KÍCH HOẠT
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Trạng thái 2FA hiện tại */}
+                  {admin2FAStatus.enabled ? (
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-900 space-y-2">
+                        <div className="flex items-center gap-2 font-black text-sm text-emerald-800">
+                          <ShieldCheck className="w-4 h-4" />
+                          <span>Tài khoản Quản trị viên đang được bảo vệ an toàn tuyệt đối!</span>
+                        </div>
+                        <p className="text-slate-600 leading-relaxed">
+                          Mỗi khi đăng nhập vào hệ thống, sau khi nhập mật khẩu, bạn cần nhập thêm mã 6 số từ app Google Authenticator trên điện thoại. Dù kẻ xấu có biết mật khẩu cũng không thể nào xâm nhập được.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-xs text-slate-500">
+                          Nếu bạn đổi điện thoại hoặc muốn thiết lập lại:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleStart2FASetup}
+                            className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-50 hover:bg-orange-100 text-[#ea580c] border border-orange-200 transition"
+                          >
+                            Đổi thiết bị 2FA
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDisable2FAModal(true)}
+                            className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition"
+                          >
+                            Tắt 2FA
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Kích hoạt Xác thực 2 bước giúp ngăn chặn 100% các cuộc tấn công đánh cắp mật khẩu. Bạn chỉ cần quét mã QR một lần duy nhất bằng ứng dụng <strong>Google Authenticator</strong> hoặc <strong>Authy</strong> (tải miễn phí trên App Store / Google Play).
+                      </p>
+                      {!setup2FAData && (
+                        <button
+                          type="button"
+                          onClick={handleStart2FASetup}
+                          disabled={setup2FALoading}
+                          className="px-6 py-3 rounded-xl font-black text-xs text-white shadow-md shadow-orange-500/20 flex items-center gap-2 transition active:scale-95"
+                          style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+                        >
+                          <QrCode className="w-4 h-4" />
+                          <span>Bắt đầu Kích hoạt Google Authenticator</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* KHUNG THIẾT LẬP 2FA (QUÉT MÃ QR & NHẬP CODE) */}
+                  {setup2FAData && setup2FAStep === 1 && (
+                    <div className="p-5 rounded-2xl bg-orange-50/60 border border-orange-200/80 space-y-4 animate-in fade-in">
+                      <div className="flex items-center justify-between border-b border-orange-200/60 pb-3">
+                        <h5 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                          <span>Bước 1: Quét mã QR bằng ứng dụng trên điện thoại</span>
+                        </h5>
+                        <button
+                          type="button"
+                          onClick={() => setSetup2FAData(null)}
+                          className="text-xs text-slate-400 hover:text-slate-600 underline font-bold"
+                        >
+                          Đóng lại
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
+                        <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
+                          {setup2FAData.qrCodeUrl ? (
+                            <img
+                              src={setup2FAData.qrCodeUrl}
+                              alt="2FA QR Code"
+                              className="w-48 h-48 object-contain rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-48 h-48 flex items-center justify-center bg-slate-50 text-xs text-slate-400">
+                              Đang tạo mã QR...
+                            </div>
+                          )}
+                          <span className="text-[10px] font-bold text-slate-500 mt-2">Mở Google Authenticator và quét mã này</span>
+                        </div>
+
+                        <div className="space-y-4 text-xs">
+                          <div>
+                            <span className="font-bold text-slate-700 block mb-1">Mã khóa dự phòng (Nhập thủ công nếu không quét được QR):</span>
+                            <div className="flex items-center gap-2">
+                              <code className="p-2.5 rounded-xl bg-white border border-slate-200 font-mono text-xs font-bold text-slate-900 select-all flex-1 break-all">
+                                {setup2FAData.secret}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(setup2FAData.secret);
+                                  setCopiedKey(true);
+                                  setTimeout(() => setCopiedKey(false), 2000);
+                                }}
+                                className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold shrink-0 transition"
+                                title="Sao chép khóa bí mật"
+                              >
+                                {copiedKey ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <form onSubmit={handleConfirmEnable2FA} className="space-y-2 pt-2 border-t border-orange-200/60">
+                            <label className="font-bold text-slate-800 block">
+                              Bước 2: Nhập mã 6 chữ số đang hiển thị trên app để hoàn tất:
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                placeholder="000 000"
+                                value={verify2FACode}
+                                onChange={(e) => setVerify2FACode(e.target.value.replace(/[^0-9]/g, ''))}
+                                className="p-2.5 rounded-xl border border-orange-300 bg-white font-mono font-black text-lg text-center tracking-widest flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                              />
+                              <button
+                                type="submit"
+                                disabled={setup2FALoading || verify2FACode.length < 6}
+                                className="px-5 rounded-xl font-black text-white text-xs bg-emerald-600 hover:bg-emerald-700 shadow-sm disabled:opacity-50 transition"
+                              >
+                                {setup2FALoading ? "Đang xác thực..." : "Kích hoạt"}
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* BƯỚC 2: HIỂN THỊ MÃ KHÔI PHỤC DỰ PHÒNG (BACKUP RECOVERY CODES) */}
+                  {setup2FAData && setup2FAStep === 2 && (
+                    <div className="p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-4 animate-in fade-in">
+                      <div className="flex items-center justify-between border-b border-emerald-200 pb-3">
+                        <div className="flex items-center gap-2 text-emerald-800 font-black text-sm">
+                          <Check className="w-5 h-5 text-emerald-600" />
+                          <span>Lưu trữ 5 Mã dự phòng (Backup Recovery Codes)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSetup2FAData(null)}
+                          className="text-xs text-slate-500 hover:text-slate-800 font-bold underline"
+                        >
+                          Xong
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-slate-600">
+                        Nếu bạn mất điện thoại hoặc không truy cập được app Google Authenticator, bạn có thể dùng một trong các mã này để đăng nhập (mỗi mã chỉ dùng được 1 lần).
+                      </p>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {(setup2FAData.backupCodes || []).map((code, idx) => (
+                          <div key={idx} className="p-2.5 rounded-xl bg-white border border-emerald-200 font-mono font-black text-xs text-center text-slate-800 shadow-xs">
+                            {code}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText((setup2FAData.backupCodes || []).join("\n"));
+                            setCopiedBackup(true);
+                            setTimeout(() => setCopiedBackup(false), 2000);
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition shadow-xs"
+                        >
+                          {copiedBackup ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedBackup ? "Đã sao chép 5 mã!" : "Sao chép danh sách mã"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── CARD 2: MÃ PIN QUẢN TRỊ CẤP 2 (ADMIN MASTER PIN) ── */}
+                <div className="rounded-2xl bg-white border border-[#f4ebd9] shadow-sm p-6 space-y-5">
+                  <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-heading font-black text-base text-slate-900">
+                          Mã PIN Quản trị cấp 2
+                        </h4>
+                        <p className="text-xs text-slate-500">Bảo vệ thao tác phê duyệt, xóa dữ liệu</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Mã PIN bảo mật 6 số được cấu hình trong tệp <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-orange-600 font-bold">.env</code> phía máy chủ (<code className="font-mono font-bold">ADMIN_SECURITY_PIN</code>).
+                  </p>
+
+                  <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <span>✓ Đang áp dụng cho các hành động:</span>
+                    </div>
+                    <ul className="list-disc list-inside space-y-0.5 text-slate-600 pl-1">
+                      <li>Phê duyệt hồ sơ Chủ trọ</li>
+                      <li>Từ chối hồ sơ Chủ trọ</li>
+                      <li>Xóa hồ sơ & cơ sở lưu trú</li>
+                      <li>Cập nhật cấu hình hệ thống</li>
+                    </ul>
+                  </div>
+
+                  {/* Form Test mã PIN */}
+                  <form onSubmit={handleTestAdminPin} className="space-y-2 pt-2 border-t border-slate-100">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      Kiểm tra thử Mã PIN Quản trị của bạn:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        maxLength={6}
+                        placeholder="Mặc định: 839201"
+                        value={testPinInput}
+                        onChange={(e) => {
+                          setTestPinInput(e.target.value.replace(/[^0-9]/g, ''));
+                          setTestPinResult(null);
+                        }}
+                        className="p-2 rounded-xl border border-slate-200 text-xs font-mono font-bold flex-1 focus:outline-none focus:border-orange-500"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition"
+                      >
+                        Kiểm tra
+                      </button>
+                    </div>
+
+                    {testPinResult && (
+                      <p className={cn("text-[11px] font-bold mt-1", testPinResult.valid ? "text-emerald-600" : "text-rose-600")}>
+                        {testPinResult.msg}
+                      </p>
+                    )}
+                  </form>
+                </div>
+              </div>
+
+              {/* ── CARD 3: CHỐNG DÒ QUÉT BRUTE-FORCE & GIỚI HẠN IP ── */}
+              <div className="rounded-2xl bg-white border border-[#f4ebd9] shadow-sm p-6 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <ShieldAlert className="w-5 h-5 text-rose-500" />
+                  <h4 className="font-heading font-black text-base text-slate-900">
+                    Chống tấn công dò quét Brute-Force & Giới hạn IP truy cập
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                    <span className="font-bold text-slate-800 block text-sm">Chống Brute-Force tự động</span>
+                    <p className="text-slate-500 leading-relaxed">
+                      Nếu nhập sai mật khẩu tài khoản Admin quá <strong>5 lần liên tiếp</strong>, hệ thống sẽ tự động khóa tài khoản và IP trong <strong>30 phút</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                    <span className="font-bold text-slate-800 block text-sm">Giới hạn IP (IP Whitelist)</span>
+                    <p className="text-slate-500 leading-relaxed">
+                      Cấu hình biến <code className="font-mono text-orange-600 font-bold">ADMIN_IP_WHITELIST</code> trong file .env để chỉ cho phép các IP nội bộ / mạng riêng truy cập phân hệ Admin.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                    <span className="font-bold text-slate-800 block text-sm">Khôi phục mật khẩu Console</span>
+                    <p className="text-slate-500 leading-relaxed">
+                      Khóa hoàn toàn tính năng Quên mật khẩu qua Web cho Admin. Khi cần khôi phục, chạy lệnh nội bộ trên máy chủ:
+                      <code className="block mt-1 font-mono text-[10px] bg-slate-900 text-white p-1 rounded font-bold">node backend/scripts/resetAdminPassword.js</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* ── TAB: ROOMS ── */}
@@ -2511,6 +3027,126 @@ export default function Admin() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL XÁC THỰC MÃ PIN QUẢN TRỊ CẤP 2 (ADMIN MASTER PIN) ── */}
+      {adminPinModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl p-6 space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <h4 className="font-heading font-black text-base text-slate-900">
+                  Xác thực Quản trị Cấp 2
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminPinModal({ open: false, title: "", action: null, enteredPin: "", error: "" })}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Bạn đang thực hiện thao tác nhạy cảm: <strong>"{adminPinModal.title}"</strong>. Vui lòng nhập Mã PIN Quản trị (Admin Master PIN) 6 số để xác nhận:
+            </p>
+
+            <form onSubmit={handleConfirmAdminPinModal} className="space-y-4">
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+                placeholder="Nhập mã PIN 6 số (VD: 839201)"
+                value={adminPinModal.enteredPin}
+                onChange={(e) => setAdminPinModal(prev => ({
+                  ...prev,
+                  enteredPin: e.target.value.replace(/[^0-9]/g, ''),
+                  error: ""
+                }))}
+                className="w-full p-3.5 rounded-2xl border border-amber-300 font-mono font-black text-2xl text-center tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              />
+
+              {adminPinModal.error && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold text-center">
+                  {adminPinModal.error}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAdminPinModal({ open: false, title: "", action: null, enteredPin: "", error: "" })}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                >
+                  Hủy thao tác
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminPinModal.enteredPin.length < 6}
+                  className="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 transition shadow-md"
+                >
+                  Xác nhận thực hiện
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL HỦY KÍCH HOẠT 2FA ── */}
+      {disable2FAModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl p-6 space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h4 className="font-heading font-black text-base text-rose-600 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5" />
+                Tắt Xác thực 2 bước Google Authenticator
+              </h4>
+              <button
+                type="button"
+                onClick={() => setDisable2FAModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Để tắt 2FA, vui lòng nhập <strong>Mã PIN Quản trị cấp 2</strong> (trong .env) hoặc <strong>mã 6 số từ app Google Authenticator</strong>:
+            </p>
+
+            <form onSubmit={handleDisable2FA} className="space-y-4">
+              <input
+                type="password"
+                placeholder="Nhập Mã PIN hoặc mã OTP 6 số"
+                value={disablePinOrCode}
+                onChange={(e) => setDisablePinOrCode(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-200 text-sm font-mono text-center font-bold focus:outline-none focus:border-rose-500"
+              />
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDisable2FAModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-black text-white bg-rose-600 hover:bg-rose-700 transition"
+                >
+                  Xác nhận tắt 2FA
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
 import {
   Receipt, Plus, CheckCircle, Clock, AlertCircle, FileText,
-  DollarSign, Zap, Droplets, Camera, ExternalLink, Search, RefreshCw, X
+  DollarSign, Zap, Droplets, Camera, ExternalLink, Search, RefreshCw, X,
+  FileSpreadsheet
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import MeterGridManager from "@/components/contracts/MeterGridManager";
 
-export default function InvoiceManager() {
+export default function InvoiceManager({ onOpenGrid }) {
+  const [activeTabMode, setActiveTabMode] = useState("grid"); // "grid" | "list"
   const [bills, setBills] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -119,6 +122,47 @@ export default function InvoiceManager() {
 
   return (
     <div className="space-y-6">
+      {/* Chế độ xem: Bảng chốt Excel vs Danh sách Hóa đơn */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 p-3.5 rounded-2xl border border-emerald-200">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-xs font-black text-slate-800">Chế độ xem & chốt tiền trọ:</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTabMode("grid")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5",
+              activeTabMode === "grid"
+                ? "bg-emerald-600 text-white shadow-sm font-black"
+                : "bg-white text-slate-700 hover:bg-emerald-100/60 border border-slate-200"
+            )}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Bảng chốt điện nước (Excel thông minh)</span>
+            <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full uppercase">1 chạm</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTabMode("list")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5",
+              activeTabMode === "list"
+                ? "bg-slate-900 text-white shadow-sm font-black"
+                : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+            )}
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Danh sách hóa đơn chi tiết ({bills.length})</span>
+          </button>
+        </div>
+      </div>
+
+      {activeTabMode === "grid" ? (
+        <MeterGridManager />
+      ) : (
+        <>
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-[24px] border border-[#f4ebd9] shadow-sm">
         <div>
@@ -540,6 +584,8 @@ export default function InvoiceManager() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

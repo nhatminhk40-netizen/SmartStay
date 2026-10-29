@@ -53,7 +53,14 @@ const userSchema = new mongoose.Schema({
     },
     rejectionReason: { type: String, default: '' },
     approvedAt: { type: Date },
-    approvedBy: { type: String, default: '' }
+    approvedBy: { type: String, default: '' },
+
+    // ── Bảo mật Quản trị viên (Admin 2FA & Brute Force Lockout) ──
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorSecret: { type: String, default: '' },
+    twoFactorBackupCodes: [{ type: String }],
+    loginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date }
 }, { timestamps: true });
 
 // Hash mật khẩu trước khi lưu vào database
@@ -69,4 +76,4 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model('User', userSchema);

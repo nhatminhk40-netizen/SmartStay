@@ -23,6 +23,8 @@ const LogisticsRequest = require('./models/LogisticsRequest');
 const jwt = require('jsonwebtoken');
 const authRoutes = require('./routes/authRoutes');
 const { protect, authorize, checkRoomOwnership } = require('./middleware/auth');
+const { verifyAdminPinMiddleware, adminIpWhitelistMiddleware } = require('./utils/adminSecurity');
+const { validateAppointmentMiddleware, appointmentRateLimiter } = require('./middleware/appointmentValidator');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -2420,14 +2422,14 @@ app.get('/api/config', (req, res) => {
 });
 
 // BẢO MẬT: Bắt buộc đăng nhập với quyền Admin mới được cập nhật cấu hình hệ thống
-app.post('/api/config', protect, authorize('admin'), (req, res) => {
+app.post('/api/config', protect, authorize('admin'), adminIpWhitelistMiddleware, verifyAdminPinMiddleware, (req, res) => {
     systemConfig = { ...systemConfig, ...req.body };
     res.status(200).json({ success: true, message: 'Lưu cấu hình hệ thống thành công!', data: systemConfig });
 });
 
 // ==================== APIS QUẢN LÝ & CẤP TÀI KHOẢN CHỦ TRỌ (ADMIN DÀNH RIÊNG) ====================
 // 1. Lấy danh sách tài khoản Chủ trọ (hỗ trợ lọc theo trạng thái duyệt PENDING, APPROVED, REJECTED)
-app.get('/api/admin/landlords', protect, authorize('admin'), async (req, res) => {
+app.get('/api/admin/landlords', protect, authorize('admin'), adminIpWhitelistMiddleware, async (req, res) => {
     try {
         const { status } = req.query;
         const filter = { role: 'landlord' };
@@ -2451,7 +2453,7 @@ app.get('/api/admin/landlords', protect, authorize('admin'), async (req, res) =>
 });
 
 // 2. Admin duyệt hoặc từ chối hồ sơ tài khoản Chủ trọ (APPROVED / REJECTED)
-app.put('/api/admin/landlords/:id/status', protect, authorize('admin'), async (req, res) => {
+app.put('/api/admin/landlords/:id/status', protect, authorize('admin'), adminIpWhitelistMiddleware, verifyAdminPinMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
         const { status, rejectionReason } = req.body;
@@ -2515,7 +2517,7 @@ app.put('/api/admin/landlords/:id/status', protect, authorize('admin'), async (r
 });
 
 // 3. Admin chủ động cấp tài khoản Chủ trọ mới (Ngăn chặn bên ngoài tự ý tạo, mặc định APPROVED)
-app.post('/api/admin/create-landlord', protect, authorize('admin'), async (req, res) => {
+app.post('/api/admin/create-landlord', protect, authorize('admin'), adminIpWhitelistMiddleware, verifyAdminPinMiddleware, async (req, res) => {
     try {
         const { fullName, email, password, phone, campus, note, propertyName, propertyAddress } = req.body;
 
@@ -2606,7 +2608,7 @@ app.post('/api/admin/create-landlord', protect, authorize('admin'), async (req, 
 });
 
 // 4. Admin xóa / thu hồi tài khoản Chủ trọ
-app.delete('/api/admin/landlords/:id', protect, authorize('admin'), async (req, res) => {
+app.delete('/api/admin/landlords/:id', protect, authorize('admin'), adminIpWhitelistMiddleware, verifyAdminPinMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
         if (isDbConnected) {
@@ -2690,93 +2692,72 @@ app.get('/api/reports/:ticketCode', async (req, res) => {
 // ==================== APIS ĐẶT LỊCH XEM PHÒNG 2 CHIỀU (P1) ====================
 let fallbackAppointments = [];
 
-app.post('/api/appointments', async (req, res) => {
+app.post('/api/appointments', appointmentRateLimiter, validateAppointmentMiddleware, async (req, res) => {
     try {
-        const roomId = req.body.roomId || req.body.room;
-        const roomTitle = req.body.roomTitle || '';
-        const studentName = req.body.studentName || 'Sinh viên SmartStay';
-        const studentPhone = req.body.studentPhone || req.body.phone;
-        const landlordPhone = req.body.landlordPhone || '';
-        const visitDate = req.body.visitDate || req.body.appointmentDate;
-        const visitTime = req.body.visitTime || req.body.appointmentTime;
-        const transportType = req.body.transportType || 'Xe máy';
-        const notes = req.body.notes || req.body.note || '';
+        const apptData = req.validatedAppointment;
+        const { roomId, studentPhone, visitDate, visitTime } = apptData;
 
-        if (!roomId || !studentPhone || !visitDate || !visitTime) {
-            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp thông tin phòng, số điện thoại, ngày và giờ xem phòng.' });
+        // 1. Kiểm tra phòng có tồn tại không
+        let targetRoom = null;
+        if (isDbConnected && mongoose.Types.ObjectId.isValid(roomId)) {
+            targetRoom = await Room.findById(roomId);
+        } else {
+            targetRoom = fallbackRooms.find(r => String(r._id) === roomId || String(r.id) === roomId);
         }
 
-        // 1. Kiểm tra ngày xem phòng: chỉ cho phép đặt trước tối đa 2 tháng
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const bookingDateObj = new Date(visitDate);
-        bookingDateObj.setHours(0, 0, 0, 0);
-
-        const maxBookingDate = new Date();
-        maxBookingDate.setMonth(maxBookingDate.getMonth() + 2);
-        maxBookingDate.setHours(23, 59, 59, 999);
-
-        if (bookingDateObj < now) {
-            return res.status(400).json({ success: false, message: 'Ngày xem phòng không thể ở trong quá khứ.' });
-        }
-
-        if (bookingDateObj > maxBookingDate) {
-            return res.status(400).json({
+        if (!targetRoom && isDbConnected) {
+            return res.status(404).json({
                 success: false,
-                message: `Chỉ được đặt lịch xem phòng trước tối đa 2 tháng (tối đa đến ngày ${maxBookingDate.toLocaleDateString('vi-VN')}).`
+                message: 'Phòng trọ này không tồn tại hoặc đã ngừng nhận lịch hẹn.'
             });
         }
 
-        // 2. Kiểm tra số điện thoại: chỉ nhận số và đúng định dạng Việt Nam (10 chữ số bắt đầu bằng 0)
-        const cleanPhone = String(studentPhone || '').replace(/\D/g, '');
-        if (!/^0\d{9}$/.test(cleanPhone)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Số điện thoại không hợp lệ. Vui lòng chỉ nhập số điện thoại gồm 10 chữ số (bắt đầu bằng số 0).'
-            });
+        if (targetRoom) {
+            apptData.roomTitle = targetRoom.title || apptData.roomTitle;
+            if (!apptData.landlordPhone && (targetRoom.contactPhone || targetRoom.ownerPhone)) {
+                apptData.landlordPhone = targetRoom.contactPhone || targetRoom.ownerPhone;
+            }
         }
 
-        // 3. Tra cứu thông tin phòng và chủ trọ
-        let room = null;
+        // 2. Chống spam / trùng lặp: Kiểm tra xem đã có lịch hẹn nào trùng giờ đang chờ xác nhận không
         if (isDbConnected) {
-            try {
-                room = await Room.findById(roomId);
-            } catch (e) {}
-        }
+            const existingDuplicate = await Appointment.findOne({
+                roomId,
+                studentPhone,
+                visitDate,
+                visitTime,
+                status: 'pending_landlord'
+            });
 
-        const finalRoomTitle = room?.title || roomTitle || 'Phòng trọ SmartStay';
-        const finalLandlordPhone = room?.contactPhone || room?.phone || landlordPhone || '';
-        const landlordId = room?.owner || null;
+            if (existingDuplicate) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Bạn đã có một lịch hẹn đang chờ chủ trọ xác nhận cho phòng này vào khung giờ đã chọn. Vui lòng không gửi trùng lặp.'
+                });
+            }
+        }
 
         const appointmentCode = `APPT-${Date.now().toString().slice(-6)}`;
-        const apptData = {
+        const record = {
+            ...apptData,
             appointmentCode,
-            roomId,
-            roomTitle: finalRoomTitle,
-            studentName: studentName || 'Sinh viên SmartStay',
-            studentPhone: cleanPhone,
-            landlordPhone: finalLandlordPhone,
-            landlordId,
-            visitDate,
-            visitTime,
-            transportType: transportType || 'Xe máy',
-            notes: notes || '',
             status: 'pending_landlord',
             landlordResponseNote: 'Chờ chủ trọ xác nhận lịch hẹn'
         };
 
         let createdAppt;
         if (isDbConnected) {
-            createdAppt = await Appointment.create(apptData);
+            createdAppt = await Appointment.create(record);
 
             // Gửi thông báo cho chủ trọ nếu có
+            const landlordId = targetRoom?.owner || null;
             if (landlordId) {
                 try {
                     const { createNotification } = require('./utils/notify');
                     await createNotification({
                         userId: landlordId,
                         title: '📅 Có lịch hẹn xem phòng mới',
-                        message: `Khách ${studentName} (${cleanPhone}) vừa đặt lịch xem phòng "${finalRoomTitle}" vào ngày ${visitDate} lúc ${visitTime}.`,
+                        message: `Khách ${apptData.studentName} (${apptData.studentPhone}) vừa đặt lịch xem phòng "${apptData.roomTitle}" vào ngày ${apptData.visitDate} lúc ${apptData.visitTime}.`,
                         type: 'appointment_created',
                         referenceId: createdAppt._id,
                         link: '/chu-tro'
@@ -2785,16 +2766,22 @@ app.post('/api/appointments', async (req, res) => {
                     console.warn('Lỗi tạo notification:', notifErr.message);
                 }
             }
-        } else {
-            createdAppt = { ...apptData, _id: `appt_${Date.now()}`, createdAt: new Date() };
-            fallbackAppointments.unshift(createdAppt);
+
+            return res.status(201).json({
+                success: true,
+                message: 'Đặt lịch xem phòng thành công! Đang chờ chủ trọ xác nhận.',
+                appointmentCode,
+                data: createdAppt
+            });
         }
 
-        return res.status(201).json({
+        const newAppt = { ...record, _id: `appt_${Date.now()}`, createdAt: new Date() };
+        fallbackAppointments.unshift(newAppt);
+        res.status(201).json({
             success: true,
             message: 'Đặt lịch xem phòng thành công! Đang chờ chủ trọ xác nhận.',
             appointmentCode,
-            data: createdAppt
+            data: newAppt
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
