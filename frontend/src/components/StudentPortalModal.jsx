@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  FileText, Receipt, Calendar, CheckCircle, Clock, AlertCircle,
+  FileText, Receipt, Calendar, CheckCircle, Home, Star, AlertTriangle, CheckCircle2, Clock, AlertCircle,
   Zap, Droplets, Camera, ExternalLink, X, ShieldCheck, MapPin,
   ChevronRight, Upload, Phone, Check, RefreshCw
 } from "lucide-react";
@@ -13,6 +13,7 @@ export default function StudentPortalModal({ open, onClose }) {
   const [contracts, setContracts] = useState([]);
   const [bills, setBills] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [myStays, setMyStays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 

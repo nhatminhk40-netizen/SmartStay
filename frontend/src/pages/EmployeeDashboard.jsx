@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  LayoutDashboard, Home as HomeIcon, Users, FileText, Receipt,
+  LayoutDashboard, ShieldCheck, Home as HomeIcon, Users, FileText, Receipt,
   MessageSquare, Star, Settings, Plus, Search, MapPin, CheckCircle,
   Clock, Edit2, Trash2, X, Eye, EyeOff, FileCheck, Info, Building2, ArrowLeft,
   Calendar, Phone, RefreshCw, AlertCircle, Check, UploadCloud, Image as ImageIcon,
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import ContractsManager from "@/components/contracts/ContractsManager";
 import InvoiceManager from "@/components/contracts/InvoiceManager";
+import LandlordStayManager from "@/components/stay/LandlordStayManager";
 import RoomTenantAndMeterModal from "@/components/smartstay/RoomTenantAndMeterModal";
 import { base44 } from "@/api/base44Client";
 
@@ -2644,6 +2645,9 @@ export default function EmployeeDashboard() {
               </div>
             </div>
           )}
+
+          {/* Tab Quản lý Nhận phòng & Xác minh Lưu trú */}
+          {activeTab === "stays" && <LandlordStayManager rooms={realRooms} />}
 
           {/* Tab Quản lý Hợp đồng & Cọc phòng */}
           {activeTab === "contracts" && <ContractsManager />}

@@ -363,6 +363,13 @@ app.use('/api/bills', billRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Mount SmartStay Pass Room Routes
+const stayRoutes = require('./routes/stayRoutes');
+const landlordStayRoutes = require('./routes/landlordStayRoutes');
+const stayConfirmTokenRoutes = require('./routes/stayConfirmTokenRoutes');
+const { startStayCron } = require('./utils/stayCron');
+const { canUserReview } = require('./services/stayReviewService');
+const Stay = require('./models/Stay');
+
 const passRoomRoutes = require('./routes/passRoomRoutes');
 const landlordConfirmRoutes = require('./routes/landlordConfirmRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -375,6 +382,12 @@ app.use('/api/notifications', notificationRoutes);
 // Mount Chat Routes (MongoDB Models: Conversation & Message, Realtime P2P)
 const chatRoutes = require('./routes/chatRoutes');
 app.use('/api/chat', chatRoutes);
+
+// Mount Stay & Checkin Verification Routes
+app.use('/api/stays', stayRoutes);
+app.use('/api/landlord/stays', landlordStayRoutes);
+app.use('/api/stay-confirmation', stayConfirmTokenRoutes);
+
 
 
 // Bộ dữ liệu dự phòng (Fallback Data) - Ghi rõ nhãn "Dữ liệu minh họa" để bảo vệ tính trung thực
@@ -1240,56 +1253,135 @@ app.delete('/api/rooms/:id', protect, async (req, res) => {
     }
 });
 
-// ==================== APIS REVIEWS ====================
-// 1. Gửi đánh giá cho phòng trọ (Bắt buộc đăng nhập + Điểm tin cậy do Server tính)
-app.post('/api/reviews', protect, async (req, res) => {
-    try {
-        const isStayed = Boolean(req.body.has_stayed) || Boolean(req.body.verificationProofUrl);
-        // Tính điểm trust_score tự động dựa trên uy tín tài khoản sinh viên và xác thực đã ở
-        let calculatedTrustScore = 65;
-        if (req.user && (req.user.role === 'student' || req.user.role === 'sinh_vien')) calculatedTrustScore += 15;
-        if (isStayed) calculatedTrustScore += 15;
-        if (req.body.verificationProofUrl) calculatedTrustScore += 10;
+// ==================== APIS REVIEWS (XÁC MINH NGƯỜI THUÊ THẬT) ====================
 
-        const studentName = req.user.fullName || req.user.name || req.body.studentName || 'Sinh viên SmartStay';
+// Handler dùng chung cho tạo đánh giá xác minh (Bắt buộc đã ở thật & qua kiểm tra canUserReview)
+async function handleCreateVerifiedReview(req, res) {
+    try {
+        const roomId = req.params.id || req.body.room || req.body.roomId;
+        if (!roomId) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp mã phòng trọ.' });
+        }
+
+        const userId = req.user._id || req.user.id;
+
+        // BẮT BUỘC KIỂM TRA ĐIỀU KIỆN ĐÁNH GIÁ TỪ SERVER
+        const eligibility = await canUserReview(userId, roomId);
+        if (!eligibility.eligible) {
+            return res.status(403).json({
+                success: false,
+                code: eligibility.code,
+                message: eligibility.message,
+                details: eligibility
+            });
+        }
+
+        const rawComment = (req.body.comment || req.body.content || '').trim();
+        if (!rawComment || rawComment.length < 5) {
+            return res.status(400).json({ success: false, message: 'Nhận xét phải có ít nhất 5 ký tự.' });
+        }
+        const comment = rawComment.slice(0, 2000);
+
+        const rating = Math.min(5, Math.max(1, Math.round(Number(req.body.rating) || 5)));
+
+        // Lấy thông tin phòng để đối chiếu giá niêm yết
+        const room = await Room.findById(roomId);
+        const listedPrice = Number(room?.price) || 0;
+        const actualCost = Number(req.body.actualMonthlyCost) || listedPrice;
+
+        // Server tự động tính độ chuẩn xác chi phí so với niêm yết (không tin client)
+        // Chi phí thực tế dao động từ 75% đến 125% giá phòng niêm yết được coi là chuẩn xác (đã gồm điện nước)
+        const matchesListedPrice = listedPrice > 0
+            ? (actualCost >= listedPrice * 0.75 && actualCost <= listedPrice * 1.25)
+            : true;
+
+        const studentName = req.user.fullName || req.user.name || 'Người thuê SmartStay';
+        const stayDuration = eligibility.stayDurationMonths || 1;
+
         const reviewData = {
-            room: req.body.room,
-            rating: Number(req.body.rating),
-            isCostAccurate: Boolean(req.body.isCostAccurate),
-            actualMonthlyCost: Number(req.body.actualMonthlyCost),
-            comment: req.body.comment || req.body.content || '',
-            content: req.body.comment || req.body.content || '',
-            user: req.user._id || req.user.id,
+            room: roomId,
+            user: userId,
+            stayId: eligibility.stayId,
+            rating,
+            comment,
+            content: comment,
+            actualMonthlyCost: actualCost,
+            isCostAccurate: matchesListedPrice,
+            matchesListedPrice: matchesListedPrice,
+            verified: true,
+            has_stayed: true,
+            verificationStatus: 'verified',
+            stayDurationSnapshot: stayDuration,
+            stayed_period: `Đã ở ${stayDuration} tháng`,
+            trust_score: 98,
             studentEmail: req.user.email || '',
             studentName: studentName,
-            anonymous_name: req.body.isAnonymous ? 'Sinh viên ẩn danh' : studentName,
-            has_stayed: isStayed,
-            verificationStatus: isStayed ? 'verified' : (req.body.verificationProofUrl ? 'pending' : 'unverified'),
-            verificationProofUrl: req.body.verificationProofUrl || '',
-            trust_score: Math.min(calculatedTrustScore, 98),
-            stayed_period: req.body.stayed_period || (isStayed ? 'Đã ở thực tế' : 'Người quan tâm thuê'),
+            anonymous_name: req.body.isAnonymous ? 'Người thuê ẩn danh' : studentName,
             isDemo: false
         };
 
+        let newReview;
         if (isDbConnected) {
-            const newReview = await Review.create(reviewData);
-            return res.status(201).json({ success: true, message: 'Đánh giá đã được ghi nhận với nhãn Đã ở thật!', data: newReview });
+            newReview = await Review.create(reviewData);
+
+            // Gửi thông báo cho chủ trọ
+            if (room && room.owner) {
+                await createNotification({
+                    userId: room.owner,
+                    title: '⭐ Đánh giá mới từ người thuê thật',
+                    message: `${reviewData.anonymous_name} đã gửi đánh giá (${rating}⭐) cho phòng "${room.title}".`,
+                    type: 'new_review',
+                    referenceId: newReview._id,
+                    link: `/phong/${roomId}`
+                });
+            }
+        } else {
+            newReview = {
+                _id: `rev_${Date.now()}`,
+                id: `rev_${Date.now()}`,
+                ...reviewData,
+                createdAt: new Date()
+            };
+            fallbackReviews.unshift(newReview);
         }
 
-        const newReview = {
-            _id: `rev_${Date.now()}`,
-            id: `rev_${Date.now()}`,
-            ...reviewData,
-            createdAt: new Date()
-        };
-        fallbackReviews.unshift(newReview);
-        res.status(201).json({ success: true, message: 'Đánh giá đã được ghi nhận với nhãn Đã ở thật!', data: newReview });
+        return res.status(201).json({
+            success: true,
+            message: 'Đánh giá đã được ghi nhận với nhãn Xác minh Đã ở thật!',
+            data: newReview
+        });
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                code: 'ALREADY_REVIEWED',
+                message: 'Bạn đã gửi đánh giá cho đợt lưu trú này rồi.'
+            });
+        }
         res.status(400).json({ success: false, error: error.message });
+    }
+}
+
+// 1. Kiểm tra điều kiện đánh giá của người dùng với phòng (GET /api/rooms/:id/review-eligibility)
+app.get('/api/rooms/:id/review-eligibility', protect, async (req, res) => {
+    try {
+        const roomId = req.params.id;
+        const userId = req.user._id || req.user.id;
+        const result = await canUserReview(userId, roomId);
+        return res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 2. Lấy danh sách đánh giá của phòng
+// 2. Gửi đánh giá cho phòng trọ (Hỗ trợ cả POST /api/rooms/:id/reviews và POST /api/reviews)
+app.post('/api/rooms/:id/reviews', protect, handleCreateVerifiedReview);
+app.post('/api/reviews', protect, handleCreateVerifiedReview);
+
+// 3. Lấy danh sách đánh giá của phòng (Tính điểm trung bình & tỷ lệ chuẩn xác CHỈ TỪ review verified)
 app.get('/api/reviews/room/:roomId', async (req, res) => {
     try {
         const { roomId } = req.params;
@@ -1302,13 +1394,16 @@ app.get('/api/reviews/room/:roomId', async (req, res) => {
         }
 
         const totalReviews = reviews.length;
+        const verifiedReviews = reviews.filter((r) => r.verified === true);
+        const totalVerifiedReviews = verifiedReviews.length;
+
         let avgRating = 0;
         let accurateCostCount = 0;
 
-        if (totalReviews > 0) {
-            const totalScore = reviews.reduce((sum, item) => sum + item.rating, 0);
-            avgRating = Number((totalScore / totalReviews).toFixed(1));
-            accurateCostCount = reviews.filter((r) => r.isCostAccurate).length;
+        if (totalVerifiedReviews > 0) {
+            const totalScore = verifiedReviews.reduce((sum, item) => sum + item.rating, 0);
+            avgRating = Number((totalScore / totalVerifiedReviews).toFixed(1));
+            accurateCostCount = verifiedReviews.filter((r) => r.isCostAccurate || r.matchesListedPrice).length;
         }
 
         res.status(200).json({
@@ -1316,8 +1411,11 @@ app.get('/api/reviews/room/:roomId', async (req, res) => {
             roomId,
             stats: {
                 totalReviews,
+                totalVerifiedReviews,
                 avgRating,
-                costAccuracyRate: totalReviews > 0 ? `${Math.round((accurateCostCount / totalReviews) * 100)}%` : 'Chưa có đánh giá'
+                costAccuracyRate: totalVerifiedReviews > 0
+                    ? `${Math.round((accurateCostCount / totalVerifiedReviews) * 100)}%`
+                    : 'Chưa có đánh giá xác thực'
             },
             data: reviews
         });
@@ -1325,6 +1423,75 @@ app.get('/api/reviews/room/:roomId', async (req, res) => {
         res.status(400).json({ success: false, error: error.message });
     }
 });
+
+// ==================== ADMIN STAY & REVIEW MANAGEMENT ====================
+// Xem danh sách Stay (có lọc theo status)
+app.get('/api/admin/stays', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { status } = req.query;
+        const filter = status ? { status } : {};
+        const stays = await Stay.find(filter)
+            .populate('tenantId', 'fullName email phone avatar campus')
+            .populate('roomId', 'title address price campus')
+            .populate('landlordId', 'fullName email phone')
+            .sort({ createdAt: -1 });
+
+        res.json({ success: true, count: stays.length, data: stays });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Cập nhật trạng thái Stay tranh chấp / giải quyết
+app.put('/api/admin/stays/:id/resolve', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, disputeReason } = req.body;
+        const stay = await Stay.findById(id);
+        if (!stay) return res.status(404).json({ success: false, message: 'Không tìm thấy Stay' });
+
+        if (status) stay.status = status;
+        if (disputeReason !== undefined) stay.disputeReason = disputeReason;
+        await stay.save();
+
+        res.json({ success: true, message: 'Đã cập nhật trạng thái lưu trú', data: stay });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Thu hồi huy hiệu Đã ở thật của Review vi phạm
+app.patch('/api/admin/reviews/:id/revoke-badge', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const review = await Review.findById(id);
+        if (!review) return res.status(404).json({ success: false, message: 'Không tìm thấy đánh giá' });
+
+        review.verified = false;
+        review.has_stayed = false;
+        review.verificationStatus = 'unverified';
+        review.trust_score = 40;
+        await review.save();
+
+        res.json({ success: true, message: 'Đã thu hồi huy hiệu Đã ở thật của đánh giá', data: review });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Gỡ bỏ review vi phạm
+app.delete('/api/admin/reviews/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const review = await Review.findByIdAndDelete(id);
+        if (!review) return res.status(404).json({ success: false, message: 'Không tìm thấy đánh giá' });
+
+        res.json({ success: true, message: 'Đã xóa đánh giá thành công' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 
 // ==================== APIS ROOMMATE MATCHER ====================
 // 1. Lưu hồ sơ khảo sát (Hỗ trợ liên kết tài khoản nếu có đăng nhập)
@@ -2735,4 +2902,5 @@ server.listen(PORT, () => {
     console.log(`🚀 SmartStay Backend Server is running on http://localhost:${PORT}`);
     // Khởi động cron job quét hạn tin Pass phòng
     startPassRoomCron(() => isDbConnected);
+    startStayCron(() => isDbConnected);
 });

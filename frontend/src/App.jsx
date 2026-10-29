@@ -23,6 +23,7 @@ import Admin from '@/pages/Admin';
 import EmployeeDashboard from '@/pages/EmployeeDashboard';
 import TransporterPortal from '@/pages/TransporterPortal';
 import LandlordConfirmPage from '@/pages/LandlordConfirmPage';
+import StayConfirmPage from '@/pages/StayConfirmPage';
 import RoomDetail from '@/pages/RoomDetail';
 import CompareRooms from '@/pages/CompareRooms';
 import PassRoomDetail from '@/pages/PassRoomDetail';
@@ -86,6 +87,7 @@ const AuthenticatedApp = () => {
 
         {/* 4. Xác nhận Pass phòng */}
         <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
+        <Route path="/xac-nhan-luu-tru/:token" element={<StayConfirmPage />} />
 
         {/* 5. Giao diện chính (Khám phá, Ghép bạn, Chuyển trọ, Pass phòng) */}
         <Route element={<Layout />}>

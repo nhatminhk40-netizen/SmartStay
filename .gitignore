@@ -39,3 +39,7 @@ test*.jpg
 
 # Tool outputs
 repomix*.xml
+
+# Uploaded Private Files (Contracts & Pass)
+backend/private_uploads/
+backend/uploads/contracts/

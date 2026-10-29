@@ -4,41 +4,78 @@ const reviewSchema = new mongoose.Schema({
     room: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Room',
-        required: true
+        required: true,
+        index: true
     },
     user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+        ref: 'User',
+        required: true,
+        index: true
     },
+    stayId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Stay',
+        default: null,
+        index: true
+    },
+
     studentEmail: { type: String, default: '' },
     studentName: { type: String, default: 'Sinh viên ẩn danh' },
     anonymous_name: { type: String, default: 'Sinh viên ẩn danh' },
     rating: { type: Number, min: 1, max: 5, required: true },
 
-    // Trọng tâm minh bạch của SmartStay
+    // Trọng tâm chi phí thực tế & so sánh với niêm yết
     isCostAccurate: {
         type: Boolean,
-        required: true // true: Đúng giá cam kết, false: Có chi phí phát sinh bất thường
+        default: true
+    },
+    matchesListedPrice: {
+        type: Boolean,
+        default: true
     },
     actualMonthlyCost: {
         type: Number,
         required: true // Tổng chi phí thực tế mỗi tháng sinh viên phải trả (tiền phòng + điện + nước + phụ phí)
     },
-    comment: { type: String, required: true },
+    comment: { type: String, required: true, trim: true },
     content: { type: String }, // Đồng bộ alias cho comment
 
-    // Xác thực người từng ở & độ uy tín (Không để client tùy ý gán)
-    has_stayed: { type: Boolean, default: false }, // Mặc định FALSE - Chỉ gán TRUE khi có minh chứng
+    // Xác thực người từng ở thật (SERVER-MANAGED)
+    verified: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    has_stayed: {
+        type: Boolean,
+        default: false
+    },
     verificationStatus: {
         type: String,
         enum: ['unverified', 'pending', 'verified', 'rejected'],
         default: 'unverified'
     },
-    verificationProofUrl: { type: String, default: '' }, // Hóa đơn tiền điện/nước hoặc hợp đồng thuê
-    trust_score: { type: Number, default: 50 },          // Điểm tin cậy (0 - 100), do server tính toán
-    stayed_period: { type: String, default: 'Người thuê quan tâm' },
-    isDemo: { type: Boolean, default: false }
+    stayDurationSnapshot: {
+        type: Number,
+        default: 0 // Số tháng đã ở tại thời điểm đánh giá
+    },
+    stayed_period: {
+        type: String,
+        default: 'Người thuê quan tâm'
+    },
+    trust_score: {
+        type: Number,
+        default: 50
+    },
+    isDemo: {
+        type: Boolean,
+        default: false
+    }
 }, { timestamps: true });
+
+// Mỗi Stay chỉ có tối đa 1 review (sparse để các review cũ không có stayId không bị xung đột)
+reviewSchema.index({ stayId: 1 }, { unique: true, sparse: true });
 
 reviewSchema.pre('save', function () {
     if (!this.anonymous_name && this.studentName) {
@@ -47,10 +84,10 @@ reviewSchema.pre('save', function () {
     if (!this.content && this.comment) {
         this.content = this.comment;
     }
-    // Nếu người thuê xác nhận đã ở hoặc minh chứng hợp lệ, gắn nhãn has_stayed = true và tăng điểm trust_score
-    if (this.verificationStatus === 'verified' || this.has_stayed) {
+    if (this.verified) {
         this.has_stayed = true;
-        this.trust_score = Math.max(this.trust_score, 85);
+        this.verificationStatus = 'verified';
+        this.trust_score = Math.max(this.trust_score || 50, 95);
     }
 });
 

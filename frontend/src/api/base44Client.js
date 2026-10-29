@@ -782,40 +782,241 @@ export const base44 = {
               id: rev._id || rev.id,
               anonymous_name: rev.anonymous_name || rev.studentName || 'Người thuê ẩn danh',
               content: rev.content || rev.comment || '',
-              trust_score: rev.trust_score || (rev.isCostAccurate ? 95 : 60),
-              has_stayed: rev.has_stayed !== undefined ? rev.has_stayed : true,
-              stayed_period: rev.stayed_period || 'Đã ở tại đây'
+              rating: rev.rating || 5,
+              trust_score: rev.trust_score || (rev.verified ? 98 : 60),
+              verified: Boolean(rev.verified),
+              has_stayed: Boolean(rev.verified || rev.has_stayed),
+              stayDurationSnapshot: rev.stayDurationSnapshot || 0,
+              stayed_period: rev.stayed_period || (rev.verified ? `Đã ở ${rev.stayDurationSnapshot || 1} tháng` : 'Đã ở tại đây'),
+              isCostAccurate: rev.isCostAccurate !== undefined ? rev.isCostAccurate : rev.matchesListedPrice,
+              matchesListedPrice: rev.matchesListedPrice !== undefined ? rev.matchesListedPrice : rev.isCostAccurate,
+              actualMonthlyCost: rev.actualMonthlyCost
             }));
           }
           return [];
         } catch (error) {
-          console.warn('Lỗi khi fetch reviews từ API, sử dụng fallback:', error);
-          return [
-            {
-              id: 'rev_fb_1',
-              anonymous_name: 'Đinh Trịnh Nhật Minh (Ninh Kiều)',
-              content: 'Phòng sạch sẽ, đồng hồ điện nước riêng biệt, giá niêm yết rõ ràng. Chủ nhà hỗ trợ người thuê rất nhiệt tình.',
-              trust_score: 98,
-              has_stayed: true,
-              stayed_period: 'Đã ở 1 năm (2025 - 2026)'
-            },
-            {
-              id: 'rev_fb_2',
-              anonymous_name: 'Nguyễn Văn An (ĐH Cần Thơ)',
-              content: 'Khu vực an ninh tốt, camera 24/7, wifi ổn định cho việc học online.',
-              trust_score: 95,
-              has_stayed: true,
-              stayed_period: 'Đang ở'
-            }
-          ];
+          console.warn('Lỗi khi fetch reviews từ API:', error);
+          return [];
         }
       },
 
       create: async (data) => {
-        const res = await fetch(`${API_BASE}/reviews`, {
+        const token = localStorage.getItem('smartstay_token');
+        const roomId = data.room || data.roomId;
+        const url = roomId ? `${API_BASE}/rooms/${roomId}/reviews` : `${API_BASE}/reviews`;
+        const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
           body: JSON.stringify(data)
+        });
+        return res.json();
+      }
+    },
+
+    ReviewEligibility: {
+      check: async (roomId) => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) {
+          return {
+            success: false,
+            data: {
+              eligible: false,
+              code: 'NOT_LOGGED_IN',
+              message: 'Vui lòng đăng nhập để gửi đánh giá trải nghiệm thực tế.'
+            }
+          };
+        }
+        try {
+          const res = await fetch(`${API_BASE}/rooms/${roomId}/review-eligibility`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const json = await res.json();
+          return json;
+        } catch (e) {
+          return {
+            success: false,
+            data: {
+              eligible: false,
+              code: 'NETWORK_ERROR',
+              message: 'Không thể kết nối đến máy chủ.'
+            }
+          };
+        }
+      }
+    },
+
+    Stay: {
+      requestCheckin: async (roomId, tenantNote, checkInDate) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/stays/request-checkin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({ roomId, tenantNote, checkInDate })
+        });
+        return res.json();
+      },
+
+      redeemCode: async (code, roomId) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/stays/redeem-code`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({ code, roomId })
+        });
+        return res.json();
+      },
+
+      uploadContract: async (stayId, file) => {
+        const token = localStorage.getItem('smartstay_token');
+        const formData = new FormData();
+        formData.append('contractFile', file);
+        const res = await fetch(`${API_BASE}/stays/${stayId}/contract`, {
+          method: 'POST',
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: formData
+        });
+        return res.json();
+      },
+
+      myStays: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { success: false, data: [] };
+        const res = await fetch(`${API_BASE}/stays/mine`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return res.json();
+      },
+
+      myStatus: async (roomId) => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { success: false, hasStay: false, eligibility: { eligible: false, code: 'NOT_LOGGED_IN' } };
+        const res = await fetch(`${API_BASE}/stays/room/${roomId}/my-status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return res.json();
+      },
+
+      reportDispute: async (stayId, reason) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/stays/${stayId}/dispute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({ reason })
+        });
+        return res.json();
+      },
+
+      // Landlord APIs
+      getPending: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { success: false, data: [] };
+        const res = await fetch(`${API_BASE}/landlord/stays/pending`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return res.json();
+      },
+
+      getActive: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { success: false, data: [] };
+        const res = await fetch(`${API_BASE}/landlord/stays/active`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return res.json();
+      },
+
+      getAll: async () => {
+        const token = localStorage.getItem('smartstay_token');
+        if (!token) return { success: false, data: [] };
+        const res = await fetch(`${API_BASE}/landlord/stays/all`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return res.json();
+      },
+
+      confirmCheckin: async (stayId, checkInDate, note) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/landlord/stays/${stayId}/confirm-checkin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({ checkInDate, note })
+        });
+        return res.json();
+      },
+
+      rejectCheckin: async (stayId, reason) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/landlord/stays/${stayId}/reject`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({ reason })
+        });
+        return res.json();
+      },
+
+      confirmCheckout: async (stayId, checkOutDate, note) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/landlord/stays/${stayId}/confirm-checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({ checkOutDate, note })
+        });
+        return res.json();
+      },
+
+      createCheckinCode: async (roomId, note) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/landlord/stays/rooms/${roomId}/checkin-codes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify({ note })
+        });
+        return res.json();
+      },
+
+      getCheckinCodes: async (roomId) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/landlord/stays/rooms/${roomId}/checkin-codes`, {
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
+        });
+        return res.json();
+      },
+
+      revokeCheckinCode: async (codeId) => {
+        const token = localStorage.getItem('smartstay_token');
+        const res = await fetch(`${API_BASE}/landlord/stays/checkin-codes/${codeId}`, {
+          method: 'DELETE',
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
         });
         return res.json();
       }

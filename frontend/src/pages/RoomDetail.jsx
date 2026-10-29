@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import CheckinVerificationDialog from "@/components/stay/CheckinVerificationDialog";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import {
@@ -95,6 +96,10 @@ export default function RoomDetail() {
     const [hasStayed, setHasStayed] = useState(true);
     const [stayedPeriod, setStayedPeriod] = useState("Đã ở 6 tháng");
     const [submittingReview, setSubmittingReview] = useState(false);
+    const [reviewEligibility, setReviewEligibility] = useState(null);
+    const [checkingEligibility, setCheckingEligibility] = useState(false);
+    const [showCheckinDialog, setShowCheckinDialog] = useState(false);
+    const navigate = useNavigate();
     const [reviewMessage, setReviewMessage] = useState({ text: "", type: "" });
 
     // Tải thông tin phòng và đánh giá
@@ -126,6 +131,27 @@ export default function RoomDetail() {
     useEffect(() => {
         fetchRoomData();
     }, [id]);
+
+        const fetchReviewEligibility = async () => {
+        const token = base44.auth.getToken() || localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+        if (!token) {
+            setReviewEligibility({ eligible: false, code: 'NOT_LOGGED_IN', message: 'Vui lòng đăng nhập để gửi đánh giá trải nghiệm thực tế.' });
+            return;
+        }
+        setCheckingEligibility(true);
+        try {
+            const res = await base44.entities.ReviewEligibility.check(id);
+            if (res && res.data) {
+                setReviewEligibility(res.data);
+            } else {
+                setReviewEligibility(res || { eligible: false, code: 'NO_VERIFIED_STAY', message: 'Chưa có thông tin lưu trú.' });
+            }
+        } catch (err) {
+            console.warn('Lỗi kiểm tra review eligibility:', err);
+        } finally {
+            setCheckingEligibility(false);
+        }
+    };
 
     const handleShare = () => {
         navigator.clipboard.writeText(window.location.href);
@@ -203,7 +229,7 @@ export default function RoomDetail() {
         const token = base44.auth.getToken() || localStorage.getItem("smartstay_token") || localStorage.getItem("token") || sessionStorage.getItem("token");
         if (!token) {
             setReviewMessage({
-                text: "Vui lòng đăng nhập tài khoản để gửi đánh giá và tích lũy điểm uy tín.",
+                text: "Vui lòng đăng nhập tài khoản để gửi đánh giá.",
                 type: "error"
             });
             return;
@@ -214,37 +240,29 @@ export default function RoomDetail() {
 
         try {
             const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            const res = await fetch(`${API_BASE}/reviews`, {
+            const res = await fetch(`${API_BASE}/rooms/${room._id || room.id}/reviews`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    room: room._id || room.id,
                     rating,
-                    isCostAccurate,
                     actualMonthlyCost: Number(actualMonthlyCost),
                     comment,
-                    verificationProofUrl: proofUrl,
-                    isAnonymous,
-                    has_stayed: Boolean(hasStayed),
-                    stayed_period: hasStayed ? stayedPeriod : "Người quan tâm thuê",
-                    studentName: user?.full_name || user?.fullName || user?.name || "Người thuê SmartStay"
+                    isAnonymous
                 })
             });
 
             const json = await res.json();
             if (json.success) {
                 setReviewMessage({
-                    text: hasStayed
-                        ? "Gửi đánh giá thành công! Đánh giá đã được gắn huy hiệu ✓ Đã ở thật."
-                        : "Gửi đánh giá thành công! Đánh giá đã được ghi nhận vào hệ thống.",
+                    text: "Gửi đánh giá thành công! Đánh giá đã được gắn huy hiệu ✓ Đã ở thật.",
                     type: "success"
                 });
                 setComment("");
-                setProofUrl("");
                 fetchRoomData();
+                fetchReviewEligibility();
             } else {
                 setReviewMessage({
                     text: json.message || json.error || "Không thể gửi đánh giá, vui lòng thử lại.",
@@ -895,29 +913,16 @@ export default function RoomDetail() {
                                 )}
                             </div>
 
-                            {/* Form Gửi Đánh Giá */}
-                            <form onSubmit={handleReviewSubmit} className="pt-4 border-t border-border space-y-3">
-                                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                                    Gửi đánh giá trải nghiệm thực tế
-                                </h3>
-
-                                {/* Thông tin tài khoản người đang đánh giá */}
-                                {user ? (
-                                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-50/80 text-blue-900 border border-blue-200/80 text-xs">
-                                        <UserCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                                        <span className="truncate">
-                                            Đang đánh giá với: <strong>{user.full_name || user.fullName || user.name || user.email}</strong>
-                                            <span className="ml-1.5 inline-block bg-blue-600 text-white text-[10px] px-1.5 py-0.2 rounded font-semibold">
-                                                {user.role === 'landlord' || user.role === 'chu_tro' ? 'Chủ trọ' : 'Người thuê'}
-                                            </span>
+                            {/* Form Gửi Đánh Giá Trải Nghiệm Thực Tế */}
+                            <div className="pt-4 border-t border-border space-y-3">
+                                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center justify-between">
+                                    <span>Gửi đánh giá trải nghiệm thực tế</span>
+                                    {reviewEligibility?.eligible && (
+                                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                            ✓ Đủ điều kiện
                                         </span>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs">
-                                        <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                                        <span>Vui lòng đăng nhập tài khoản để gửi đánh giá và nhận huy hiệu xác minh.</span>
-                                    </div>
-                                )}
+                                    )}
+                                </h3>
 
                                 {reviewMessage.text && (
                                     <div className={`p-3 rounded-xl text-xs font-medium ${
@@ -927,113 +932,181 @@ export default function RoomDetail() {
                                     </div>
                                 )}
 
-                                {/* Xác nhận đã từng ở thực tế */}
-                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 space-y-2">
-                                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
-                                        <input
-                                            type="checkbox"
-                                            checked={hasStayed}
-                                            onChange={(e) => setHasStayed(e.target.checked)}
-                                            className="rounded text-emerald-600 focus:ring-emerald-500"
-                                        />
-                                        <span className="flex items-center gap-1 text-emerald-800 font-bold">
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Tôi đã / đang sinh sống tại phòng trọ này
-                                        </span>
-                                    </label>
-
-                                    {hasStayed && (
-                                        <div className="pt-1">
-                                            <label className="text-[11px] text-muted-foreground block mb-1">Thời gian bạn đã ở (*)</label>
-                                            <select
-                                                value={stayedPeriod}
-                                                onChange={(e) => setStayedPeriod(e.target.value)}
-                                                className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs bg-white focus:ring-2 focus:ring-accent/30 outline-none"
-                                            >
-                                                <option value="Đã ở 1 - 3 tháng">Đã ở 1 - 3 tháng</option>
-                                                <option value="Đã ở 6 tháng">Đã ở 6 tháng</option>
-                                                <option value="Đã ở 1 năm">Đã ở 1 năm</option>
-                                                <option value="Đã ở trên 1 năm">Đã ở trên 1 năm</option>
-                                                <option value="Đang sinh sống hiện tại">Đang sinh sống hiện tại</option>
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label className="text-[11px] text-muted-foreground block mb-1">Mức độ hài lòng (1 - 5 sao)</label>
-                                    <div className="flex gap-2">
-                                        {[1, 2, 3, 4, 5].map((num) => (
-                                            <button
-                                                type="button"
-                                                key={num}
-                                                onClick={() => setRating(num)}
-                                                className={`flex-1 py-1.5 rounded-lg border text-xs font-bold transition ${
-                                                    rating >= num ? "bg-amber-400 text-white border-amber-400" : "bg-white border-border text-slate-400"
-                                                }`}
-                                            >
-                                                ★ {num}
-                                            </button>
-                                        ))}
+                                {/* CASE 1: Chưa đăng nhập */}
+                                {(!user || reviewEligibility?.code === 'NOT_LOGGED_IN') && (
+                                    <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-center space-y-2.5">
+                                        <p className="text-xs text-amber-900 font-medium">
+                                            Chỉ người thuê đã thực sự sinh sống tại phòng này qua SmartStay mới có thể gửi đánh giá.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/login')}
+                                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                                        >
+                                            Đăng nhập ngay
+                                        </button>
                                     </div>
-                                </div>
+                                )}
 
-                                <div>
-                                    <label className="text-[11px] text-muted-foreground block mb-1">Tổng chi phí thực tế bạn phải trả mỗi tháng (VNĐ)</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        value={actualMonthlyCost}
-                                        onChange={(e) => setActualMonthlyCost(e.target.value)}
-                                        placeholder="Ví dụ: 2850000"
-                                        className="w-full px-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none"
-                                    />
-                                </div>
+                                {/* CASE 2: Chưa có Stay xác thực */}
+                                {user && reviewEligibility?.code === 'NO_VERIFIED_STAY' && (
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                                        <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                                            Chỉ tài khoản đã thực sự sinh sống tại phòng này qua SmartStay mới đánh giá được.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCheckinDialog(true)}
+                                            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-1.5 mx-auto"
+                                        >
+                                            <ShieldCheck className="w-4 h-4" />
+                                            <span>Tôi đã ở phòng này</span>
+                                        </button>
+                                    </div>
+                                )}
 
-                                <label className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
-                                    <input
-                                        type="checkbox"
-                                        checked={isCostAccurate}
-                                        onChange={(e) => setIsCostAccurate(e.target.checked)}
-                                        className="rounded text-accent focus:ring-accent"
-                                    />
-                                    <span>Chi phí thanh toán thực tế đúng với cam kết ban đầu</span>
-                                </label>
+                                {/* CASE 3: Stay đang chờ duyệt */}
+                                {user && reviewEligibility?.code === 'STAY_PENDING_CONFIRMATION' && (
+                                    <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1">
+                                        <div className="font-bold flex items-center gap-1.5 text-blue-800">
+                                            <Clock className="w-4 h-4 text-blue-600" />
+                                            Đang chờ chủ trọ xác nhận nhận phòng
+                                        </div>
+                                        <p className="text-blue-700 leading-relaxed">
+                                            Yêu cầu nhận phòng của bạn đã được gửi tới chủ trọ. Sau khi chủ trọ xác nhận và bạn lưu trú tối thiểu 14 ngày, bạn sẽ có thể gửi đánh giá.
+                                        </p>
+                                    </div>
+                                )}
 
-                                <div>
-                                    <label className="text-[11px] text-muted-foreground block mb-1">Nhận xét chi tiết</label>
-                                    <textarea
-                                        required
-                                        rows={2}
-                                        value={comment}
-                                        onChange={(e) => setComment(e.target.value)}
-                                        placeholder="Chủ trọ có thân thiện không? Nước nôi, an ninh, wifi thế nào?..."
-                                        className="w-full px-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none"
-                                    />
-                                </div>
+                                {/* CASE 4: Stay chưa đủ 14 ngày */}
+                                {user && reviewEligibility?.code === 'STAY_TOO_SHORT' && (
+                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                                        <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                                            <ShieldCheck className="w-4 h-4 text-amber-600" />
+                                            Đã xác nhận đang ở ({reviewEligibility.daysStayed || 0}/14 ngày)
+                                        </div>
+                                        <p className="text-amber-800 leading-relaxed">
+                                            Để đảm bảo tính khách quan và trải nghiệm thực tế, bạn sẽ có thể gửi đánh giá sau <strong>{reviewEligibility.availableDate ? new Date(reviewEligibility.availableDate).toLocaleDateString('vi-VN') : '14 ngày'}</strong> (còn <strong>{reviewEligibility.daysLeft || 14} ngày</strong> nữa).
+                                        </p>
+                                    </div>
+                                )}
 
-                                <div>
-                                    <label className="text-[11px] text-muted-foreground block mb-1">Link ảnh minh chứng đã ở (hóa đơn tiền phòng / hợp đồng)</label>
-                                    <input
-                                        type="url"
-                                        value={proofUrl}
-                                        onChange={(e) => setProofUrl(e.target.value)}
-                                        placeholder="https://... (để tăng thêm độ tin cậy)"
-                                        className="w-full px-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none"
-                                    />
-                                </div>
+                                {/* CASE 5: Đã review rồi */}
+                                {user && reviewEligibility?.code === 'ALREADY_REVIEWED' && (
+                                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        <span>Bạn đã gửi đánh giá trải nghiệm thực tế cho đợt lưu trú này. Cảm ơn đóng góp của bạn!</span>
+                                    </div>
+                                )}
 
-                                <button
-                                    type="submit"
-                                    disabled={submittingReview}
-                                    className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                                >
-                                    <Send className="w-3.5 h-3.5" /> {submittingReview ? "Đang gửi..." : "Gửi đánh giá xác minh"}
-                                </button>
-                            </form>
+                                {/* CASE 6: Quá hạn review 90 ngày */}
+                                {user && reviewEligibility?.code === 'REVIEW_WINDOW_EXPIRED' && (
+                                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2">
+                                        <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                                        <span>Thời hạn gửi đánh giá đã kết thúc (&gt; 90 ngày kể từ ngày kết thúc lưu trú).</span>
+                                    </div>
+                                )}
+
+                                {/* CASE 7: Chủ trọ của phòng */}
+                                {user && reviewEligibility?.code === 'LANDLORD_CANNOT_REVIEW' && (
+                                    <div className="p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs text-slate-700 flex items-center gap-2">
+                                        <Info className="w-4 h-4 text-slate-500 shrink-0" />
+                                        <span>Bạn là chủ trọ của phòng này. Chủ nhà trọ không thể tự gửi đánh giá phòng của chính mình.</span>
+                                    </div>
+                                )}
+
+                                {/* CASE 8: Đủ điều kiện -> HIỆN FORM ĐÁNH GIÁ */}
+                                {user && reviewEligibility?.eligible === true && (
+                                    <form onSubmit={handleReviewSubmit} className="space-y-3">
+                                        <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs flex items-center gap-2">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                            <span>
+                                                Xác minh: <strong>Đã ở {reviewEligibility.stayDurationMonths || 1} tháng</strong> • Đánh giá của bạn sẽ được gắn huy hiệu <strong>✓ Đã ở thật</strong>.
+                                            </span>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-[11px] text-muted-foreground block mb-1">Mức độ hài lòng (1 - 5 sao)</label>
+                                            <div className="flex gap-2">
+                                                {[1, 2, 3, 4, 5].map((num) => (
+                                                    <button
+                                                        type="button"
+                                                        key={num}
+                                                        onClick={() => setRating(num)}
+                                                        className={`flex-1 py-1.5 rounded-lg border text-xs font-bold transition ${
+                                                            rating >= num ? "bg-amber-400 text-white border-amber-400" : "bg-white border-border text-slate-400"
+                                                        }`}
+                                                    >
+                                                        ★ {num}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-[11px] text-muted-foreground block mb-1">
+                                                Tổng chi phí thực tế bạn phải trả mỗi tháng (VNĐ)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                required
+                                                value={actualMonthlyCost}
+                                                onChange={(e) => setActualMonthlyCost(e.target.value)}
+                                                placeholder="Ví dụ: 2850000"
+                                                className="w-full px-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none"
+                                            />
+                                            <p className="text-[10px] text-slate-400 mt-1">
+                                                Hệ thống sẽ tự động đối chiếu với giá niêm yết ({room?.price ? (room.price).toLocaleString('vi-VN') + ' đ' : ''}) để đánh giá độ chuẩn xác chi phí.
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-[11px] text-muted-foreground block mb-1">Nhận xét trải nghiệm thực tế</label>
+                                            <textarea
+                                                required
+                                                rows={3}
+                                                value={comment}
+                                                onChange={(e) => setComment(e.target.value)}
+                                                placeholder="Chia sẻ chân thật về phòng trọ: an ninh, giờ giấc, thái độ chủ trọ, thiết bị..."
+                                                className="w-full px-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-accent/30 outline-none"
+                                            />
+                                        </div>
+
+                                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                                            <input
+                                                type="checkbox"
+                                                checked={isAnonymous}
+                                                onChange={(e) => setIsAnonymous(e.target.checked)}
+                                                className="rounded text-orange-500 focus:ring-orange-400"
+                                            />
+                                            <span>Đăng ẩn danh (Ẩn tên và ảnh đại diện trên đánh giá)</span>
+                                        </label>
+
+                                        <button
+                                            type="submit"
+                                            disabled={submittingReview}
+                                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            <Send className="w-3.5 h-3.5" /> {submittingReview ? "Đang gửi..." : "Gửi đánh giá xác minh (✓ Đã ở thật)"}
+                                        </button>
+                                    </form>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             </main>
+
+            {/* ==================== MODAL XÁC MINH NGƯỜI THUÊ THẬT ==================== */}
+            <CheckinVerificationDialog
+                isOpen={showCheckinDialog}
+                onClose={() => setShowCheckinDialog(false)}
+                room={room}
+                onVerificationSuccess={() => {
+                    fetchReviewEligibility();
+                    fetchRoomData();
+                }}
+            />
 
             {/* ==================== MODAL 1: ĐẶT LỊCH XEM PHÒNG 2 CHIỀU ==================== */}
             {showBookingModal && (
