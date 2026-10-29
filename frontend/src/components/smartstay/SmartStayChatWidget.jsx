@@ -8,6 +8,7 @@ import {
   ExternalLink,
   ShieldCheck,
   ChevronLeft,
+  ChevronDown,
   AlertTriangle,
   Inbox,
   Clock,
@@ -67,6 +68,26 @@ export default function SmartStayChatWidget() {
   const [detectedPhoneInInput, setDetectedPhoneInInput] = useState(null);
 
   const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const isAtBottomRef = useRef(true);
+  const prevMessagesCountRef = useRef(0);
+  const currentConvIdRef = useRef(null);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    // Nếu khoảng cách đến đáy < 80px thì coi như người dùng đang ở đáy
+    const atBottom = scrollHeight - scrollTop - clientHeight < 80;
+    isAtBottomRef.current = atBottom;
+    setShowScrollBottomBtn(!atBottom);
+  };
+
+  const scrollToBottom = (behavior = "smooth") => {
+    isAtBottomRef.current = true;
+    setShowScrollBottomBtn(false);
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
 
   // Người dùng hiện tại và đối phương
   const currentActor = baseIdentity;
@@ -198,6 +219,12 @@ export default function SmartStayChatWidget() {
       if (Array.isArray(latestLocal) && latestLocal.length > 0) {
         setMessages((prev) => {
           const merged = deduplicateMessages([...prev, ...latestLocal]);
+          // So sánh mảng cũ và mới: nếu không có tin nhắn mới, giữ nguyên prev để tránh re-render và giật thanh cuộn
+          if (merged.length === prev.length) {
+            const hasChange = merged.some((m, i) => String(m._id || m.id) !== String(prev[i]?._id || prev[i]?.id));
+            if (!hasChange) return prev;
+          }
+
           const prevIds = new Set(prev.map((m) => String(m._id || m.id)));
           const reallyNew = merged.filter((m) => !prevIds.has(String(m._id || m.id)));
 
@@ -228,7 +255,14 @@ export default function SmartStayChatWidget() {
           .getMessages(convId)
           .then((serverMsgs) => {
             if (Array.isArray(serverMsgs) && serverMsgs.length > 0) {
-              setMessages((prev) => deduplicateMessages([...prev, ...serverMsgs]));
+              setMessages((prev) => {
+                const merged = deduplicateMessages([...prev, ...serverMsgs]);
+                if (merged.length === prev.length) {
+                  const hasChange = merged.some((m, i) => String(m._id || m.id) !== String(prev[i]?._id || prev[i]?.id));
+                  if (!hasChange) return prev;
+                }
+                return merged;
+              });
             }
           })
           .catch(() => {});
@@ -378,12 +412,34 @@ export default function SmartStayChatWidget() {
     }
   }, [unreadTotal]);
 
-  // 8. Tự động cuộn xuống đáy tin nhắn
+  // 8. Tự động cuộn xuống đáy tin nhắn (CHỈ cuộn khi mở chat mới hoặc người dùng đang ở đáy)
   useEffect(() => {
-    if (isOpen && !isMinimized && viewMode === "chat") {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!isOpen || isMinimized || viewMode !== "chat") return;
+
+    const isNewConversation = currentConvIdRef.current !== currentConvKey;
+    currentConvIdRef.current = currentConvKey;
+
+    const hasNewMessages = messages.length > prevMessagesCountRef.current;
+    prevMessagesCountRef.current = messages.length;
+
+    // A. Khi vừa mở chat hoặc đổi người nhắn: Luôn cuộn xuống tin nhắn mới nhất
+    if (isNewConversation) {
+      isAtBottomRef.current = true;
+      setShowScrollBottomBtn(false);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      }, 50);
+      return;
     }
-  }, [messages, isOpen, isMinimized, viewMode, isOtherTyping]);
+
+    // B. Khi có tin nhắn mới hoặc đối phương đang gõ:
+    // CHỈ tự cuộn xuống nếu người dùng ĐANG Ở ĐÁY (không tự giật xuống khi người dùng đang cuộn lên đọc tin nhắn cũ)
+    if (hasNewMessages || isOtherTyping) {
+      if (isAtBottomRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [messages, isOpen, isMinimized, viewMode, isOtherTyping, currentConvKey]);
 
   // 9. Báo trạng thái gõ phím (Typing)
   const handleInputChange = (e) => {
@@ -473,6 +529,7 @@ export default function SmartStayChatWidget() {
     executeSendMessage(inputText, activeConversation, currentActor, currentTarget);
     setInputText("");
     setDetectedPhoneInInput(null);
+    scrollToBottom("smooth");
   };
 
   // Mở Zalo trực tiếp (Chỉ cho phép sau khi đối phương đã phản hồi trong SmartStay)
@@ -697,7 +754,7 @@ export default function SmartStayChatWidget() {
           {viewMode === "chat" && currentTarget && (
             <>
               {/* Khung nội dung tin nhắn */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 text-xs">
+              <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 text-xs relative">
                 {isLoadingMessages && messages.length === 0 && (
                   <div className="text-center py-6 text-slate-400 text-xs">Đang tải tin nhắn...</div>
                 )}
@@ -808,6 +865,19 @@ export default function SmartStayChatWidget() {
                 )}
 
                 <div ref={messagesEndRef} />
+
+                {/* Nút cuộn nhanh xuống đáy khi người dùng đang cuộn lên đọc tin nhắn cũ */}
+                {showScrollBottomBtn && (
+                  <button
+                    type="button"
+                    onClick={() => scrollToBottom("smooth")}
+                    className="sticky bottom-2 float-right mr-1 py-1 px-2.5 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white shadow-md transition flex items-center gap-1 text-[10px] font-bold z-10 backdrop-blur-xs cursor-pointer animate-fade-in"
+                    title="Cuộn xuống tin nhắn mới nhất"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>Mới nhất</span>
+                  </button>
+                )}
               </div>
 
               {/* Banner cảnh báo ngay khi người dùng gõ SĐT vào ô chat */}

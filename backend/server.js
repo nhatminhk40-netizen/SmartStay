@@ -2706,14 +2706,57 @@ app.post('/api/appointments', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp thông tin phòng, số điện thoại, ngày và giờ xem phòng.' });
         }
 
+        // 1. Kiểm tra ngày xem phòng: chỉ cho phép đặt trước tối đa 2 tháng
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const bookingDateObj = new Date(visitDate);
+        bookingDateObj.setHours(0, 0, 0, 0);
+
+        const maxBookingDate = new Date();
+        maxBookingDate.setMonth(maxBookingDate.getMonth() + 2);
+        maxBookingDate.setHours(23, 59, 59, 999);
+
+        if (bookingDateObj < now) {
+            return res.status(400).json({ success: false, message: 'Ngày xem phòng không thể ở trong quá khứ.' });
+        }
+
+        if (bookingDateObj > maxBookingDate) {
+            return res.status(400).json({
+                success: false,
+                message: `Chỉ được đặt lịch xem phòng trước tối đa 2 tháng (tối đa đến ngày ${maxBookingDate.toLocaleDateString('vi-VN')}).`
+            });
+        }
+
+        // 2. Kiểm tra số điện thoại: chỉ nhận số và đúng định dạng Việt Nam (10 chữ số bắt đầu bằng 0)
+        const cleanPhone = String(studentPhone || '').replace(/\D/g, '');
+        if (!/^0\d{9}$/.test(cleanPhone)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Số điện thoại không hợp lệ. Vui lòng chỉ nhập số điện thoại gồm 10 chữ số (bắt đầu bằng số 0).'
+            });
+        }
+
+        // 3. Tra cứu thông tin phòng và chủ trọ
+        let room = null;
+        if (isDbConnected) {
+            try {
+                room = await Room.findById(roomId);
+            } catch (e) {}
+        }
+
+        const finalRoomTitle = room?.title || roomTitle || 'Phòng trọ SmartStay';
+        const finalLandlordPhone = room?.contactPhone || room?.phone || landlordPhone || '';
+        const landlordId = room?.owner || null;
+
         const appointmentCode = `APPT-${Date.now().toString().slice(-6)}`;
         const apptData = {
             appointmentCode,
             roomId,
-            roomTitle: roomTitle || '',
+            roomTitle: finalRoomTitle,
             studentName: studentName || 'Sinh viên SmartStay',
-            studentPhone,
-            landlordPhone: landlordPhone || '',
+            studentPhone: cleanPhone,
+            landlordPhone: finalLandlordPhone,
+            landlordId,
             visitDate,
             visitTime,
             transportType: transportType || 'Xe máy',
@@ -2722,23 +2765,36 @@ app.post('/api/appointments', async (req, res) => {
             landlordResponseNote: 'Chờ chủ trọ xác nhận lịch hẹn'
         };
 
+        let createdAppt;
         if (isDbConnected) {
-            const appt = await Appointment.create(apptData);
-            return res.status(201).json({
-                success: true,
-                message: 'Đặt lịch xem phòng thành công! Đang chờ chủ trọ xác nhận.',
-                appointmentCode,
-                data: appt
-            });
+            createdAppt = await Appointment.create(apptData);
+
+            // Gửi thông báo cho chủ trọ nếu có
+            if (landlordId) {
+                try {
+                    const { createNotification } = require('./utils/notify');
+                    await createNotification({
+                        userId: landlordId,
+                        title: '📅 Có lịch hẹn xem phòng mới',
+                        message: `Khách ${studentName} (${cleanPhone}) vừa đặt lịch xem phòng "${finalRoomTitle}" vào ngày ${visitDate} lúc ${visitTime}.`,
+                        type: 'appointment_created',
+                        referenceId: createdAppt._id,
+                        link: '/chu-tro'
+                    });
+                } catch (notifErr) {
+                    console.warn('Lỗi tạo notification:', notifErr.message);
+                }
+            }
+        } else {
+            createdAppt = { ...apptData, _id: `appt_${Date.now()}`, createdAt: new Date() };
+            fallbackAppointments.unshift(createdAppt);
         }
 
-        const newAppt = { ...apptData, _id: `appt_${Date.now()}`, createdAt: new Date() };
-        fallbackAppointments.unshift(newAppt);
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: 'Đặt lịch xem phòng thành công! Đang chờ chủ trọ xác nhận.',
             appointmentCode,
-            data: newAppt
+            data: createdAppt
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -2746,6 +2802,38 @@ app.post('/api/appointments', async (req, res) => {
 });
 
 // Lấy danh sách lịch hẹn xem phòng cho CHỦ TRỌ
+
+// Lấy danh sách lịch hẹn xem phòng cho ADMIN
+app.get('/api/admin/appointments', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { status } = req.query;
+        const filter = status && status !== 'all' ? { status } : {};
+
+        if (isDbConnected) {
+            const appts = await Appointment.find(filter)
+                .sort({ createdAt: -1 })
+                .populate('roomId', 'title address price images image_url');
+            return res.status(200).json({
+                success: true,
+                count: appts.length,
+                data: appts
+            });
+        }
+
+        const filteredFallback = status && status !== 'all'
+            ? fallbackAppointments.filter(a => a.status === status)
+            : fallbackAppointments;
+
+        res.status(200).json({
+            success: true,
+            count: filteredFallback.length,
+            data: filteredFallback
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.get('/api/appointments/landlord', protect, authorize('landlord', 'admin', 'employee'), async (req, res) => {
     try {
         const currentUserId = req.user._id || req.user.id;

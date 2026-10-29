@@ -159,21 +159,45 @@ export default function RoomDetail() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // Đặt lịch xem phòng
+        // Tính toán giới hạn ngày đặt lịch (chỉ cho phép đặt trước tối đa 2 tháng)
+    const todayObj = new Date();
+    const minBookingDate = todayObj.toISOString().split("T")[0];
+    const twoMonthsLaterObj = new Date();
+    twoMonthsLaterObj.setMonth(twoMonthsLaterObj.getMonth() + 2);
+    const maxBookingDate = twoMonthsLaterObj.toISOString().split("T")[0];
+// Đặt lịch xem phòng
     const handleBookingSubmit = async (e) => {
         e.preventDefault();
+
+        // 1. Kiểm tra ngày đặt lịch: chỉ cho phép từ hôm nay đến tối đa 2 tháng
+        if (!bookingDate || bookingDate < minBookingDate || bookingDate > maxBookingDate) {
+            alert(`Ngày xem phòng không hợp lệ! Bạn chỉ có thể đặt lịch từ hôm nay đến trước 2 tháng (tối đa đến ngày ${twoMonthsLaterObj.toLocaleDateString('vi-VN')}).`);
+            return;
+        }
+
+        // 2. Kiểm tra số điện thoại: chỉ số, 10 số bắt đầu bằng 0
+        const cleanPhone = String(bookingPhone || '').replace(/\D/g, '');
+        if (!/^0\d{9}$/.test(cleanPhone)) {
+            alert("Số điện thoại không hợp lệ! Vui lòng chỉ nhập số điện thoại Việt Nam gồm 10 chữ số (bắt đầu bằng số 0).");
+            return;
+        }
+
         setBookingLoading(true);
         try {
+            const token = base44.auth.getToken() || localStorage.getItem("smartstay_token") || localStorage.getItem("token");
             const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const res = await fetch(`${API_BASE}/appointments`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token && { Authorization: `Bearer ${token}` })
+                },
                 body: JSON.stringify({
                     roomId: room._id || room.id,
                     roomTitle: selectedSubRoom ? `${room.property_name || room.title} (${selectedSubRoom.room_number})` : room.title,
-                    studentName: user?.name || "Người thuê SmartStay",
-                    studentPhone: bookingPhone,
-                    landlordPhone: room.contactPhone,
+                    studentName: user?.fullName || user?.name || user?.email || "Người thuê SmartStay",
+                    studentPhone: cleanPhone,
+                    landlordPhone: room.contactPhone || room.phone,
                     visitDate: bookingDate,
                     visitTime: bookingTime,
                     notes: `${selectedSubRoom ? `[Phòng quan tâm: ${selectedSubRoom.room_number} - Giá: ${Number(selectedSubRoom.price).toLocaleString('vi-VN')}đ] ` : ''}${bookingNote}`

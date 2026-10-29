@@ -19,6 +19,8 @@ import {
 } from "@/lib/adminConfig";
 import {
   LayoutDashboard,
+  Calendar,
+  Clock,
   Building2,
   Image as ImageIcon,
   GraduationCap,
@@ -112,6 +114,64 @@ export default function Admin() {
   const showToast = (msg, type = "success") => {
     setToastMessage({ msg, type });
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // ==================== QUẢN LÝ LỊCH HẸN XEM PHÒNG ====================
+  const [appointments, setAppointments] = useState([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [appointmentFilter, setAppointmentFilter] = useState("all");
+  const [appointmentSearch, setAppointmentSearch] = useState("");
+
+  const fetchAdminAppointments = async () => {
+    setLoadingAppointments(true);
+    try {
+      const token = localStorage.getItem("smartstay_token") || localStorage.getItem("token");
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${API_BASE}/appointments/landlord`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setAppointments(json.data);
+      }
+    } catch (e) {
+      console.error("Lỗi tải lịch hẹn xem phòng:", e);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdminAppointments();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "appointments" || activeTab === "dashboard") {
+      fetchAdminAppointments();
+    }
+  }, [activeTab]);
+
+  const handleUpdateAppointmentStatus = async (code, newStatus, note = "") => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${API_BASE}/appointments/${code}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: newStatus,
+          landlordResponseNote: note || (newStatus === "confirmed" ? "Admin đã duyệt lịch hẹn" : "Admin đã hủy lịch hẹn")
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(newStatus === "confirmed" ? "Đã duyệt lịch hẹn thành công!" : "Đã cập nhật trạng thái lịch hẹn.");
+        fetchAdminAppointments();
+      } else {
+        showToast(json.message || "Thao tác thất bại", "error");
+      }
+    } catch (e) {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
   };
 
   // ==================== QUẢN LÝ & CẤP TÀI KHOẢN CHỦ TRỌ ====================
@@ -849,8 +909,11 @@ export default function Admin() {
   const pendingPassCount = adminPassRooms.filter(r => r.status === 'pending_landlord').length;
   const pendingLandlordCount = landlords.filter(l => l.verificationStatus === 'PENDING').length;
 
+  const pendingAppointmentsCount = appointments.filter(a => a.status === 'pending_landlord').length;
+
   const menuItems = [
     { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
+    { id: "appointments", label: "Lịch hẹn xem phòng", icon: Calendar, badge: pendingAppointmentsCount },
     { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users, badge: pendingLandlordCount },
     { id: "pass_rooms", label: "Duyệt & Quản lý Pass phòng", icon: KeyRound, badge: pendingPassCount },
     { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2 },
