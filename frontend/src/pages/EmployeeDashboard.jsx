@@ -3445,112 +3445,410 @@ export default function EmployeeDashboard() {
 
         {/* CONTENT AREA */}
         <div className="flex-1">
-          {activeTab === "overview" && (
-            <div className="space-y-6">
-              {/* Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard icon={Building2} title="Tổng số phòng" value={stats.total || realRooms.length} sub="Đang quản lý" colorClass="bg-blue-100 text-blue-600" />
-                <StatCard icon={CheckCircle} title="Phòng trống" value={stats.available || realRooms.filter(r => r.status === "available" || r.status === "Trống").length} sub="Sẵn sàng đón khách" colorClass="bg-emerald-100 text-emerald-600" />
-                <StatCard icon={Users} title="Đang thuê" value={stats.rented || realRooms.filter(r => r.status === "rented" || r.status === "Đang thuê").length} sub="Hợp đồng đang ở" colorClass="bg-amber-100 text-amber-600" />
-                <StatCard icon={Receipt} title="Lịch hẹn mới" value={appointments.filter(a => a.status === "pending").length} sub="Người thuê chờ duyệt" colorClass="bg-[#f97316]/10 text-[#f97316]" />
-              </div>
-              
-              {/* Lối tắt thao tác nhanh cho chủ trọ */}
-              <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
-                <h3 className="font-heading font-black text-slate-900 text-base mb-4">Lối tắt thao tác quản lý nhanh</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("stays")}
-                    className="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-orange-300 hover:border-orange-500 hover:shadow-md transition-all text-left flex items-start gap-3.5 group relative overflow-hidden"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[#ea580c] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                      <Key className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h4 className="font-bold text-slate-900 text-sm">Tạo mã Check-in & Nhận phòng</h4>
-                        <span className="text-[9px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full uppercase">Mới</span>
+          {activeTab === "overview" && (() => {
+            const totalRoomsCount = stats.total || realRooms.length;
+            const availableRoomsCount = stats.available || realRooms.filter(r => r.status === "available" || r.status === "Trống").length;
+            const rentedRooms = realRooms.filter(r => r.status === "rented" || r.status === "Đang thuê");
+            const rentedRoomsCount = stats.rented || rentedRooms.length;
+            const repairingRoomsCount = stats.repairing || realRooms.filter(r => r.status === "repairing" || r.status === "Đang sửa").length;
+            const occupancyRate = totalRoomsCount > 0 ? Math.round((rentedRoomsCount / totalRoomsCount) * 100) : 0;
+            const estimatedMonthlyRevenue = rentedRooms.reduce((sum, r) => sum + (Number(r.price) || 0), 0);
+            const pendingAppointments = appointments.filter(a => a.status === "pending" || a.status === "pending_landlord");
+            const curDate = new Date();
+            const curMonth = curDate.getMonth() + 1;
+            const curYear = curDate.getFullYear();
+
+            return (
+              <div className="space-y-6">
+                {/* 1. HÀNG 4 THẺ THỐNG KÊ KPI TỔNG QUAN */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard 
+                    icon={Building2} 
+                    title="Tổng số phòng" 
+                    value={totalRoomsCount} 
+                    sub={`${propertyGroups.length} cơ sở đang quản lý`} 
+                    colorClass="bg-blue-100 text-blue-600" 
+                  />
+                  <StatCard 
+                    icon={Users} 
+                    title="Đang cho thuê" 
+                    value={rentedRoomsCount} 
+                    sub={`Tỷ lệ lấp đầy: ${occupancyRate}%`} 
+                    colorClass="bg-indigo-100 text-indigo-600" 
+                  />
+                  <StatCard 
+                    icon={CheckCircle} 
+                    title="Phòng còn trống" 
+                    value={availableRoomsCount} 
+                    sub="Sẵn sàng đón khách mới" 
+                    colorClass="bg-emerald-100 text-emerald-600" 
+                  />
+                  <StatCard 
+                    icon={Receipt} 
+                    title={`Doanh thu phòng T${curMonth}/${curYear}`} 
+                    value={`${estimatedMonthlyRevenue.toLocaleString("vi-VN")}đ`} 
+                    sub={`Từ ${rentedRoomsCount} phòng đang thuê`} 
+                    colorClass="bg-orange-100 text-[#f97316]" 
+                  />
+                </div>
+
+                {/* 2. BỐ CỤC 2 CỘT CÂN ĐỐI (ĐÃ BỎ LỐI TẮT, KHÔNG ĐỂ TRỐNG TRƠN) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                  
+                  {/* ── CỘT TRÁI (2/3): TÌNH TRẠNG VẬN HÀNH & DANH SÁCH CƠ SỞ / KHÁCH THUÊ ── */}
+                  <div className="lg:col-span-2 space-y-6">
+                    
+                    {/* Card: Tổng quan Cơ sở & Tỷ lệ lấp đầy */}
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
+                      <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                        <div>
+                          <h3 className="font-heading font-black text-slate-900 text-base flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-[#f97316]" />
+                            <span>Cơ sở & Khu trọ đang vận hành</span>
+                            <span className="text-xs bg-orange-100 text-[#ea580c] font-black px-2 py-0.5 rounded-full">
+                              {propertyGroups.length} cơ sở
+                            </span>
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Tình trạng công suất khai thác và danh sách các dãy trọ
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setActiveTab("rooms")}
+                            className="rounded-xl text-xs font-bold border-slate-200 text-slate-700 hover:bg-orange-50 hover:text-orange-600 h-8"
+                          >
+                            Xem tất cả phòng
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleOpenAddProperty}
+                            className="rounded-xl text-xs font-bold bg-[#f97316] hover:bg-[#ea580c] text-white h-8 flex items-center gap-1 shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Thêm cơ sở</span>
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">Cấp mã 6 chữ số (SS-XXXXXX) cho khách kích hoạt đợt ở & đánh giá</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenAddSubRoom}
-                    className="p-4 rounded-2xl bg-orange-50 border border-orange-200/80 hover:bg-orange-100/80 transition-all text-left flex items-start gap-3.5 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[#f97316] text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                      <Plus className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">Thêm phòng mới</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">Thêm phòng P.101, P.102... vào trọ hiện có</p>
-                    </div>
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={handleOpenAddProperty}
-                    className="p-4 rounded-2xl bg-amber-50 border border-amber-200/80 hover:bg-amber-100/80 transition-all text-left flex items-start gap-3.5 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                      <MapPin className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">Thêm trọ vị trí mới</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">Tạo khu trọ / cơ sở mới ở địa chỉ khác</p>
-                    </div>
-                  </button>
+                      {/* Thanh tiến độ trực quan tỷ lệ lấp đầy */}
+                      {totalRoomsCount > 0 && (
+                        <div className="mb-5 p-4 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700">Công suất lấp đầy phòng toàn hệ thống:</span>
+                            <span className="font-black text-indigo-600">{occupancyRate}% ({rentedRoomsCount}/{totalRoomsCount} phòng)</span>
+                          </div>
+                          <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden flex">
+                            <div 
+                              className="bg-indigo-500 transition-all duration-500" 
+                              style={{ width: `${(rentedRoomsCount / totalRoomsCount) * 100}%` }} 
+                              title={`Đang thuê: ${rentedRoomsCount} phòng`}
+                            />
+                            <div 
+                              className="bg-emerald-400 transition-all duration-500" 
+                              style={{ width: `${(availableRoomsCount / totalRoomsCount) * 100}%` }} 
+                              title={`Còn trống: ${availableRoomsCount} phòng`}
+                            />
+                            <div 
+                              className="bg-amber-400 transition-all duration-500" 
+                              style={{ width: `${(repairingRoomsCount / totalRoomsCount) * 100}%` }} 
+                              title={`Đang sửa: ${repairingRoomsCount} phòng`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-0.5">
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" /> Đang thuê ({rentedRoomsCount})</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" /> Còn trống ({availableRoomsCount})</span>
+                            {repairingRoomsCount > 0 && (
+                              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> Đang sửa ({repairingRoomsCount})</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("meter-grid")}
-                    className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-300 hover:border-emerald-400 hover:shadow-md transition-all text-left flex items-start gap-3.5 group relative overflow-hidden"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                      <FileSpreadsheet className="w-5 h-5" />
+                      {/* Danh sách các Cơ sở / Khu trọ */}
+                      {propertyGroups.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {propertyGroups.map((group) => {
+                            const grpOccupancy = group.total > 0 ? Math.round((group.rented / group.total) * 100) : 0;
+                            return (
+                              <div 
+                                key={group.key}
+                                onClick={() => {
+                                  setSelectedPropertyKey(group.key);
+                                  setActiveTab("rooms");
+                                }}
+                                className="p-4 rounded-2xl border border-slate-200 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer bg-[#fdfbf7] flex flex-col justify-between group"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden shrink-0">
+                                    <img 
+                                      src={group.image_url} 
+                                      alt={group.name} 
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                                    />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-bold text-slate-900 text-sm truncate group-hover:text-[#f97316] transition-colors">
+                                      {group.name}
+                                    </h4>
+                                    <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                                      <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                                      <span className="truncate">{group.address}</span>
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-[10px] font-bold">
+                                        {group.rented}/{group.total} đã thuê ({grpOccupancy}%)
+                                      </span>
+                                      {group.available > 0 && (
+                                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-bold">
+                                          {group.available} trống
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 text-xs">
+                                  <span className="text-slate-400">
+                                    Giá từ: <b className="text-slate-700">{group.minPrice ? `${group.minPrice.toLocaleString("vi-VN")}đ` : "Thỏa thuận"}</b>
+                                  </span>
+                                  <span className="font-bold text-[#f97316] flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                                    <span>Vào quản lý</span>
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        /* TRẠNG THÁI ONBOARDING THÂN THIỆN: DÀNH CHO TÀI KHOẢN MỚI CHƯA CÓ PHÒNG */
+                        <div className="text-center py-8 px-4 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/50 rounded-2xl border-2 border-dashed border-orange-200/80">
+                          <div className="w-14 h-14 bg-orange-100 text-[#f97316] rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs">
+                            <Sparkles className="w-7 h-7" />
+                          </div>
+                          <h4 className="font-heading font-black text-slate-900 text-lg mb-1">
+                            Chào mừng bạn đến với Kênh Quản lý Chủ trọ!
+                          </h4>
+                          <p className="text-xs text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
+                            Bắt đầu quản lý dãy trọ chuyên nghiệp: thêm phòng, chốt số điện nước tự động và gửi hóa đơn Zalo kèm VietQR một chạm.
+                          </p>
+
+                          {/* 3 bước khởi tạo */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl mx-auto text-left mb-6">
+                            <div className="p-3 bg-white rounded-xl border border-orange-100 shadow-xs">
+                              <span className="w-6 h-6 rounded-full bg-orange-500 text-white font-black text-xs flex items-center justify-center mb-1.5">1</span>
+                              <h5 className="font-bold text-slate-800 text-xs">Tạo cơ sở / khu trọ</h5>
+                              <p className="text-[11px] text-slate-400 mt-0.5">Đặt tên dãy trọ & địa chỉ tại Cần Thơ</p>
+                            </div>
+                            <div className="p-3 bg-white rounded-xl border border-orange-100 shadow-xs">
+                              <span className="w-6 h-6 rounded-full bg-orange-500 text-white font-black text-xs flex items-center justify-center mb-1.5">2</span>
+                              <h5 className="font-bold text-slate-800 text-xs">Thêm số phòng & giá</h5>
+                              <p className="text-[11px] text-slate-400 mt-0.5">Nhập phòng P.101, A1, VIP và giá thuê</p>
+                            </div>
+                            <div className="p-3 bg-white rounded-xl border border-orange-100 shadow-xs">
+                              <span className="w-6 h-6 rounded-full bg-orange-500 text-white font-black text-xs flex items-center justify-center mb-1.5">3</span>
+                              <h5 className="font-bold text-slate-800 text-xs">Chốt số & Thu tiền</h5>
+                              <p className="text-[11px] text-slate-400 mt-0.5">Tự động tính điện nước & xuất mã VietQR</p>
+                            </div>
+                          </div>
+
+                          <Button
+                            type="button"
+                            onClick={handleOpenAddProperty}
+                            className="rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-xs h-10 px-6 shadow-md gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>Tạo cơ sở trọ đầu tiên của bạn</span>
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h4 className="font-bold text-slate-900 text-sm">Chốt điện nước Excel</h4>
-                        <span className="text-[9px] font-black bg-emerald-500 text-white px-1.5 py-0.5 rounded-full uppercase">1 chạm</span>
+
+                    {/* Card: Danh sách Khách thuê & Phòng đang ở */}
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
+                      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                        <div>
+                          <h3 className="font-heading font-black text-slate-900 text-base flex items-center gap-2">
+                            <Users className="w-5 h-5 text-indigo-600" />
+                            <span>Khách thuê phòng đang lưu trú</span>
+                            <span className="text-xs bg-indigo-50 text-indigo-700 font-black px-2 py-0.5 rounded-full border border-indigo-200">
+                              {rentedRooms.length} phòng đang ở
+                            </span>
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Danh sách người thuê thực tế và trạng thái hợp đồng đang hoạt động
+                          </p>
+                        </div>
+                        {rentedRooms.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("stays")}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                          >
+                            <span>Xác minh lưu trú</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">Lưới tính tiền tự động, xuất nhập Excel & QR Zalo</p>
-                    </div>
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("rooms")}
-                    className="p-4 rounded-2xl bg-blue-50 border border-blue-200/80 hover:bg-blue-100/80 transition-all text-left flex items-start gap-3.5 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                      <HomeIcon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">Quản lý phòng của tôi</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">Xem chỉ số điện nước, người ở và cập nhật trạng thái</p>
-                    </div>
-                  </button>
+                      {rentedRooms.length > 0 ? (
+                        <div className="divide-y divide-slate-100">
+                          {rentedRooms.slice(0, 5).map(room => (
+                            <div key={room._id || room.id} className="py-3 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0">
+                                  {room.room_number || "Phòng"}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-slate-900 text-xs truncate">
+                                    {room.tenant?.name || "Khách thuê"}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 truncate flex items-center gap-2 mt-0.5">
+                                    <span>SĐT: <b className="text-slate-700">{room.tenant?.phone || "Chưa có"}</b></span>
+                                    <span>•</span>
+                                    <span>Cơ sở: <b className="text-slate-700">{room.property_name || "Trọ"}</b></span>
+                                    <span>•</span>
+                                    <span>Giá: <b className="text-orange-600">{Number(room.price || 0).toLocaleString("vi-VN")}đ</b></span>
+                                  </div>
+                                </div>
+                              </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("invoices")}
-                    className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 hover:bg-emerald-100/80 transition-all text-left flex items-start gap-3.5 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                      <Receipt className="w-5 h-5" />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenRoomDetail(room)}
+                                className="rounded-xl text-xs font-bold border-slate-200 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-600 h-8 px-3 shrink-0"
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-1 text-[#f97316]" />
+                                Chi tiết
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center text-slate-400">
+                          <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-xs font-medium text-slate-500">Chưa có khách thuê nào đang lưu trú</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Khi có phòng chuyển trạng thái "Đang thuê", thông tin khách sẽ xuất hiện tại đây.</p>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">Hóa đơn & Thu tiền</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">Kiểm tra thanh toán tiền trọ của người thuê</p>
+
+                  </div>
+
+                  {/* ── CỘT PHẢI (1/3): LỊCH HẸN MỚI & CHỐT ĐIỆN NƯỚC / HỢP ĐỒNG ── */}
+                  <div className="space-y-6">
+                    
+                    {/* Card: Lịch hẹn xem phòng mới cần duyệt */}
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                        <h3 className="font-heading font-black text-slate-900 text-sm flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-[#f97316]" />
+                          <span>Lịch hẹn xem phòng ({pendingAppointments.length})</span>
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("requests")}
+                          className="text-xs font-bold text-slate-500 hover:text-[#f97316] flex items-center gap-0.5"
+                        >
+                          <span>Xem tất cả</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {pendingAppointments.length > 0 ? (
+                        <div className="space-y-3">
+                          {pendingAppointments.slice(0, 3).map(appt => (
+                            <div key={appt._id || appt.appointmentCode} className="p-3 rounded-2xl bg-orange-50/50 border border-orange-100">
+                              <div className="flex items-center justify-between text-xs mb-1">
+                                <span className="font-black text-slate-900">#{appt.appointmentCode}</span>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-100 text-amber-800">
+                                  Chờ duyệt
+                                </span>
+                              </div>
+                              <p className="font-bold text-slate-800 text-xs truncate">{appt.roomId?.title || "Phòng trọ"}</p>
+                              <div className="text-[11px] text-slate-500 mt-1 space-y-0.5">
+                                <div>Khách: <b className="text-slate-700">{appt.studentName}</b> ({appt.studentPhone})</div>
+                                <div>Hẹn lúc: <b className="text-[#f97316]">{appt.appointmentDate} - {appt.appointmentTime}</b></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center text-slate-400">
+                          <CheckCircle className="w-7 h-7 text-emerald-400 mx-auto mb-1.5" />
+                          <p className="text-xs font-semibold text-slate-600">Không có lịch hẹn chờ duyệt</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Yêu cầu xem phòng từ sinh viên sẽ hiển thị tại đây.</p>
+                        </div>
+                      )}
                     </div>
-                  </button>
+
+                    {/* Card: Bảng chốt số điện nước & Dòng tiền tháng này */}
+                    <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9] space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <h3 className="font-heading font-black text-slate-900 text-sm flex items-center gap-2">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                          <span>Kỳ thu tiền Tháng {curMonth}/{curYear}</span>
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                          Excel 2.0
+                        </span>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-xs space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-600">Doanh thu phòng dự kiến:</span>
+                          <span className="font-bold text-slate-900">{estimatedMonthlyRevenue.toLocaleString("vi-VN")}đ</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-600">Phòng cần chốt điện nước:</span>
+                          <span className="font-bold text-emerald-700">{rentedRoomsCount} phòng đang thuê</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={() => setActiveTab("meter-grid")}
+                        className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs h-9 shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        <span>Mở bảng chốt điện nước Excel</span>
+                      </Button>
+                    </div>
+
+                    {/* Card: Hợp đồng & Cọc an toàn */}
+                    <div className="bg-white rounded-[24px] p-5 shadow-sm border border-[#f4ebd9]">
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-blue-600" />
+                          <span>Hợp đồng & Cọc phòng</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("contracts")}
+                          className="font-bold text-blue-600 hover:underline"
+                        >
+                          Chi tiết
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Theo dõi tiền cọc giữ chỗ, thời hạn kết thúc hợp đồng và bàn giao hiện trạng phòng minh bạch.
+                      </p>
+                    </div>
+
+                  </div>
+
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {activeTab === "rooms" && (
             <div className="space-y-6">
