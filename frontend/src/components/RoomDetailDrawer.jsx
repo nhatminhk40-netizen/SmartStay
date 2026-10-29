@@ -62,7 +62,7 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
     try {
       const res = await base44.entities.Review.create({
         room: roomId,
-        studentName: newStudentName.trim() || 'Sinh viên Cần Thơ',
+        studentName: newStudentName.trim() || 'Người thuê Cần Thơ',
         rating: newRating,
         isCostAccurate: newIsAccurate,
         actualMonthlyCost: Number(newActualCost) || room.price,
@@ -208,7 +208,7 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
           <div className="border-t border-slate-100 pt-5">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="font-display font-bold text-slate-900 text-sm">Đánh giá từ sinh viên ({reviews.length})</h3>
+                <h3 className="font-display font-bold text-slate-900 text-sm">Đánh giá từ người thuê ({reviews.length})</h3>
                 <p className="text-[11px] text-slate-400">Công khai minh bạch · Có xác thực đã ở</p>
               </div>
               <button
@@ -231,17 +231,17 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
               <form onSubmit={handlePostReview} className="mb-4 p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
                 <div>
                   <div className="text-xs font-bold text-slate-800">Đăng đánh giá phòng trọ</div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Đánh giá công khai giúp cộng đồng sinh viên nắm rõ thông tin giá và điều kiện phòng thực tế.</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Đánh giá công khai giúp cộng đồng người thuê nắm rõ thông tin giá và điều kiện phòng thực tế.</p>
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">Họ tên & Trường / Khóa (Công khai)</label>
+                  <label className="text-[11px] text-slate-600 font-semibold block mb-1">Họ tên & Khu vực / Nghề nghiệp (Công khai)</label>
                   <input
                     type="text"
                     required
                     value={newStudentName}
                     onChange={(e) => setNewStudentName(e.target.value)}
-                    placeholder="VD: Nguyễn Văn A - K18 ĐH FPT Cần Thơ"
+                    placeholder="VD: Nguyễn Văn A - Người thuê tại Ninh Kiều / ĐH FPT"
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
                   />
                 </div>
@@ -289,7 +289,7 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
                     required
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Chia sẻ trải nghiệm thực tế để hỗ trợ các bạn sinh viên khác..."
+                    placeholder="Chia sẻ trải nghiệm thực tế để hỗ trợ người thuê khác..."
                     className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
                   />
                 </div>
@@ -321,12 +321,12 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
-                          {(r.studentName || r.anonymous_name || "S")[0]}
+                          {(r.studentName || r.anonymous_name || "N")[0]}
                         </div>
                         <div>
                           <div className="text-xs font-bold text-slate-900 flex items-center gap-1">
-                            {r.studentName || r.anonymous_name || "Sinh viên"}
-                            <BadgeCheck className="w-3.5 h-3.5 text-blue-500" title="Sinh viên đã xác thực" />
+                            {r.studentName || r.anonymous_name || "Người thuê"}
+                            <BadgeCheck className="w-3.5 h-3.5 text-blue-500" title="Người thuê đã xác thực" />
                           </div>
                           {r.has_stayed && (
                             <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600">

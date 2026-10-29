@@ -73,6 +73,66 @@ export default function Home() {
         });
     }, [rooms, campus, price, findRoommate, selectedAmenities, soundproof, fireSafetyOnly, verifiedOnly, noLandlord, isTotalCostMode]);
 
+    // Gom nhóm các phòng thuộc cùng 1 khu trọ (tránh hiển thị trùng lặp loãng tin bên trang người thuê)
+    const propertyGroupedRooms = useMemo(() => {
+        const groups = new Map();
+        
+        filteredRooms.forEach(room => {
+            const key = room.property_name 
+                ? `prop_${room.property_name.toLowerCase().trim()}`
+                : (room.address ? `addr_${room.address.toLowerCase().trim()}_${room.contactPhone || ''}` : `single_${room.id || room._id}`);
+                
+            if (!groups.has(key)) {
+                groups.set(key, { ...room, _subRooms: [room] });
+            } else {
+                const existing = groups.get(key);
+                existing._subRooms.push(room);
+            }
+        });
+
+        return Array.from(groups.values()).map(groupItem => {
+            const subs = groupItem._subRooms || [groupItem];
+            
+            // Tính toán khoảng giá từ tất cả các phòng con
+            const allPrices = subs.flatMap(s => s.rooms_list ? s.rooms_list.map(r => r.price) : [s.price]).filter(Boolean);
+            const minP = groupItem.price_min || (allPrices.length > 0 ? Math.min(...allPrices) : groupItem.price);
+            const maxP = groupItem.price_max || (allPrices.length > 0 ? Math.max(...allPrices) : groupItem.price);
+
+            // Tính số phòng trống
+            let availCount = 0;
+            let totalCount = 0;
+
+            if (groupItem.rooms_list && groupItem.rooms_list.length > 0) {
+                availCount = groupItem.rooms_list.filter(r => r.status === 'available').length;
+                totalCount = groupItem.rooms_list.length;
+            } else {
+                availCount = subs.filter(s => s.status === 'available' || s.status === 'Trống').length;
+                totalCount = subs.length;
+            }
+
+            // Gộp danh sách rooms_list
+            const combinedRoomsList = groupItem.rooms_list && groupItem.rooms_list.length > 0 
+                ? groupItem.rooms_list 
+                : subs.map(s => ({
+                    room_number: s.room_number || s.title,
+                    price: s.price,
+                    area_sqm: s.area_sqm || s.area || 20,
+                    status: s.status === 'rented' || s.status === 'Đang thuê' ? 'rented' : (s.status === 'repairing' || s.status === 'Đang sửa' ? 'repairing' : 'available'),
+                    amenities: s.amenities || []
+                }));
+
+            return {
+                ...groupItem,
+                title: groupItem.property_name || groupItem.title,
+                price_min: minP,
+                price_max: maxP,
+                available_rooms: groupItem.available_rooms !== undefined ? groupItem.available_rooms : availCount,
+                total_rooms: groupItem.total_rooms || totalCount,
+                rooms_list: combinedRoomsList
+            };
+        });
+    }, [filteredRooms]);
+
     return (
         <>
             <Hero />
@@ -112,17 +172,17 @@ export default function Home() {
             <section className="max-w-7xl mx-auto px-6 pb-12">
                 <div className="flex items-end justify-between mb-5">
                     <div>
-                        <h2 className="font-heading font-bold text-foreground text-2xl">Danh sách phòng</h2>
+                        <h2 className="font-heading font-bold text-foreground text-2xl">Danh sách nhà trọ & phòng</h2>
                         <p className="text-sm text-muted-foreground mt-1">
-                            {loading ? "Đang tải..." : `${filteredRooms.length} phòng khả dụng · Cần Thơ`}
+                            {loading ? "Đang tải..." : `${propertyGroupedRooms.length} khu trọ khả dụng · Cần Thơ`}
                         </p>
                     </div>
                     <span className="text-xs text-muted-foreground hidden sm:block">
-                        {isTotalCostMode ? "Đang lọc: Theo tổng chi phí thực tế" : "Đang lọc: Theo giá niêm yết"}
+                        {isTotalCostMode ? "Đang lọc: Theo tổng chi phí thực tế" : "Đang lọc: Theo khoảng giá niêm yết"}
                     </span>
                 </div>
 
-                {filteredRooms.length === 0 && !loading ? (
+                {propertyGroupedRooms.length === 0 && !loading ? (
                     <div className="bg-white rounded-3xl p-12 text-center border border-border shadow-sm">
                         <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                         <h3 className="font-heading font-bold text-base text-foreground">Không tìm thấy phòng phù hợp</h3>
@@ -144,8 +204,8 @@ export default function Home() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {filteredRooms.map((r) => (
-                            <RoomCard key={r.id} room={r} />
+                        {propertyGroupedRooms.map((r) => (
+                            <RoomCard key={r.id || r._id} room={r} />
                         ))}
                     </div>
                 )}

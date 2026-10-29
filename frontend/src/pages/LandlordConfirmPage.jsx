@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
+  ShieldCheck,
+  AlertCircle,
   CheckCircle2,
   XCircle,
-  AlertCircle,
-  ShieldCheck,
-  ArrowLeft,
   Building,
-  User,
-  Phone,
-  DollarSign,
   Calendar,
   Lock,
+  ArrowLeft,
   Clock,
   Loader2
 } from "lucide-react";
@@ -62,7 +59,7 @@ export default function LandlordConfirmPage() {
             id: oldRoom._id || oldRoom.id,
             title: oldRoom.title,
             address: oldRoom.address,
-            posterName: oldRoom.posterName || "Sinh viên thuê",
+            posterName: oldRoom.posterName || "Người thuê",
             depositAmount: oldRoom.remaining_deposit || oldRoom.price || 2000000,
             monthlyRent: oldRoom.price || 2000000,
             remainingMonths: oldRoom.pass_months_left || oldRoom.remaining_duration || 3,
@@ -91,7 +88,7 @@ export default function LandlordConfirmPage() {
   // Xác nhận hoặc Từ chối
   const handleAction = async (action) => {
     if (action === "reject" && !rejectReason.trim()) {
-      toast.error("Vui lòng nhập lý do từ chối để sinh viên nắm được thông tin!");
+      toast.error("Vui lòng nhập lý do từ chối để người thuê nắm được thông tin!");
       return;
     }
 
@@ -153,7 +150,7 @@ export default function LandlordConfirmPage() {
         </div>
         <h2 className="font-heading font-black text-2xl text-slate-900 mb-2">Link xác nhận đã hết hạn</h2>
         <p className="text-sm text-slate-600 max-w-md mb-6 leading-relaxed">
-          Đường dẫn này đã quá thời hạn <strong>72 giờ</strong> quy định bảo mật. Quý chủ trọ vui lòng liên hệ bạn sinh viên ({errorState.data?.posterName || "người thuê"}) để tạo link xác nhận mới.
+          Đường dẫn này đã quá thời hạn <strong>72 giờ</strong> quy định bảo mật. Quý chủ trọ vui lòng liên hệ người thuê ({errorState.data?.posterName || "người thuê"}) để tạo link xác nhận mới.
         </p>
         <Link to="/">
           <Button variant="outline" className="rounded-full border-slate-300 text-slate-700 font-bold px-6">
@@ -180,7 +177,7 @@ export default function LandlordConfirmPage() {
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mb-6 leading-relaxed">
             {isApproved
-              ? "Cảm ơn Quý chủ trọ đã xác nhận! Tin pass phòng của sinh viên đã được hệ thống SmartStay duyệt và hiển thị an toàn trên nền tảng."
+              ? "Cảm ơn Quý chủ trọ đã xác nhận! Tin pass phòng của người thuê đã được hệ thống SmartStay duyệt và hiển thị an toàn trên nền tảng."
               : "Hệ thống đã ghi nhận phản hồi từ chối của Quý chủ trọ và đã gửi thông báo đến người thuê."}
           </p>
 
@@ -227,7 +224,7 @@ export default function LandlordConfirmPage() {
             <div className="bg-[#fdfbf7] border border-[#f4ebd9] rounded-2xl p-5 space-y-3.5 text-sm">
               <div className="flex justify-between items-start border-b border-slate-200/70 pb-3">
                 <span className="text-slate-500 text-xs font-bold uppercase">Người thuê hiện tại:</span>
-                <span className="font-black text-slate-900 text-right">{room?.posterName || "Sinh viên"}</span>
+                <span className="font-black text-slate-900 text-right">{room?.posterName || "Người thuê"}</span>
               </div>
               <div className="flex justify-between items-start border-b border-slate-200/70 pb-3">
                 <span className="text-slate-500 text-xs font-bold uppercase">Phòng / Địa chỉ:</span>

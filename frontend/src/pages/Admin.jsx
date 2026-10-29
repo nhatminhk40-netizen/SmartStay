@@ -84,7 +84,7 @@ const AVAILABLE_ICONS = [
 const ROOM_TYPES = [
   "Phòng trọ khép kín",
   "Căn hộ mini / Studio",
-  "Homestay sinh viên",
+  "Homestay / Phòng chia sẻ",
   "Phòng ở ghép",
   "Ký túc xá cao cấp",
 ];
@@ -897,7 +897,7 @@ export default function Admin() {
                     Chào mừng, {user?.name || "Administrator"}!
                   </h2>
                   <p className="text-white/80 text-sm">
-                    Quản lý hệ thống phòng trọ sinh viên minh bạch tại TP. Cần Thơ.
+                    Quản lý hệ thống phòng trọ & thuê nhà minh bạch tại TP. Cần Thơ.
                   </p>
                 </div>
                 <button
@@ -1806,7 +1806,7 @@ export default function Admin() {
                     Quản lý Đối tác Vận tải & Bác tài Chuyển trọ
                   </h2>
                   <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-                    Kiểm tra hồ sơ phương tiện (Ba gác, Bán tải, Tải 1 tấn), biển số xe, số điện thoại liên hệ và đánh giá độ tin cậy từ sinh viên Cần Thơ.
+                    Kiểm tra hồ sơ phương tiện (Ba gác, Bán tải, Tải 1 tấn), biển số xe, số điện thoại liên hệ và đánh giá độ tin cậy từ người thuê Cần Thơ.
                   </p>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -1836,7 +1836,7 @@ export default function Admin() {
                 <div className="rounded-xl p-5 bg-white border border-[#f4ebd9] shadow-sm">
                   <div className="text-xs font-bold uppercase tracking-wider mb-2 text-amber-500">Đánh giá trung bình</div>
                   <div className="font-black text-3xl text-amber-500">5.0 ★</div>
-                  <div className="text-[11px] font-semibold text-slate-400 mt-1">Theo phản hồi sinh viên</div>
+                  <div className="text-[11px] font-semibold text-slate-400 mt-1">Theo phản hồi người thuê</div>
                 </div>
                 <div className="rounded-xl p-5 bg-white border border-[#f4ebd9] shadow-sm">
                   <div className="text-xs font-bold uppercase tracking-wider mb-2 text-indigo-600">Loại phương tiện</div>
@@ -1946,7 +1946,7 @@ export default function Admin() {
               <div className="p-8 overflow-y-auto flex-1 space-y-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tiêu đề phòng <span className="text-rose-500">*</span></label>
-                  <input type="text" required placeholder="Phòng trọ sinh viên..." value={roomForm.title} onChange={(e) => setRoomForm({ ...roomForm, title: e.target.value })}
+                  <input type="text" required placeholder="Phòng trọ, căn hộ mini..." value={roomForm.title} onChange={(e) => setRoomForm({ ...roomForm, title: e.target.value })}
                     className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
                     style={{ borderColor: "#f4ebd9" }}
                   />
@@ -2261,7 +2261,7 @@ export default function Admin() {
                 </select>
               </div>
               <div className="flex items-center justify-between p-4 rounded-lg border" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                <span className="text-sm font-bold text-slate-900">Hiển thị cho sinh viên</span>
+                <span className="text-sm font-bold text-slate-900">Hiển thị cho người thuê</span>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={quickActionForm.enabled} onChange={(e) => setQuickActionForm({ ...quickActionForm, enabled: e.target.checked })} className="w-5 h-5 rounded" style={{ accentColor: "#f97316" }} />
                   <span className="text-sm font-bold text-slate-700">Bật</span>

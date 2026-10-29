@@ -14,8 +14,8 @@ const features = [
     },
     {
         icon: Tags,
-        title: "Giá chuyển trọ niêm yết",
-        desc: "Giá sinh viên, không phụ phí ẩn",
+        title: "Giá niêm yết minh bạch",
+        desc: "Trọn gói rõ ràng, không phụ phí ẩn",
     },
 ];
 
@@ -25,13 +25,13 @@ export default function Hero() {
             <div className="absolute inset-0 bg-gradient-to-b from-[#fdfbf7] via-[#faf3e3] to-[#f4ebd9]" />
             <div className="relative max-w-5xl mx-auto px-6 pt-16 pb-14 text-center">
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium mb-6">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Nền tảng minh bạch cho sinh viên Cần Thơ
+                    <ShieldCheck className="w-3.5 h-3.5" /> Nền tảng thuê trọ & quản lý minh bạch cho Người thuê & Chủ trọ
                 </span>
                 <h1 className="font-heading text-4xl md:text-5xl font-extrabold text-foreground leading-tight">
-                    Thuê trọ <span className="text-accent">minh bạch</span> cho sinh viên Cần Thơ
+                    Thuê trọ <span className="text-accent">minh bạch</span> cho mọi người thuê
                 </h1>
                 <p className="mt-4 text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-                    Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.
+                    Tìm phòng đúng vị trí, đúng túi tiền — đánh giá thực tế từ người đã ở, quản lý nghiêm ngặt nhưng dễ dùng, bảo vệ cọc an toàn tuyệt đối.
                 </p>
 
                 <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">

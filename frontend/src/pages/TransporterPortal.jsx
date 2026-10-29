@@ -54,7 +54,7 @@ export default function TransporterPortal() {
     try {
       const res = await base44.logistics.acceptRequest(id);
       if (res.success) {
-        alert("Nhận chuyến thành công! Vui lòng liên hệ sinh viên để sắp xếp thời gian.");
+        alert("Nhận chuyến thành công! Vui lòng liên hệ người thuê để sắp xếp thời gian.");
         loadData();
         setActiveTab("my-trips");
       } else {
@@ -204,7 +204,7 @@ export default function TransporterPortal() {
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between text-amber-900 text-xs">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Bạn đang ở chế độ <b>Tạm nghỉ</b>. Sinh viên sẽ không thấy xe của bạn để gửi yêu cầu.</span>
+              <span>Bạn đang ở chế độ <b>Tạm nghỉ</b>. Người thuê sẽ không thấy xe của bạn để gửi yêu cầu.</span>
             </div>
             <button
               onClick={() => setIsOnline(true)}
@@ -225,7 +225,7 @@ export default function TransporterPortal() {
                   Cuốc xe đang chờ quanh Cần Thơ ({availableRequests.length})
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Giá trọn gói niêm yết theo km, cam kết không ép giá sinh viên.
+                  Giá trọn gói niêm yết theo km, cam kết không ép giá người thuê.
                 </p>
               </div>
             </div>
@@ -241,7 +241,7 @@ export default function TransporterPortal() {
                 </div>
                 <h3 className="font-bold text-slate-800 text-base">Hiện chưa có cuốc xe mới</h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                  Khi sinh viên đặt xe dọn phòng ở Cần Thơ, yêu cầu sẽ tự động xuất hiện tại đây theo thời gian thực.
+                  Khi người thuê đặt xe dọn phòng ở Cần Thơ, yêu cầu sẽ tự động xuất hiện tại đây theo thời gian thực.
                 </p>
               </div>
             ) : (
@@ -341,7 +341,7 @@ export default function TransporterPortal() {
                 Các chuyến xe bạn đã nhận ({myRequests.length})
               </h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Cập nhật trạng thái từng bước để sinh viên an tâm theo dõi lộ trình.
+                Cập nhật trạng thái từng bước để người thuê an tâm theo dõi lộ trình.
               </p>
             </div>
 
@@ -349,7 +349,7 @@ export default function TransporterPortal() {
               <div className="bg-white rounded-3xl p-12 text-center border border-teal-100 shadow-sm">
                 <Truck className="w-12 h-12 text-slate-300 mx-auto mb-2" />
                 <h4 className="font-bold text-slate-700">Bạn chưa nhận chuyến nào</h4>
-                <p className="text-xs text-slate-500 mt-1">Chuyển sang tab "Sàn nhận chuyến" để nhận cuốc xe sinh viên.</p>
+                <p className="text-xs text-slate-500 mt-1">Chuyển sang tab "Sàn nhận chuyến" để nhận cuốc xe của người thuê.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -510,7 +510,7 @@ export default function TransporterPortal() {
                 <div className="font-bold text-teal-900">Cam kết minh bạch của Tài xế:</div>
                 <div>• Luôn tính đúng giá theo số km hiển thị trên ứng dụng.</div>
                 <div>• Tuyệt đối không tự ý phát sinh phụ phí hẻm sâu hay cầu thang nếu chưa thỏa thuận.</div>
-                <div>• Hỗ trợ sinh viên khuân vác cẩn thận, bảo quản đồ đạc an toàn.</div>
+                <div>• Hỗ trợ người thuê khuân vác cẩn thận, bảo quản đồ đạc an toàn.</div>
               </div>
             </div>
           </div>

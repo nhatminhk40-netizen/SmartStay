@@ -696,11 +696,11 @@ export default function Roommates() {
                 actionLabel={showForm ? "Đóng form" : "Đăng tìm bạn"}
                 onAction={() => {
                     if (user?.role === "transporter") {
-                        alert("👋 Tính năng Đăng tìm bạn cùng phòng dành riêng cho Sinh viên. Bác tài vui lòng quản lý cuốc xe tại Cổng Tài Xế (/tai-xe).");
+                        alert("👋 Tính năng Đăng tìm bạn cùng phòng dành riêng cho Người thuê phòng. Bác tài vui lòng quản lý cuốc xe tại Cổng Tài Xế (/tai-xe).");
                         return;
                     }
                     if (user?.role === "landlord") {
-                        alert("👋 Tính năng Đăng tìm bạn ở ghép dành riêng cho Sinh viên. Bác Chủ trọ vui lòng quản lý phòng tại Kênh Quản Trị Trọ (/chu-tro).");
+                        alert("👋 Tính năng Đăng tìm bạn ở ghép dành riêng cho Người thuê phòng. Bác Chủ trọ vui lòng quản lý phòng tại Kênh Quản Trị Trọ (/chu-tro).");
                         return;
                     }
                     setShowForm((s) => !s);
@@ -716,8 +716,8 @@ export default function Roommates() {
                                 <User className="w-5 h-5" />
                             </div>
                             <div>
-                                <p className="font-bold text-sm">Bác tài {user.fullName || "Tài xế"} đang ở mục Ghép bạn của Sinh viên</p>
-                                <p className="text-xs text-teal-700">Mục này chỉ dành cho các bạn sinh viên kết nối tìm bạn ở cùng.</p>
+                                <p className="font-bold text-sm">Bác tài {user.fullName || "Tài xế"} đang ở mục Ghép bạn của Người thuê</p>
+                                <p className="text-xs text-teal-700">Mục này dành cho người thuê kết nối tìm bạn ở cùng.</p>
                             </div>
                         </div>
                         <Button
@@ -736,8 +736,8 @@ export default function Roommates() {
                                 <User className="w-5 h-5" />
                             </div>
                             <div>
-                                <p className="font-bold text-sm">Bác Chủ trọ {user.fullName || ""} đang ở mục Ghép bạn của Sinh viên</p>
-                                <p className="text-xs text-orange-700">Chức năng ghép bạn dành riêng cho các bạn sinh viên tìm bạn cùng phòng.</p>
+                                <p className="font-bold text-sm">Bác Chủ trọ {user.fullName || ""} đang ở mục Ghép bạn của Người thuê</p>
+                                <p className="text-xs text-orange-700">Chức năng ghép bạn dành riêng cho người thuê tìm bạn cùng phòng.</p>
                             </div>
                         </div>
                         <Button
@@ -807,7 +807,7 @@ export default function Roommates() {
                                             {myProfile.name}
                                         </h3>
                                         <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-200">
-                                            {formatGender(myProfile.gender) || "Sinh viên"} • {myProfile.age || 20} tuổi
+                                            {formatGender(myProfile.gender) || "Người thuê"} • {myProfile.age || 20} tuổi
                                         </span>
                                         <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
                                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -855,7 +855,7 @@ export default function Roommates() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => {
-                                        if (window.confirm("Bạn có chắc chắn muốn gỡ hồ sơ tìm bạn ở ghép không? Hệ thống sẽ ngừng tính độ tương thích với các bạn sinh viên khác.")) {
+                                        if (window.confirm("Bạn có chắc chắn muốn gỡ hồ sơ tìm bạn ở ghép không? Hệ thống sẽ ngừng tính độ tương thích với những người thuê khác.")) {
                                             roommateApi.saveMyProfile(null);
                                             setMyProfile(null);
                                             toast({

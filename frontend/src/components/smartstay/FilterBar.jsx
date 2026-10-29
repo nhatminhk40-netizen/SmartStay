@@ -10,7 +10,7 @@ import {
     VolumeX,
 } from "lucide-react";
 
-const campuses = ["Tất cả khu vực", "ĐH Cần Thơ", "ĐH Y Dược", "ĐH Nam Cần Thơ", "ĐH FPT"];
+const campuses = ["Tất cả khu vực", "Ninh Kiều / Trung tâm", "ĐH Cần Thơ", "ĐH Y Dược", "Cái Răng / Nam Cần Thơ", "ĐH FPT / KDC Hồng Phát"];
 
 const amenities = [
     { icon: Snowflake, label: "Máy lạnh" },
@@ -88,7 +88,7 @@ export default function FilterBar({
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-5">
                         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
-                            Khu vực / Campus
+                            Khu vực / Vị trí
                         </label>
                         <div className="flex flex-wrap gap-2.5">
                             {campuses.map((c) => (

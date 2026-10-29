@@ -42,13 +42,13 @@ import { useAuth } from "@/lib/AuthContext";
 const STUDENT_FEATURES = [
   {
     icon: Truck,
-    title: "Hỗ trợ chuyển trọ",
+    title: "Hỗ trợ chuyển trọ & dọn nhà",
     desc: "Kết nối tài xế ba gác, xe tải chuyển đồ tiện lợi, an toàn",
   },
   {
     icon: Users,
     title: "Ghép bạn cùng phòng",
-    desc: "Kết nối với sinh viên cùng trường, cùng sở thích",
+    desc: "Kết nối với người thuê phù hợp tính cách, cùng lối sống",
   },
   {
     icon: Star,
@@ -60,13 +60,13 @@ const STUDENT_FEATURES = [
 const LANDLORD_FEATURES = [
   {
     icon: Users,
-    title: "Tiếp cận 10.000+ sinh viên Cần Thơ",
-    desc: "Kết nối trực tiếp sinh viên ĐH FPT & ĐH Cần Thơ có nhu cầu ở thực, thông tin minh bạch",
+    title: "Tiếp cận hàng nghìn người thuê tại Cần Thơ",
+    desc: "Kết nối trực tiếp người thuê có nhu cầu ở thực, thông tin minh bạch, tối ưu tỷ lệ lấp đầy phòng",
   },
   {
     icon: ShieldCheck,
-    title: "Huy hiệu Chủ trọ Uy tín (Safe Listing)",
-    desc: "Phòng trọ được xác thực nổi bật hơn, tăng gấp 3 lần lượt liên hệ và chốt cọc nhanh hơn 40%",
+    title: "Quản lý nghiêm ngặt & Tiện lợi",
+    desc: "Hợp đồng điện tử chuẩn pháp lý, chốt cọc minh bạch, ghi nhận công tơ điện nước chống thất thoát",
   },
   {
     icon: CheckCircle2,
@@ -221,7 +221,7 @@ export default function Register() {
     try {
       await base44.auth.verifyOtp({ email: email.trim(), code: otpCode, purpose: "REGISTER" });
 
-      // Nếu là Sinh viên -> Đăng ký và kích hoạt tài khoản ngay lập tức
+      // Nếu là Người thuê -> Đăng ký và kích hoạt tài khoản ngay lập tức
       if (selectedRole === "student") {
         const result = await base44.auth.register({
           fullName: fullName.trim(),
@@ -500,8 +500,8 @@ export default function Register() {
         </h1>
         <p className="text-slate-400 text-base leading-relaxed max-w-md">
           {selectedRole === "landlord"
-            ? "Tiếp cận trực tiếp hơn 10.000+ sinh viên ĐH FPT & ĐH Cần Thơ. Quản lý phòng trọ chuyên nghiệp, an toàn và tối ưu doanh thu."
-            : "Hàng trăm phòng trọ chất lượng dành riêng cho sinh viên Cần Thơ. Minh bạch giá cả, an toàn tuyệt đối."}
+            ? "Tiếp cận trực tiếp hàng nghìn người có nhu cầu thuê tại Cần Thơ. Quản lý phòng trọ nghiêm ngặt, minh bạch và tiện lợi tối đa."
+            : "Hàng trăm phòng trọ, căn hộ chất lượng dành cho mọi người có nhu cầu thuê tại Cần Thơ. Minh bạch giá cả, an toàn tuyệt đối."}
         </p>
       </div>
 
@@ -646,8 +646,8 @@ export default function Register() {
                       )}
                     </div>
                     <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900">Người thuê / SV</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">Tìm phòng & ghép bạn</div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900">Người thuê phòng</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">Tìm trọ, căn hộ & ở ghép</div>
                     </div>
                   </button>
 
@@ -712,13 +712,13 @@ export default function Register() {
                   <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-800 flex items-start gap-2">
                     <Truck className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600" />
                     <span>
-                      <strong>Dành cho đối tác vận tải:</strong> Cung cấp thông tin phương tiện để nhận cuốc xe dọn trọ, chở đồ sinh viên tại Cần Thơ với thu nhập trực tiếp minh bạch.
+                      <strong>Dành cho đối tác vận tải:</strong> Cung cấp thông tin phương tiện để nhận cuốc xe dọn trọ, chở đồ người thuê tại Cần Thơ với thu nhập trực tiếp minh bạch.
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* GOOGLE SIGN IN (Hỗ trợ 1 chạm cho cả Sinh viên & Chủ trọ) */}
+              {/* GOOGLE SIGN IN (Hỗ trợ 1 chạm cho cả Người thuê & Chủ trọ) */}
               {selectedRole !== "transporter" && (
                 <>
                   <button
@@ -1088,7 +1088,7 @@ export default function Register() {
                   Hồ sơ xác minh Chủ trọ
                 </h2>
                 <p className="text-muted-foreground text-xs mt-1">
-                  Xác minh danh tính giúp phòng trọ của bạn nhận huy hiệu <strong>Safe Listing</strong> – tăng gấp 3 lần lượt liên hệ từ sinh viên
+                  Xác minh danh tính giúp phòng trọ của bạn nhận huy hiệu <strong>Safe Listing</strong> – tăng gấp 3 lần lượt liên hệ từ người thuê
                 </p>
               </div>
 

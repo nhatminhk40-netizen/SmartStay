@@ -10,11 +10,11 @@ const QUICK_ACTIONS_KEY = "smartstay_quick_actions_config";
 export const DEFAULT_HERO = {
   title: "Thuê trọ",
   highlight: "minh bạch",
-  titleSuffix: "cho sinh viên Cần Thơ",
-  description: "Tìm phòng đúng khu vực, đúng túi tiền — đánh giá thực tế từ sinh viên đã ở, ghép bạn hợp tính, chuyển trọ niêm yết.",
+  titleSuffix: "cho mọi người thuê tại Cần Thơ",
+  description: "Nền tảng thuê trọ & quản lý minh bạch — bảo vệ người thuê bằng hợp đồng chuẩn, quản lý nghiêm ngặt nhưng dễ dùng cho chủ trọ.",
   badge1: "100% kiểm duyệt phòng trọ",
   badge2: "Sang nhượng cọc an toàn",
-  badge3: "Giá chuyển trọ sinh viên niêm yết",
+  badge3: "Giá chuyển trọ & dọn phòng niêm yết",
   ctaSafeText: "Đăng tin Safe",
   ctaQuizText: "Tìm bạn ở ghép",
   showBadges: true,
@@ -35,7 +35,7 @@ export const DEFAULT_SPECIAL_TOGGLES = {
 };
 
 export const DEFAULT_QUICK_ACTIONS = [
-  { id: "explore", label: "Khám phá", icon: "Compass", action: "explore", enabled: true, desc: "Xem danh sách trọ sinh viên" },
+  { id: "explore", label: "Khám phá", icon: "Compass", action: "explore", enabled: true, desc: "Xem danh sách phòng trọ & căn hộ" },
   { id: "quiz", label: "Ghép bạn", icon: "Users", action: "quiz", enabled: true, desc: "Trắc nghiệm ghép bạn cùng phòng" },
   { id: "logistics", label: "Chuyển trọ", icon: "Truck", action: "logistics", enabled: true, desc: "Tính giá xe ba gác / tải nhỏ" },
   { id: "pass", label: "Pass phòng", icon: "KeyRound", action: "pass", enabled: true, desc: "Sang nhượng phòng trọ còn cọc" },

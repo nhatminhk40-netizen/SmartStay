@@ -60,9 +60,9 @@ const SUGGESTED_INTERESTS = [
 ];
 
 const BIO_SAMPLES = [
-    "Sinh viên K18 FPT chuyên ngành KTPM, tính tình hòa đồng, giữ vệ sinh chung, tìm bạn cùng trường share tiền phòng.",
-    "Mình học ĐH Y Dược, cần không gian yên tĩnh ôn bài buổi tối, không hút thuốc, sống ngăn nắp, mong tìm bạn cùng chí hướng.",
-    "Sinh viên ĐH Cần Thơ, có nuôi 1 bé mèo ngoan và sạch sẽ, thích tự nấu ăn cuối tuần, tìm bạn yêu pet để ở ghép lâu dài."
+    "Nhân viên văn phòng tại Ninh Kiều, giờ giấc hành chính ổn định, giữ vệ sinh chung, tìm bạn cùng phòng share chi phí.",
+    "Người đi làm / sinh viên tại Cần Thơ, cần không gian yên tĩnh nghỉ ngơi buổi tối, không hút thuốc, sống ngăn nắp.",
+    "Người thuê phòng lâu năm tại Cần Thơ, có nuôi 1 bé mèo ngoan và sạch sẽ, thích tự nấu ăn cuối tuần, tìm bạn yêu pet để ở ghép."
 ];
 
 export default function RoommatePostWizard({ onClose, onSubmit, initialUser, initialData }) {
@@ -245,7 +245,7 @@ export default function RoommatePostWizard({ onClose, onSubmit, initialUser, ini
             cleanliness: tidiness >= 3 ? "daily" : "weekly",
             guestPolicy: guests === "rare" ? "strict" : (guests === "often" ? "open" : "ask_first"),
             habits: habitTokens.filter(Boolean).join(", "),
-            description: formData.bio.trim() || `Sinh viên ${formData.campus}, tìm bạn cùng phòng văn minh, cùng chí hướng.`,
+            description: formData.bio.trim() || `Người thuê tại ${formData.campus}, tìm bạn cùng phòng văn minh, cùng chí hướng.`,
             interests: formData.interests,
             verified: false,
             createdAt: new Date().toISOString()
@@ -426,7 +426,7 @@ export default function RoommatePostWizard({ onClose, onSubmit, initialUser, ini
                     {/* Chọn Avatar mẫu nhanh */}
                     <div className="md:col-span-2 pt-2">
                         <label className="text-xs font-bold text-slate-700 block mb-2">
-                            Chọn ảnh đại diện sinh viên (hoặc để trống để sinh chữ cái đầu):
+                            Chọn ảnh đại diện người thuê (hoặc để trống để sinh chữ cái đầu):
                         </label>
                         <div className="flex items-center gap-3 overflow-x-auto pb-1">
                             {PRESET_AVATARS.map((url, i) => (
@@ -820,7 +820,7 @@ export default function RoommatePostWizard({ onClose, onSubmit, initialUser, ini
                     <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
                         <Eye className="w-4 h-4 text-amber-600 shrink-0" />
                         <span>
-                            Dưới đây là hình ảnh thẻ hồ sơ của bạn khi hiển thị với tất cả các bạn sinh viên khác trên SmartStay:
+                            Dưới đây là hình ảnh thẻ hồ sơ của bạn khi hiển thị với tất cả người thuê khác trên SmartStay:
                         </span>
                     </div>
 

@@ -26,7 +26,7 @@ export const PROOF_DOCUMENT_TYPES = [
     badge: "Khuyên dùng - Dễ nhất",
     badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
     icon: Zap,
-    description: "Tên trên hóa đơn trùng với địa chỉ trọ hoặc CCCD. Sinh viên tin tưởng và dễ chốt cọc nhất với giấy tờ này.",
+    description: "Tên trên hóa đơn trùng với địa chỉ trọ hoặc CCCD. Người thuê tin tưởng và dễ chốt cọc nhất với giấy tờ này.",
     exampleHint: "Hóa đơn EVN / Công ty Cấp nước Cần Thơ có mã khách hàng, tên chủ hộ hoặc địa chỉ cơ sở trọ."
   },
   {
@@ -35,7 +35,7 @@ export const PROOF_DOCUMENT_TYPES = [
     badge: "Dành cho chủ thứ cấp / căn hộ mini",
     badgeColor: "bg-purple-100 text-purple-800 border-purple-300",
     icon: ScrollText,
-    description: "Dành cho người thuê lại nguyên căn nhà rồi ngăn phòng cho sinh viên thuê, có hợp đồng hoặc giấy ủy quyền quản lý.",
+    description: "Dành cho người thuê lại nguyên căn nhà rồi ngăn phòng cho người thuê, có hợp đồng hoặc giấy ủy quyền quản lý.",
     exampleHint: "Hợp đồng thuê nhà nguyên căn còn hiệu lực hoặc văn bản ủy quyền quản lý cơ sở trọ."
   },
   {
@@ -365,7 +365,7 @@ export default function LandlordDocUploader({
               </span>
             </div>
             <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-              Xác minh danh tính giúp phòng trọ của bạn nhận huy hiệu <strong>Safe Listing</strong> – sinh viên SmartStay ưu tiên tìm và đặt cọc phòng có huy hiệu này. Hồ sơ của bạn được mã hóa bảo mật tuyệt đối.
+              Xác minh danh tính giúp phòng trọ của bạn nhận huy hiệu <strong>Safe Listing</strong> – người thuê SmartStay ưu tiên tìm và đặt cọc phòng có huy hiệu này. Hồ sơ của bạn được mã hóa bảo mật tuyệt đối.
             </p>
           </div>
         </div>

@@ -44,7 +44,7 @@ export default function SmartStayChatWidget() {
 
       const contactData = {
         id: recipient.id || recipient._id || `user_${Date.now()}`,
-        name: recipient.name || "Bạn sinh viên",
+        name: recipient.name || "Người thuê phòng",
         campus: recipient.campus || "Cần Thơ",
         budget: recipient.budget || 2.2,
         habits: recipient.habits || "Sạch sẽ, văn minh",

@@ -19,7 +19,7 @@ const FEATURES = [
   {
     icon: Users,
     title: "Ghép bạn cùng phòng",
-    desc: "Kết nối với sinh viên cùng trường, cùng sở thích",
+    desc: "Kết nối với người thuê phù hợp tính cách, cùng lối sống",
   },
   {
     icon: Star,
@@ -185,7 +185,7 @@ export default function Login() {
             </span>
           </h1>
           <p className="text-slate-400 text-base leading-relaxed max-w-md">
-            Hàng trăm phòng trọ chất lượng dành riêng cho sinh viên Cần Thơ.
+            Hàng trăm phòng trọ, căn hộ chất lượng dành cho mọi người có nhu cầu thuê tại Cần Thơ.
             Minh bạch giá cả, an toàn tuyệt đối.
           </p>
         </div>

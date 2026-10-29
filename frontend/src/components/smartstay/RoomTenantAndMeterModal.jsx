@@ -248,7 +248,7 @@ Chủ trọ: ${room.contactPhone || "Vui lòng liên hệ chủ trọ"}`;
               target="_blank"
               rel="noreferrer"
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
-              title="Mở trang xem tin phòng của sinh viên"
+              title="Mở trang xem tin phòng của người thuê"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Xem trang tin</span>
@@ -673,7 +673,7 @@ Chủ trọ: ${room.contactPhone || "Vui lòng liên hệ chủ trọ"}`;
                             Đang ở
                           </span>
                         </h4>
-                        <p className="text-xs text-slate-500 font-medium">{tenant.university || "Sinh viên tại Cần Thơ"}</p>
+                        <p className="text-xs text-slate-500 font-medium">{tenant.university || "Người thuê tại Cần Thơ"}</p>
                       </div>
                     </div>
 

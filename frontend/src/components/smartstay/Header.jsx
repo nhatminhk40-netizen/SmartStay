@@ -37,7 +37,7 @@ const navItems = [
 const INITIAL_NOTIFICATIONS = [
   {
     id: 1,
-    title: "Ưu đãi Chuyển trọ Sinh viên",
+    title: "Ưu đãi Chuyển trọ & Dọn phòng",
     desc: "Mã giảm giá TRANTRO15 — Trợ giá 15% khi đặt xe ba gác & xe tải chuyển trọ tuần này.",
     time: "10 phút trước",
     read: false,
@@ -48,7 +48,7 @@ const INITIAL_NOTIFICATIONS = [
   {
     id: 2,
     title: "Gợi ý Bạn cùng phòng",
-    desc: "Có 3 sinh viên ĐH Cần Thơ & ĐH FPT có chỉ số tương thích lối sống >90% với bạn.",
+    desc: "Có 3 người thuê tại Cần Thơ có chỉ số tương thích lối sống >90% với bạn.",
     time: "45 phút trước",
     read: false,
     path: "/ghep-ban",
@@ -173,7 +173,7 @@ export default function Header() {
             <div className="flex items-center gap-2">
               <Truck className="w-4 h-4 text-teal-300 shrink-0" />
               <span>
-                Bác tài <strong className="text-white font-bold">{user.fullName || "Tài xế"}</strong> đang ở giao diện xem phòng của Sinh viên.
+                Bác tài <strong className="text-white font-bold">{user.fullName || "Tài xế"}</strong> đang ở giao diện tìm phòng của Người thuê.
               </span>
             </div>
             <Link
@@ -193,7 +193,7 @@ export default function Header() {
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-orange-300 shrink-0" />
               <span>
-                Bác Chủ trọ <strong className="text-white font-bold">{user.fullName || "Chủ trọ"}</strong> đang ở giao diện xem phòng của Sinh viên.
+                Bác Chủ trọ <strong className="text-white font-bold">{user.fullName || "Chủ trọ"}</strong> đang ở giao diện tìm phòng của Người thuê.
               </span>
             </div>
             <Link
@@ -241,7 +241,7 @@ export default function Header() {
                 SmartStay
               </div>
               <div className="text-[10px] tracking-wider text-muted-foreground uppercase font-semibold">
-                Cần Thơ · Sinh viên
+                Cần Thơ · Người thuê & Chủ trọ
               </div>
             </div>
           </Link>
@@ -366,12 +366,12 @@ export default function Header() {
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-xs font-bold text-slate-800">Đặt xe chuyển trọ sinh viên</p>
+                          <p className="text-xs font-bold text-slate-800">Đặt xe chuyển trọ & dọn nhà</p>
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                             Đang phát triển
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 leading-tight mt-0.5">Xe ba gác & xe tải giá sinh viên theo km (Tạm khóa)</p>
+                        <p className="text-[11px] text-slate-500 leading-tight mt-0.5">Xe ba gác & xe tải giá niêm yết theo km (Tạm khóa)</p>
                       </div>
                     </button>
                   </div>
@@ -452,7 +452,7 @@ export default function Header() {
                   </div>
 
                   <div className="p-2.5 text-center bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500">
-                    SmartStay Cần Thơ · Đồng hành cùng sinh viên
+                    SmartStay Cần Thơ · Minh bạch cùng Người thuê & Chủ trọ
                   </div>
                 </div>
               )}
@@ -504,7 +504,7 @@ export default function Header() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-xs text-slate-900 truncate">
-                          {user?.fullName || (user?.role === "transporter" ? "Đối tác Tài xế" : "Sinh viên Cần Thơ")}
+                          {user?.fullName || (user?.role === "transporter" ? "Đối tác Tài xế" : "Người thuê phòng")}
                         </p>
                         <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
                         <div className="flex items-center gap-1.5 mt-1">
@@ -524,7 +524,7 @@ export default function Header() {
                               ? "Nhân viên"
                               : user?.role === "transporter"
                               ? "Đối tác Vận tải"
-                              : "Sinh viên"}
+                              : "Người thuê"}
                           </span>
                           {user?.authProvider === "google" && (
                             <span className="text-[9px] font-semibold text-slate-400">Google ID</span>
@@ -652,7 +652,7 @@ export default function Header() {
                         </>
                       )}
 
-                      {/* VAI TRÒ: SINH VIÊN */}
+                      {/* VAI TRÒ: NGƯỜI THUÊ */}
                       {(user?.role === "student" || (!user?.role && user)) && (
                         <>
                           <button
@@ -697,7 +697,7 @@ export default function Header() {
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 text-slate-700 font-medium transition text-left"
                           >
                             <Truck className="w-4 h-4 text-slate-500" />
-                            <span>Dịch vụ chuyển trọ sinh viên</span>
+                            <span>Dịch vụ chuyển phòng & dọn trọ</span>
                           </button>
                           <button
                             type="button"
@@ -785,7 +785,7 @@ export default function Header() {
                 </div>
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm">
-                    {user?.fullName || "Sinh viên SmartStay"}
+                    {user?.fullName || "Người thuê SmartStay"}
                   </h4>
                   <p className="text-slate-500 text-[11px] mt-0.5">{user?.email}</p>
                   <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -797,8 +797,8 @@ export default function Header() {
               {/* Thông tin chi tiết */}
               <div className="space-y-2.5">
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
-                  <span className="text-slate-500">Khu vực / Campus:</span>
-                  <span className="font-semibold text-slate-800">{user?.campus || "ĐH Cần Thơ / FPT Can Tho"}</span>
+                  <span className="text-slate-500">Khu vực / Địa điểm:</span>
+                  <span className="font-semibold text-slate-800">{user?.campus || "Ninh Kiều / Cái Răng, Cần Thơ"}</span>
                 </div>
 
                 <div className="flex justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
@@ -812,7 +812,7 @@ export default function Header() {
                       ? "Nhân viên kiểm duyệt"
                       : user?.role === "transporter"
                       ? "Đối tác Vận tải SmartStay"
-                      : "Sinh viên"}
+                      : "Người thuê"}
                   </span>
                 </div>
 
@@ -866,7 +866,7 @@ export default function Header() {
       )}
 
 
-      {/* MODAL CỔNG THÔNG TIN SINH VIÊN */}
+      {/* MODAL CỔNG THÔNG TIN NGƯỜI THUÊ */}
       <StudentPortalModal
         open={openStudentPortal}
         onClose={() => setOpenStudentPortal(false)}

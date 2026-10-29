@@ -33,7 +33,7 @@ const INITIAL_NOTIFICATIONS = [
   {
     id: 1,
     title: "Tìm bạn ở ghép",
-    desc: "Đã có 3 sinh viên ĐH FPT Cần Thơ có lối sống phù hợp >90% với bạn!",
+    desc: "Đã có 3 người thuê tại Cần Thơ có lối sống phù hợp >90% với bạn!",
     time: "5 phút trước",
     read: false,
     action: "quiz"
@@ -41,7 +41,7 @@ const INITIAL_NOTIFICATIONS = [
   {
     id: 2,
     title: "Hỗ trợ chuyển trọ Cần Thơ",
-    desc: "Đội xe ba gác sinh viên Khu 2 Cần Thơ đang có mã giảm 15% cho bạn.",
+    desc: "Đội xe ba gác chuyển trọ Ninh Kiều Cần Thơ đang có mã giảm 15% cho bạn.",
     time: "25 phút trước",
     read: false,
     action: "logistics"
@@ -216,7 +216,7 @@ export default function AppHeader({
               SmartStay
             </div>
             <div className="text-[10px] text-slate-400 font-body uppercase tracking-wider font-semibold">
-              Cần Thơ · Sinh viên
+              Cần Thơ · Người thuê
             </div>
           </div>
         </button>
@@ -327,7 +327,7 @@ export default function AppHeader({
                 <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                   <div className="flex items-center gap-2">
                     <span className="font-display font-bold text-slate-900 text-sm">
-                      Thông báo sinh viên
+                      Thông báo người thuê
                     </span>
                     {unreadCount > 0 && (
                       <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
@@ -426,7 +426,7 @@ export default function AppHeader({
                 setShowProfile(!showProfile);
                 setShowNotifications(false);
               }}
-              title="Hồ sơ sinh viên"
+              title="Hồ sơ người thuê"
               className={cn(
                 "relative h-9 px-2.5 rounded-xl flex items-center gap-1.5 transition-all focus:outline-none",
                 showProfile
@@ -435,10 +435,10 @@ export default function AppHeader({
               )}
             >
               <div className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">
-                {profile.name ? profile.name.slice(0, 1).toUpperCase() : "S"}
+                {profile.name ? profile.name.slice(0, 1).toUpperCase() : "N"}
               </div>
               <span className="hidden sm:inline text-xs font-bold max-w-[100px] truncate">
-                {profile.name ? profile.name.split(" ").slice(-1)[0] : "Sinh viên"}
+                {profile.name ? profile.name.split(" ").slice(-1)[0] : "Người thuê"}
               </span>
             </button>
 
@@ -594,7 +594,7 @@ export default function AppHeader({
                       className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors text-center"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>Chỉnh sửa thông tin sinh viên</span>
+                      <span>Chỉnh sửa thông tin người thuê</span>
                     </button>
                   )}
                   <button
@@ -609,11 +609,11 @@ export default function AppHeader({
                   </button>
                 </div>
 
-                {/* Account Switcher Presets (CHỈ hiển thị cho Sinh viên) */}
+                {/* Account Switcher Presets (CHỈ hiển thị cho Người thuê) */}
                 {(user?.role === "student" || !user?.role) && (
                   <div className="p-2.5 bg-slate-50 border-t border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
-                      Đổi tài khoản SV mẫu
+                      Đổi tài khoản mẫu
                     </div>
                     <div className="space-y-1">
                       {SAMPLE_STUDENTS.map((std) => (
@@ -720,7 +720,7 @@ export default function AppHeader({
                   <GraduationCap className="w-4 h-4" />
                 </div>
                 <h3 className="font-display font-bold text-slate-900 text-base">
-                  Hồ sơ sinh viên Cần Thơ
+                  Hồ sơ người thuê Cần Thơ
                 </h3>
               </div>
               <button
@@ -734,7 +734,7 @@ export default function AppHeader({
             <form onSubmit={handleSaveProfile} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Họ và tên sinh viên
+                  Họ và tên người thuê
                 </label>
                 <input
                   type="text"
@@ -747,24 +747,25 @@ export default function AppHeader({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Trường Đại học tại Cần Thơ
+                  Khu vực / Nơi học tập & công tác tại Cần Thơ
                 </label>
                 <select
                   value={editForm.campus}
                   onChange={(e) => setEditForm({ ...editForm, campus: e.target.value })}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                 >
+                  <option value="Ninh Kiều / Trung tâm">Ninh Kiều / Trung tâm</option>
                   <option value="ĐH FPT Cần Thơ">ĐH FPT Cần Thơ</option>
                   <option value="ĐH Cần Thơ (Khu 2)">ĐH Cần Thơ (Khu 2)</option>
                   <option value="ĐH Y Dược Cần Thơ">ĐH Y Dược Cần Thơ</option>
-                  <option value="ĐH Nam Cần Thơ">ĐH Nam Cần Thơ</option>
+                  <option value="ĐH Nam Cần Thơ / Cái Răng">ĐH Nam Cần Thơ / Cái Răng</option>
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Mã số sinh viên (MSSV)
+                    CCCD / Mã định danh
                   </label>
                   <input
                     type="text"
@@ -790,7 +791,7 @@ export default function AppHeader({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Email sinh viên (.edu.vn)
+                  Email liên hệ
                 </label>
                 <input
                   type="email"

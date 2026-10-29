@@ -33,7 +33,7 @@ export default function StudentPortalModal({ open, onClose }) {
       setBills(bRes || []);
       setAppointments(aRes || []);
     } catch (err) {
-      console.error("Lỗi tải thông tin sinh viên:", err);
+      console.error("Lỗi tải thông tin người thuê:", err);
     } finally {
       setLoading(false);
     }
@@ -45,7 +45,7 @@ export default function StudentPortalModal({ open, onClose }) {
     }
   }, [open]);
 
-  // Sinh viên xác nhận tài sản bàn giao
+  // Người thuê xác nhận tài sản bàn giao
   const handleVerifyInventory = async (contractId, itemId) => {
     try {
       const res = await base44.contracts.verifyInventory(contractId, itemId);
@@ -59,7 +59,7 @@ export default function StudentPortalModal({ open, onClose }) {
     }
   };
 
-  // Sinh viên gửi xác nhận chuyển khoản
+  // Người thuê gửi xác nhận chuyển khoản
   const handleSubmitPayment = async (e) => {
     e.preventDefault();
     if (!payingBill) return;

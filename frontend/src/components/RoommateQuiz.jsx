@@ -8,7 +8,7 @@ export default function RoommateQuiz({ open, onClose, onComplete }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const [done, setDone] = useState(false);
-  const [userName, setUserName] = useState("Sinh viên SmartStay");
+  const [userName, setUserName] = useState("Người thuê SmartStay");
   const [contactZalo, setContactZalo] = useState("");
 
   if (!open) return null;

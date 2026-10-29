@@ -221,7 +221,7 @@ export default function ContractModal({ open, onClose, onSuccess, initialData = 
             <div>
               <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-1.5">
                 <User className="w-3.5 h-3.5 text-orange-600" />
-                <span>Khách thuê (Sinh viên) *</span>
+                <span>Bên thuê (Người thuê) *</span>
               </Label>
               <select
                 required

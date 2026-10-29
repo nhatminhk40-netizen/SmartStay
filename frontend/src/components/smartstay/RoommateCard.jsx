@@ -178,7 +178,7 @@ export default function RoommateCard({
                                 {item.verified && (
                                     <span
                                         className="inline-flex items-center text-blue-600 shrink-0"
-                                        title="Đã xác thực sinh viên"
+                                        title="Đã xác thực hồ sơ người thuê"
                                     >
                                         <CheckCircle2 className="w-3.5 h-3.5 fill-blue-500 text-white" />
                                     </span>

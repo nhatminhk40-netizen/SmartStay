@@ -105,9 +105,9 @@ export default function ContractDetailModal({ open, onClose, contract, onAction 
             <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
               <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase">
                 <User className="w-4 h-4 text-orange-600" />
-                <span>Khách thuê (Sinh viên)</span>
+                <span>Bên thuê (Người thuê)</span>
               </div>
-              <p className="text-sm font-bold text-slate-900">{contract.tenant?.fullName || "Khách thuê"}</p>
+              <p className="text-sm font-bold text-slate-900">{contract.tenant?.fullName || "Người thuê"}</p>
               <div className="space-y-1 text-xs text-slate-600">
                 {contract.tenant?.phone && (
                   <p className="flex items-center gap-1.5">
@@ -121,8 +121,8 @@ export default function ContractDetailModal({ open, onClose, contract, onAction 
                     <span>{contract.tenant.email}</span>
                   </p>
                 )}
-                {contract.tenant?.studentId && (
-                  <p className="text-slate-500">Mã sinh viên: {contract.tenant.studentId}</p>
+                {(contract.tenant?.studentId || contract.tenant?.idCard) && (
+                  <p className="text-slate-500">CCCD / Mã định danh: {contract.tenant?.idCard || contract.tenant?.studentId}</p>
                 )}
               </div>
             </div>

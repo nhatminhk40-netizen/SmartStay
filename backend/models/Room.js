@@ -97,7 +97,28 @@ const roomSchema = new mongoose.Schema({
         type: String,
         enum: ['available', 'rented', 'repairing'],
         default: 'available'
-    }
+    },
+
+    // Quản lý khu trọ & nhiều phòng trong cùng một dãy
+    property_name: { type: String, default: '' },       // Tên khu trọ / Dãy trọ (vd: Nhà trọ Lê Khải)
+    room_number: { type: String, default: '' },         // Tên/Mã phòng riêng (vd: P.101, P.102)
+    price_min: { type: Number },                        // Khoảng giá tối thiểu (VNĐ/tháng)
+    price_max: { type: Number },                        // Khoảng giá tối đa (VNĐ/tháng)
+    total_rooms: { type: Number, default: 1 },          // Tổng số phòng trong dãy trọ
+    available_rooms: { type: Number, default: 1 },      // Số phòng còn trống trong dãy trọ
+    rooms_list: [{                                      // Danh sách các phòng cụ thể thuộc trọ
+        room_number: { type: String },
+        price: { type: Number },
+        area_sqm: { type: Number },
+        status: { type: String, default: 'available' },
+        amenities: [{ type: String }],
+        tenant: {
+            name: { type: String },
+            phone: { type: String },
+            startDate: { type: String },
+            endDate: { type: String }
+        }
+    }]
 }, { timestamps: true });
 
 // Tự đồng bộ ảnh và badge trước khi lưu

@@ -1,5 +1,5 @@
 export const LOGISTICS_VEHICLES = [
-  { id: 1, name: "Xe ba gác chuyển trọ", icon: "🛺", capacity: "Phù hợp sinh viên ít đồ, ngõ hẻm nhỏ", basePrice: 120000, perKm: 12000 },
+  { id: 1, name: "Xe ba gác chuyển trọ", icon: "🛺", capacity: "Phù hợp người thuê ít đồ, ngõ hẻm nhỏ", basePrice: 120000, perKm: 12000 },
   { id: 2, name: "Xe tải nhỏ 500kg", icon: "🛻", capacity: "Phòng trọ vừa, chở được nệm, bàn ghế", basePrice: 180000, perKm: 15000 },
   { id: 3, name: "Xe tải 1.25 tấn (Trọn gói)", icon: "🚚", capacity: "Full phòng trọ lớn, hỗ trợ bốc xếp trọn gói", basePrice: 350000, perKm: 22000 },
 ];
@@ -75,9 +75,9 @@ export const MOCK_CANDIDATES = [
     id: "cand_1",
     name: "Trần Minh Quân",
     gender: "Nam",
-    campus: "FPT Can Tho",
+    campus: "FPT Cần Thơ / Ninh Kiều",
     avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
-    bio: "Sinh viên K18 FPT Cần Thơ, học ngành SE. Tính tình vui vẻ, thích lập trình, ngủ đêm.",
+    bio: "Lập trình viên / sinh viên IT tại Cần Thơ. Tính tình vui vẻ, ngăn nắp, thích yên tĩnh làm việc ban đêm.",
     contactZalo: "0912345678",
     answers: {
       sleepSchedule: "night_owl",
@@ -91,9 +91,9 @@ export const MOCK_CANDIDATES = [
     id: "cand_2",
     name: "Lê Hoàng Nam",
     gender: "Nam",
-    campus: "FPT Can Tho",
+    campus: "Ninh Kiều, Cần Thơ",
     avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80",
-    bio: "Sinh viên ngành Thiết kế đồ hoạ, sống ngăn nắp, thích yên tĩnh.",
+    bio: "Thiết kế đồ hoạ / Freelancer tại Ninh Kiều, sống ngăn nắp, thích không gian yên tĩnh.",
     contactZalo: "0988776655",
     answers: {
       sleepSchedule: "night_owl",
@@ -107,9 +107,9 @@ export const MOCK_CANDIDATES = [
     id: "cand_3",
     name: "Nguyễn Thảo My",
     gender: "Nữ",
-    campus: "ĐH Cần Thơ (Khu 2)",
+    campus: "ĐH Cần Thơ / Trung tâm",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
-    bio: "Sinh viên năm 3 ĐHCT, ngăn nắp sạch sẽ, thích nấu ăn cuối tuần.",
+    bio: "Nhân viên văn phòng tại Cần Thơ, ngăn nắp sạch sẽ, thích tự nấu ăn cuối tuần.",
     contactZalo: "0933112233",
     answers: {
       sleepSchedule: "early_bird",

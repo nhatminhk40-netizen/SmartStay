@@ -168,14 +168,20 @@ const surveyedRoomsData = [
     },
     {
         title: 'Phòng Trọ Lê khải',
+        property_name: 'Nhà trọ Lê Khải',
+        room_number: 'P.101',
         campus: 'ĐH FPT Cần Thơ',
         address: 'Khu vực gần ĐH FPT Cần Thơ, Cần Thơ',
         location: 'Ninh Kiều, Cần Thơ',
         price: 1800000,
+        price_min: 1800000,
+        price_max: 2400000,
+        total_rooms: 8,
+        available_rooms: 3,
         area_sqm: 25,
         room_type: 'Phòng trọ khép kín',
         contactPhone: '0907297338',
-        description: 'Phòng sạch sẽ, an ninh tốt, gần trường.',
+        description: 'Dãy trọ Lê Khải an ninh, giờ giấc tự do, có bảo vệ và camera 24/7. Các phòng đều có gác lửng đúc kiên cố, ban công thoáng mát.',
         rating: 4.8,
         image_url: 'https://lh3.googleusercontent.com/d/1RscDS08IT5hjZKrOlqJyjeySppXuUzq0',
         images: [
@@ -184,7 +190,15 @@ const surveyedRoomsData = [
             'https://lh3.googleusercontent.com/d/1lZdIaZ0_em938DJ4hTinFEcMWO_Hl-Kb',
             'https://lh3.googleusercontent.com/d/1NfaJ421eRJuQYPRKjpp_VK2DdTTGWcmO'
         ],
-        amenities: ['Gác lửng'],
+        rooms_list: [
+            { room_number: 'P.101', price: 1800000, area_sqm: 25, status: 'available', amenities: ['Gác lửng'] },
+            { room_number: 'P.102', price: 1800000, area_sqm: 25, status: 'available', amenities: ['Gác lửng'] },
+            { room_number: 'P.103', price: 2000000, area_sqm: 28, status: 'rented', amenities: ['Gác lửng', 'Máy lạnh'], tenant: { name: 'Trần Văn Nam', phone: '0939 123 456' } },
+            { room_number: 'P.104', price: 2000000, area_sqm: 28, status: 'rented', amenities: ['Gác lửng', 'Máy lạnh'], tenant: { name: 'Lê Thị Thu', phone: '0948 222 333' } },
+            { room_number: 'P.201', price: 2400000, area_sqm: 30, status: 'available', amenities: ['Gác lửng', 'Máy lạnh', 'Ban công'] },
+            { room_number: 'P.202', price: 2400000, area_sqm: 30, status: 'rented', amenities: ['Gác lửng', 'Máy lạnh', 'Ban công'], tenant: { name: 'Nguyễn Hoàng', phone: '0918 777 888' } }
+        ],
+        amenities: ['Gác lửng', 'Máy lạnh', 'Camera 24/7'],
         safe_badge: true,
         isSafeBadge: true,
         is_boosted: true,

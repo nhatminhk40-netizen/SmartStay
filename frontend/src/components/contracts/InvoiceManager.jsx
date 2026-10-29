@@ -127,7 +127,7 @@ export default function InvoiceManager() {
             Hóa đơn Tiền trọ & Điện nước minh bạch
           </h2>
           <p className="text-xs font-semibold text-slate-500 mt-1">
-            Gắn ảnh chụp đồng hồ điện & nước thực tế, bảo vệ quyền lợi sinh viên và chủ trọ.
+            Gắn ảnh chụp đồng hồ điện & nước thực tế, bảo vệ quyền lợi người thuê và chủ trọ.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -368,7 +368,7 @@ export default function InvoiceManager() {
                   <option value="">-- Chọn hợp đồng thuê phòng --</option>
                   {contracts.map(c => (
                     <option key={c._id || c.id} value={c._id || c.id}>
-                      {c.room?.title || "Phòng trọ"} - Khách: {c.tenant?.fullName || "Sinh viên"} ({Number(c.monthlyRent).toLocaleString()}đ/tháng)
+                      {c.room?.title || "Phòng trọ"} - Khách: {c.tenant?.fullName || "Người thuê"} ({Number(c.monthlyRent).toLocaleString()}đ/tháng)
                     </option>
                   ))}
                 </select>

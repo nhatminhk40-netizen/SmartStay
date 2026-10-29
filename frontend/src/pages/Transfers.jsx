@@ -62,7 +62,7 @@ const CAN_THO_LOCATIONS = [
     tag: "Trung tâm"
   },
   {
-    name: "Hẻm 51 Đường 3/2 (Khu trọ sinh viên)",
+    name: "Hẻm 51 Đường 3/2 (Khu nhà trọ tập trung)",
     address: "Hẻm 51, Đ. 3 Tháng 2, P. Xuân Khánh, Q. Ninh Kiều, Cần Thơ",
     lat: 10.0270,
     lng: 105.7720,
@@ -192,7 +192,7 @@ export default function Transfers() {
   }, 0);
 
   const rawTotal = baseCost + distanceCost + addonsCost;
-  const studentDiscount = Math.round(rawTotal * 0.15); // Trợ giá sinh viên 15%
+  const studentDiscount = Math.round(rawTotal * 0.15); // Ưu đãi người thuê 15%
   const finalTotal = rawTotal - studentDiscount;
 
   // Tải danh sách đơn đặt xe và danh sách tài xế
@@ -381,18 +381,18 @@ export default function Transfers() {
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
-    alert("Dịch vụ Chuyển trọ sinh viên hiện đang trong quá trình phát triển và tạm khóa nhận đơn mới. Quý bạn sinh viên vui lòng quay lại sau nhé!");
+    alert("Dịch vụ Chuyển phòng & Dọn trọ hiện đang trong quá trình phát triển và tạm khóa nhận đơn mới. Quý khách vui lòng quay lại sau nhé!");
   };
 
   return (
     <>
       <PageHero
         icon={Truck}
-        title="Dịch vụ Chuyển trọ Sinh viên (Tạm khóa)"
-        subtitle="Hệ thống xe ba gác & xe tải sinh viên Cần Thơ — Tính năng đang trong quá trình phát triển và hoàn thiện mạng lưới tài xế đối tác."
+        title="Dịch vụ Chuyển phòng & Dọn trọ (Tạm khóa)"
+        subtitle="Hệ thống xe ba gác & xe tải chuyển đồ Cần Thơ — Tính năng đang trong quá trình phát triển và hoàn thiện mạng lưới tài xế đối tác."
         actionLabel="🔒 Đang phát triển"
         onAction={() => {
-          alert("Dịch vụ Chuyển trọ sinh viên hiện đang trong quá trình phát triển và hoàn thiện. SmartStay sẽ sớm mở lại trong thời gian tới!");
+          alert("Dịch vụ Chuyển phòng & Dọn trọ hiện đang trong quá trình phát triển và hoàn thiện. SmartStay sẽ sớm mở lại trong thời gian tới!");
         }}
       />
 
@@ -408,10 +408,10 @@ export default function Transfers() {
               Tạm khóa · Tính năng đang phát triển
             </div>
             <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-slate-900">
-              Dịch vụ Chuyển trọ Sinh viên đang được phát triển
+              Dịch vụ Chuyển phòng & Dọn trọ đang được phát triển
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Hệ thống kết nối đội xe ba gác & xe tải sinh viên đang trong giai đoạn mở rộng mạng lưới tài xế đối tác tại các quận Ninh Kiều, Cái Răng, Bình Thủy và chuẩn hóa bảo hiểm đồ đạc. Tính năng đặt chuyến sẽ sớm mở lại trong bản cập nhật tới!
+              Hệ thống kết nối đội xe ba gác & xe tải chở đồ đang trong giai đoạn mở rộng mạng lưới tài xế đối tác tại các quận Ninh Kiều, Cái Răng, Bình Thủy và chuẩn hóa bảo hiểm đồ đạc. Tính năng đặt chuyến sẽ sớm mở lại trong bản cập nhật tới!
             </p>
             <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
               <Button
@@ -445,7 +445,7 @@ export default function Transfers() {
                   <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-teal-400 text-slate-950">Đối tác vận tải</span>
                 </div>
                 <p className="text-xs text-teal-200/80 mt-0.5">
-                  Trang này là cổng đặt xe dành riêng cho Sinh viên. Để xem đơn mới và nhận cuốc xe, bác tài vui lòng vào Cổng riêng nhé!
+                  Trang này là cổng đặt xe dành cho Người thuê. Để xem đơn mới và nhận cuốc xe, bác tài vui lòng vào Cổng riêng nhé!
                 </p>
               </div>
             </div>
@@ -466,7 +466,7 @@ export default function Transfers() {
                 <MapPin className="w-6 h-6" />
               </div>
               <div>
-                <h4 className="font-bold text-sm text-slate-900">Bác Chủ trọ {user.fullName || ""} đang ở mục Chuyển trọ Sinh viên</h4>
+                <h4 className="font-bold text-sm text-slate-900">Bác Chủ trọ {user.fullName || ""} đang ở mục Chuyển phòng & Dọn trọ</h4>
                 <p className="text-xs text-slate-600 mt-0.5">
                   Quản lý phòng trọ, hóa đơn và hợp đồng điện tử tại Kênh Quản Trị Trọ của bác.
                 </p>
@@ -490,7 +490,7 @@ export default function Transfers() {
             <div>
               <h4 className="font-bold text-slate-900 text-sm mb-1">Đúng giờ 100%</h4>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Tài xế có mặt trước 10-15 phút theo lịch hẹn. Linh hoạt các khung giờ rảnh của sinh viên.
+                Tài xế có mặt trước 10-15 phút theo lịch hẹn. Linh hoạt các khung giờ rảnh của người thuê.
               </p>
             </div>
           </div>
@@ -512,7 +512,7 @@ export default function Transfers() {
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="font-bold text-slate-900 text-sm mb-1">Trợ giá sinh viên 15%</h4>
+              <h4 className="font-bold text-slate-900 text-sm mb-1">Ưu đãi người thuê 15%</h4>
               <p className="text-xs text-slate-600 leading-relaxed">
                 Giá minh bạch theo số km đường bộ đo tự động trên bản đồ, không kỳ kèo phát sinh chi phí ẩn.
               </p>
@@ -787,7 +787,7 @@ export default function Transfers() {
                   <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs text-emerald-800 font-bold shadow-xs">
                     <span className="flex items-center gap-1.5">
                       <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      Trợ giá sinh viên (-15%):
+                      Ưu đãi người thuê (-15%):
                     </span>
                     <span className="text-emerald-700 font-extrabold">-{Number(studentDiscount).toLocaleString()}đ</span>
                   </div>
@@ -930,7 +930,7 @@ export default function Transfers() {
 
                 <Button
                   type="button"
-                  onClick={() => alert("Dịch vụ Chuyển trọ sinh viên hiện đang trong quá trình phát triển và tạm khóa nhận đơn mới. Quý bạn sinh viên vui lòng quay lại sau nhé!")}
+                  onClick={() => alert("Dịch vụ Chuyển phòng & Dọn trọ hiện đang trong quá trình phát triển và tạm khóa nhận đơn mới. Quý khách hàng vui lòng quay lại sau nhé!")}
                   className="w-full h-12 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm shadow-none cursor-not-allowed mt-2 flex items-center justify-center gap-2"
                 >
                   <Lock className="w-4 h-4 text-slate-500" />
@@ -951,7 +951,7 @@ export default function Transfers() {
             <div>
               <h3 className="text-xl font-bold text-foreground">Hệ thống Điều phối Vận chuyển Cần Thơ</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Kết nối sinh viên với các bác tài ba gác, xe tải nhỏ uy tín - Cam kết đúng giá, không phụ phí phát sinh
+                Kết nối người thuê với các bác tài ba gác, xe tải nhỏ uy tín - Cam kết đúng giá, không phụ phí phát sinh
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1120,7 +1120,7 @@ export default function Transfers() {
                           </div>
 
                           <h4 className="font-bold text-foreground text-sm mb-2 flex items-center justify-between">
-                            <span>{item.customerName || "Sinh viên Cần Thơ"}</span>
+                            <span>{item.customerName || "Người thuê Cần Thơ"}</span>
                             <span className="text-xs font-semibold text-muted-foreground">{item.distanceKm || 5} km</span>
                           </h4>
 
@@ -1159,7 +1159,7 @@ export default function Transfers() {
                           )}
                         </div>
 
-                        {/* Trạng thái đơn dành cho Sinh viên */}
+                        {/* Trạng thái đơn dành cho Người thuê */}
                         <div className="mt-4 pt-3 border-t border-border">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs text-muted-foreground flex items-center gap-1">

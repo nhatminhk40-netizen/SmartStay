@@ -132,7 +132,7 @@ export default function ContractsManager() {
                 Có {stats.expiringSoonCount} hợp đồng phòng trọ sắp đáo hạn trong vòng 30 ngày tới!
               </h4>
               <p className="text-xs text-slate-600 mt-0.5">
-                Vui lòng chủ động trao đổi với sinh viên/khách thuê để tiến hành gia hạn hợp đồng hoặc chuẩn bị nhận phòng đón khách mới.
+                Vui lòng chủ động trao đổi với người thuê để tiến hành gia hạn hợp đồng hoặc chuẩn bị nhận phòng đón khách mới.
               </p>
             </div>
           </div>
