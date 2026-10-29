@@ -12,26 +12,54 @@ let fallbackMessages = [];
 // Helper lấy socket io từ app
 const getIO = (req) => req.app.locals.io || null;
 
+// Helper escape regex
+const escapeRegex = (str) => (str ? str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') : '');
+
 /**
- * 1. LẤY DANH SÁCH CUỘC TRÒ CHUYỆN CỦA MỘT NGƯỜI DÙNG
- * GET /api/chat/conversations?userId=...
+ * 1. LẤY DANH SÁCH CUỘC TRÒ CHUYỆN CỦA MỘT NGƯỜI DÙNG (THEO USERID HOẶC TÊN)
+ * GET /api/chat/conversations?userId=...&name=...&phone=...
  */
 router.get('/conversations', async (req, res) => {
     try {
-        const { userId } = req.query;
-        if (!userId) {
-            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp userId' });
+        const { userId, name, phone } = req.query;
+        if (!userId && !name) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp userId hoặc name' });
         }
 
         const isDb = req.app.locals.isDbConnected;
         if (isDb) {
-            const list = await Conversation.find({ participants: String(userId) }).sort({ updatedAt: -1 });
+            const queryConditions = [];
+            if (userId) {
+                queryConditions.push({ participants: String(userId) });
+                queryConditions.push({ 'participantDetails.id': String(userId) });
+            }
+            if (name && name.trim()) {
+                const cleanName = name.trim();
+                queryConditions.push({
+                    'participantDetails.name': new RegExp(`^${escapeRegex(cleanName)}$`, 'i')
+                });
+            }
+            if (phone && phone.trim()) {
+                const cleanPhone = phone.replace(/[^0-9]/g, '');
+                if (cleanPhone.length >= 9) {
+                    queryConditions.push({ 'participantDetails.phone': cleanPhone });
+                }
+            }
+
+            const list = await Conversation.find({ $or: queryConditions }).sort({ updatedAt: -1 });
             return res.status(200).json({ success: true, count: list.length, data: list });
         }
 
         // Fallback
+        const cleanName = name?.trim().toLowerCase();
+        const cleanPhone = phone?.replace(/[^0-9]/g, '');
         const list = fallbackConversations
-            .filter((c) => c.participants.includes(String(userId)))
+            .filter((c) => {
+                const matchId = userId && (c.participants.includes(String(userId)) || c.participantDetails?.some((p) => String(p.id) === String(userId)));
+                const matchName = cleanName && c.participantDetails?.some((p) => p.name?.trim().toLowerCase() === cleanName);
+                const matchPhone = cleanPhone && cleanPhone.length >= 9 && c.participantDetails?.some((p) => p.phone?.replace(/[^0-9]/g, '') === cleanPhone);
+                return matchId || matchName || matchPhone;
+            })
             .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
         res.status(200).json({ success: true, count: list.length, data: list });
     } catch (error) {
@@ -53,12 +81,22 @@ router.post('/conversations', async (req, res) => {
 
         const idA = String(participantA.id);
         const idB = String(participantB.id);
+        const nameA = participantA.name?.trim() || '';
+        const nameB = participantB.name?.trim() || '';
 
         const isDb = req.app.locals.isDbConnected;
         if (isDb) {
-            // Tìm cuộc trò chuyện chứa cả 2 thành viên
+            // Tìm cuộc trò chuyện chứa cả 2 thành viên (theo id hoặc cặp tên)
             let conv = await Conversation.findOne({
-                participants: { $all: [idA, idB] }
+                $or: [
+                    { participants: { $all: [idA, idB] } },
+                    {
+                        $and: [
+                            { 'participantDetails.name': new RegExp(`^${escapeRegex(nameA)}$`, 'i') },
+                            { 'participantDetails.name': new RegExp(`^${escapeRegex(nameB)}$`, 'i') }
+                        ]
+                    }
+                ]
             });
 
             if (!conv) {
@@ -89,7 +127,7 @@ router.post('/conversations', async (req, res) => {
                 let updated = false;
                 const details = conv.participantDetails || [];
                 [participantA, participantB].forEach((p) => {
-                    const idx = details.findIndex((d) => d.id === String(p.id));
+                    const idx = details.findIndex((d) => d.id === String(p.id) || (p.name && d.name?.toLowerCase() === p.name.toLowerCase()));
                     if (idx !== -1) {
                         if (p.phone && !details[idx].phone) {
                             details[idx].phone = p.phone;
@@ -97,6 +135,10 @@ router.post('/conversations', async (req, res) => {
                         }
                         if (p.name && details[idx].name !== p.name) {
                             details[idx].name = p.name;
+                            updated = true;
+                        }
+                        if (p.id && !conv.participants.includes(String(p.id))) {
+                            conv.participants.push(String(p.id));
                             updated = true;
                         }
                     } else {
@@ -108,6 +150,9 @@ router.post('/conversations', async (req, res) => {
                             campus: p.campus || 'Cần Thơ',
                             role: p.role || 'student'
                         });
+                        if (!conv.participants.includes(String(p.id))) {
+                            conv.participants.push(String(p.id));
+                        }
                         updated = true;
                     }
                 });
@@ -121,9 +166,11 @@ router.post('/conversations', async (req, res) => {
         }
 
         // Fallback in-memory
-        let conv = fallbackConversations.find(
-            (c) => c.participants.includes(idA) && c.participants.includes(idB)
-        );
+        let conv = fallbackConversations.find((c) => {
+            const hasBothIds = c.participants.includes(idA) && c.participants.includes(idB);
+            const hasBothNames = nameA && nameB && c.participantDetails?.some((p) => p.name?.toLowerCase() === nameA.toLowerCase()) && c.participantDetails?.some((p) => p.name?.toLowerCase() === nameB.toLowerCase());
+            return hasBothIds || hasBothNames;
+        });
 
         if (!conv) {
             conv = {
@@ -154,6 +201,9 @@ router.post('/conversations', async (req, res) => {
                 updatedAt: new Date()
             };
             fallbackConversations.unshift(conv);
+        } else {
+            if (!conv.participants.includes(idA)) conv.participants.push(idA);
+            if (!conv.participants.includes(idB)) conv.participants.push(idB);
         }
 
         res.status(200).json({ success: true, data: conv });
@@ -194,7 +244,7 @@ router.get('/messages/:conversationId', async (req, res) => {
  */
 router.post('/messages', async (req, res) => {
     try {
-        const { conversationId, senderId, senderName, recipientId, text, recipientPhone } = req.body;
+        const { conversationId, senderId, senderName, recipientId, recipientName, text, recipientPhone } = req.body;
         if (!conversationId || !senderId || !recipientId || !text?.trim()) {
             return res.status(400).json({
                 success: false,
@@ -205,7 +255,6 @@ router.post('/messages', async (req, res) => {
         // 1. Phân tích nội dung: phát hiện SĐT hoặc từ khóa trao đổi liên hệ
         const inspection = inspectSensitiveContent(text);
 
-        // Nếu phát hiện SĐT hoặc người gửi muốn trao đổi SĐT, thông tin liên lạc được chuẩn bị chuyển qua Zalo
         const containsSensitiveInfo = inspection.containsSensitiveInfo;
         const detectedPhone = inspection.cleanPhone || recipientPhone || '';
         const maskedText = inspection.maskedText;
@@ -282,11 +331,22 @@ router.post('/messages', async (req, res) => {
         if (io) {
             // Phát vào phòng cuộc trò chuyện
             io.to(`conv_${conversationId}`).emit('chat:message', savedMessage);
-            // Phát cho riêng người nhận để cập nhật thông báo/badge
+
+            // Phát cho riêng người nhận theo ID
             io.to(`user_${recipientId}`).emit('chat:notification', {
                 conversationId,
                 message: savedMessage
             });
+
+            // Phát theo tên người nhận (ví dụ: 'user_name_minh') để tab đối phương nhận ngay
+            if (recipientName) {
+                const norm = recipientName.trim().toLowerCase();
+                io.to(`user_name_${norm}`).emit('chat:message', savedMessage);
+                io.to(`user_name_${norm}`).emit('chat:notification', {
+                    conversationId,
+                    message: savedMessage
+                });
+            }
         }
 
         return res.status(201).json({
@@ -348,4 +408,3 @@ router.put('/messages/read/:conversationId', async (req, res) => {
 });
 
 module.exports = router;
-

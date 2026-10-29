@@ -13,7 +13,9 @@ import {
   Clock,
   PhoneCall,
   Lock,
-  Smile
+  Smile,
+  RefreshCw,
+  Repeat
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import {
@@ -31,8 +33,11 @@ export default function SmartStayChatWidget() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [viewMode, setViewMode] = useState("chat"); // 'chat' | 'conversations'
 
-  // Thông tin người dùng hiện tại
-  const myIdentity = getCurrentChatIdentity(user);
+  // Thông tin danh tính cơ sở của người dùng hiện tại
+  const baseIdentity = getCurrentChatIdentity(user);
+
+  // Hỗ trợ chế độ thử nghiệm đóng vai (Role Override)
+  const [swappedRole, setSwappedRole] = useState(false);
 
   // Cuộc trò chuyện & Tin nhắn
   const [conversations, setConversations] = useState([]);
@@ -48,16 +53,27 @@ export default function SmartStayChatWidget() {
 
   const messagesEndRef = useRef(null);
 
-  // 1. Tải danh sách cuộc trò chuyện từ MongoDB
+  // Danh tính thực thi (khi đổi vai test giữa hai bên)
+  const currentActor = swappedRole && activeContact ? activeContact : baseIdentity;
+  const currentTarget = swappedRole && activeContact ? baseIdentity : activeContact;
+
+  // 1. Tải danh sách cuộc trò chuyện từ MongoDB (hỗ trợ cả userId và tên người dùng)
   const loadConversations = async () => {
-    if (!myIdentity?.id) return;
-    const list = await chatService.getConversations(myIdentity.id);
+    if (!currentActor?.id && !currentActor?.name) return;
+    const list = await chatService.getConversations(
+      currentActor.id,
+      currentActor.name,
+      currentActor.phone
+    );
     setConversations(list);
 
     // Tính tổng số tin chưa đọc
     let unread = 0;
     list.forEach((c) => {
-      const count = c.unreadCounts?.[myIdentity.id] || (c.unreadCounts?.get ? c.unreadCounts.get(myIdentity.id) : 0) || 0;
+      const count =
+        c.unreadCounts?.[currentActor.id] ||
+        (c.unreadCounts?.get ? c.unreadCounts.get(currentActor.id) : 0) ||
+        0;
       unread += count;
     });
     setUnreadTotal(unread);
@@ -66,14 +82,17 @@ export default function SmartStayChatWidget() {
 
   useEffect(() => {
     loadConversations();
-  }, [myIdentity.id]);
+  }, [currentActor?.id, currentActor?.name, swappedRole]);
 
   // 2. Lắng nghe Socket.IO sự kiện kết nối & tin nhắn mới
   useEffect(() => {
     const socket = getSocket();
-    if (!socket || !myIdentity?.id) return;
+    if (!socket || !currentActor?.id) return;
 
-    socket.emit("join_user", myIdentity.id);
+    socket.emit("join_user", currentActor.id);
+    if (currentActor.name) {
+      socket.emit("join_user", `user_name_${currentActor.name.trim().toLowerCase()}`);
+    }
 
     const handleNewMessage = (msg) => {
       // Nếu đang mở đúng cuộc trò chuyện
@@ -88,7 +107,7 @@ export default function SmartStayChatWidget() {
           }
           return [...prev, msg];
         });
-        chatService.markAsRead(activeConversation._id || activeConversation.id, myIdentity.id);
+        chatService.markAsRead(activeConversation._id || activeConversation.id, currentActor.id);
       } else {
         setUnreadTotal((count) => count + 1);
       }
@@ -106,7 +125,7 @@ export default function SmartStayChatWidget() {
       socket.off("chat:message", handleNewMessage);
       socket.off("chat:notification", handleNotification);
     };
-  }, [activeConversation, myIdentity.id]);
+  }, [activeConversation, currentActor?.id, currentActor?.name, swappedRole]);
 
   // 3. Chuyển đổi phòng socket khi đổi cuộc trò chuyện
   useEffect(() => {
@@ -122,14 +141,14 @@ export default function SmartStayChatWidget() {
       .getMessages(convId)
       .then((data) => {
         setMessages(data);
-        chatService.markAsRead(convId, myIdentity.id);
+        chatService.markAsRead(convId, currentActor.id);
       })
       .finally(() => setIsLoadingMessages(false));
 
     return () => {
       socket.emit("leave_conversation", convId);
     };
-  }, [activeConversation?._id, activeConversation?.id]);
+  }, [activeConversation?._id, activeConversation?.id, swappedRole]);
 
   // 4. Lắng nghe sự kiện mở chat từ nút "Nhắn tin" trên toàn website (Roommates, RoomDetail, v.v.)
   useEffect(() => {
@@ -150,6 +169,7 @@ export default function SmartStayChatWidget() {
         avatar: recipient.avatarUrl || recipient.avatar || ""
       };
 
+      setSwappedRole(false);
       setActiveContact(contactData);
       setIsOpen(true);
       setIsMinimized(false);
@@ -158,12 +178,12 @@ export default function SmartStayChatWidget() {
       // Tạo hoặc lấy cuộc trò chuyện trên MongoDB
       const conv = await chatService.getOrCreateConversation(
         {
-          id: myIdentity.id,
-          name: myIdentity.name,
-          avatar: myIdentity.avatar,
-          phone: myIdentity.phone,
-          campus: myIdentity.campus,
-          role: myIdentity.role
+          id: baseIdentity.id,
+          name: baseIdentity.name,
+          avatar: baseIdentity.avatar,
+          phone: baseIdentity.phone,
+          campus: baseIdentity.campus,
+          role: baseIdentity.role
         },
         {
           id: contactData.id,
@@ -178,18 +198,18 @@ export default function SmartStayChatWidget() {
       if (conv) {
         setActiveConversation(conv);
 
-        // Gửi tin nhắn khởi tạo nếu có (không có bot tự trả lời)
+        // Gửi tin nhắn khởi tạo nếu có (người dùng gửi thật, không bot)
         if (initialMessage && initialMessage.trim()) {
           await chatService.sendMessage({
             conversationId: conv._id || conv.id,
-            senderId: myIdentity.id,
-            senderName: myIdentity.name,
+            senderId: baseIdentity.id,
+            senderName: baseIdentity.name,
             recipientId: contactData.id,
+            recipientName: contactData.name,
             text: initialMessage.trim(),
             recipientPhone: contactData.phone
           });
 
-          // Tải lại tin nhắn từ MongoDB
           const updated = await chatService.getMessages(conv._id || conv.id);
           setMessages(updated);
           loadConversations();
@@ -201,14 +221,14 @@ export default function SmartStayChatWidget() {
     return () => {
       window.removeEventListener("smartstay:open_chat", handleOpenChatEvent);
     };
-  }, [myIdentity]);
+  }, [baseIdentity]);
 
   // 5. Tự động cuộn xuống đáy tin nhắn
   useEffect(() => {
     if (isOpen && !isMinimized && viewMode === "chat") {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isOpen, isMinimized, viewMode]);
+  }, [messages, isOpen, isMinimized, viewMode, swappedRole]);
 
   // 6. Kiểm tra phát hiện SĐT khi đang nhập tin nhắn
   const handleInputChange = (e) => {
@@ -221,7 +241,7 @@ export default function SmartStayChatWidget() {
   // 7. Gửi tin nhắn (Persist vào MongoDB, Kiểm duyệt SĐT & Chuyển tiếp Zalo)
   const handleSendMessage = async (textToSend) => {
     const text = (textToSend || inputText).trim();
-    if (!text || !activeConversation || !activeContact) return;
+    if (!text || !activeConversation || !currentTarget) return;
 
     setInputText("");
     setDetectedPhoneInInput(null);
@@ -231,11 +251,12 @@ export default function SmartStayChatWidget() {
     // Gửi tin nhắn lên MongoDB qua Backend
     const res = await chatService.sendMessage({
       conversationId: convId,
-      senderId: myIdentity.id,
-      senderName: myIdentity.name,
-      recipientId: activeContact.id,
+      senderId: currentActor.id,
+      senderName: currentActor.name,
+      recipientId: currentTarget.id,
+      recipientName: currentTarget.name,
       text,
-      recipientPhone: activeContact.phone
+      recipientPhone: currentTarget.phone
     });
 
     if (res?.success && res.data) {
@@ -246,7 +267,7 @@ export default function SmartStayChatWidget() {
 
   // Mở Zalo trực tiếp
   const handleOpenZalo = (phone) => {
-    const targetPhone = phone || activeContact?.phone || detectedPhoneInInput;
+    const targetPhone = phone || currentTarget?.phone || detectedPhoneInInput;
     if (targetPhone) {
       openZaloChat(targetPhone);
     } else {
@@ -256,8 +277,8 @@ export default function SmartStayChatWidget() {
 
   // Chọn cuộc trò chuyện từ danh sách hộp thư
   const handleSelectConversation = (conv) => {
-    const otherParticipant = conv.participantDetails?.find((p) => String(p.id) !== String(myIdentity.id)) || {
-      id: conv.participants.find((id) => String(id) !== String(myIdentity.id)) || "user_other",
+    const otherParticipant = conv.participantDetails?.find((p) => String(p.id) !== String(currentActor.id)) || {
+      id: conv.participants.find((id) => String(id) !== String(currentActor.id)) || "user_other",
       name: "Người dùng SmartStay",
       phone: "",
       campus: "Cần Thơ"
@@ -298,8 +319,8 @@ export default function SmartStayChatWidget() {
             )}
           </div>
           <span className="text-xs font-bold tracking-wide">
-            {activeContact
-              ? `Chat với ${activeContact.name.split(" ").slice(-1)[0]}`
+            {currentTarget
+              ? `Chat với ${currentTarget.name.split(" ").slice(-1)[0]}`
               : `Tin nhắn SmartStay ${conversations.length > 0 ? `(${conversations.length})` : ""}`}
           </span>
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -308,7 +329,7 @@ export default function SmartStayChatWidget() {
 
       {/* 2. CỬA SỔ CHATBOX P2P GIỮA HAI NGƯỜI */}
       {isOpen && !isMinimized && (
-        <div className="w-[340px] sm:w-[380px] h-[530px] max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
+        <div className="w-[340px] sm:w-[380px] h-[540px] max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
           {/* Header Cửa sổ chat */}
           <div className="p-3.5 px-4 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2 min-w-0">
@@ -322,7 +343,7 @@ export default function SmartStayChatWidget() {
                 </button>
               )}
 
-              {viewMode === "chat" && activeContact ? (
+              {viewMode === "chat" && currentTarget ? (
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative">
                     <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center font-bold text-sm border border-white/30">
@@ -332,10 +353,10 @@ export default function SmartStayChatWidget() {
                   </div>
                   <div className="min-w-0">
                     <h4 className="font-bold text-xs sm:text-sm truncate leading-tight">
-                      {activeContact.name}
+                      {currentTarget.name}
                     </h4>
                     <p className="text-[11px] text-orange-100 truncate">
-                      {activeContact.campus} {activeContact.budget ? `• ~${activeContact.budget}tr` : ""}
+                      {currentTarget.campus} {currentTarget.budget ? `• ~${currentTarget.budget}tr` : ""}
                     </p>
                   </div>
                 </div>
@@ -349,9 +370,9 @@ export default function SmartStayChatWidget() {
 
             <div className="flex items-center gap-1">
               {/* Nút mở Zalo trực tiếp trong header */}
-              {viewMode === "chat" && (activeContact?.phone || activeContact?.contact) && (
+              {viewMode === "chat" && (currentTarget?.phone || currentTarget?.contact) && (
                 <button
-                  onClick={() => handleOpenZalo(activeContact.phone || activeContact.contact)}
+                  onClick={() => handleOpenZalo(currentTarget.phone || currentTarget.contact)}
                   className="px-2.5 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-[11px] flex items-center gap-1 transition cursor-pointer"
                   title="Mở Zalo trực tiếp để tiếp tục trao đổi SĐT & gọi điện"
                 >
@@ -376,6 +397,24 @@ export default function SmartStayChatWidget() {
             </div>
           </div>
 
+          {/* THANH ĐIỀU KHIỂN ĐÓNG VAI TEST GIỮA 2 BẠN (ROLE SWITCHER) */}
+          {viewMode === "chat" && activeContact && (
+            <div className="px-3 py-1 bg-amber-500/15 border-b border-orange-200/60 flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-1.5 text-slate-700 truncate">
+                <span className="text-slate-400 font-medium">Bạn đang là:</span>
+                <strong className="text-orange-700 font-bold truncate">{currentActor.name}</strong>
+              </div>
+              <button
+                onClick={() => setSwappedRole(!swappedRole)}
+                className="px-2 py-0.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] flex items-center gap-1 transition cursor-pointer shrink-0 ml-1 shadow-2xs"
+                title="Chuyển đổi góc nhìn giữa người gửi và người nhận để thử nghiệm 2 chiều trên 1 máy"
+              >
+                <Repeat className="w-3 h-3" />
+                {swappedRole ? "Đổi lại Tôi" : `Đóng vai ${activeContact.name.split(" ").slice(-1)[0]}`}
+              </button>
+            </div>
+          )}
+
           {/* VIEW 1: DANH SÁCH CUỘC TRÒ CHUYỆN (INBOX) */}
           {viewMode === "conversations" && (
             <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
@@ -392,11 +431,11 @@ export default function SmartStayChatWidget() {
                 </div>
               ) : (
                 conversations.map((c) => {
-                  const other = c.participantDetails?.find((p) => String(p.id) !== String(myIdentity.id)) || {
+                  const other = c.participantDetails?.find((p) => String(p.id) !== String(currentActor.id)) || {
                     name: "Người dùng SmartStay",
                     campus: "Cần Thơ"
                   };
-                  const unread = c.unreadCounts?.[myIdentity.id] || 0;
+                  const unread = c.unreadCounts?.[currentActor.id] || 0;
 
                   return (
                     <div
@@ -429,7 +468,7 @@ export default function SmartStayChatWidget() {
           )}
 
           {/* VIEW 2: KHUNG CHAT TRỰC TIẾP GIỮA HAI NGƯỜI */}
-          {viewMode === "chat" && activeContact && (
+          {viewMode === "chat" && currentTarget && (
             <>
               {/* Banner Bảo mật & Chuyển tiếp Zalo */}
               <div className="px-3.5 py-1.5 bg-orange-50/90 border-b border-orange-100 flex items-center justify-between text-[11px] text-orange-800">
@@ -438,7 +477,7 @@ export default function SmartStayChatWidget() {
                   Trò chuyện P2P an toàn giữa 2 bạn
                 </span>
                 <button
-                  onClick={() => handleOpenZalo(activeContact.phone || activeContact.contact)}
+                  onClick={() => handleOpenZalo(currentTarget.phone || currentTarget.contact)}
                   className="text-[11px] text-blue-600 font-bold hover:underline flex items-center gap-0.5 shrink-0 ml-1 cursor-pointer"
                   title="Nhắn tin riêng tư hoặc trao đổi SĐT qua Zalo"
                 >
@@ -460,7 +499,7 @@ export default function SmartStayChatWidget() {
                 )}
 
                 {messages.map((msg) => {
-                  const isMe = String(msg.senderId) === String(myIdentity.id);
+                  const isMe = String(msg.senderId) === String(currentActor.id);
                   const hasSensitive = Boolean(msg.containsSensitiveInfo);
                   const displayTime = msg.createdAt
                     ? new Date(msg.createdAt).toLocaleTimeString("vi-VN", {
@@ -516,7 +555,7 @@ export default function SmartStayChatWidget() {
                               type="button"
                               onClick={() =>
                                 handleOpenZalo(
-                                  msg.detectedPhone || activeContact?.phone || activeContact?.contact
+                                  msg.detectedPhone || currentTarget?.phone || currentTarget?.contact
                                 )
                               }
                               className={`w-full py-1.5 px-3 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer ${
@@ -591,7 +630,7 @@ export default function SmartStayChatWidget() {
                   type="text"
                   value={inputText}
                   onChange={handleInputChange}
-                  placeholder="Nhập tin nhắn..."
+                  placeholder={`Nhập tin nhắn với vai trò ${currentActor.name}...`}
                   className="flex-1 px-3.5 py-2.5 rounded-full border border-slate-200 bg-slate-50 text-xs focus:bg-white focus:ring-2 focus:ring-orange-500/30 outline-none transition"
                 />
                 <button

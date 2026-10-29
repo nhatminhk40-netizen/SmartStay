@@ -115,11 +115,16 @@ export const getCurrentChatIdentity = (authUser = null) => {
 
 export const chatService = {
   /**
-   * Lấy danh sách cuộc trò chuyện của một user
+   * Lấy danh sách cuộc trò chuyện của một user (theo userId, name, phone)
    */
-  getConversations: async (userId) => {
+  getConversations: async (userId, name, phone) => {
     try {
-      const res = await fetch(`${API_BASE}/chat/conversations?userId=${encodeURIComponent(userId)}`);
+      const params = new URLSearchParams();
+      if (userId) params.set("userId", userId);
+      if (name) params.set("name", name);
+      if (phone) params.set("phone", phone);
+
+      const res = await fetch(`${API_BASE}/chat/conversations?${params.toString()}`);
       const data = await res.json();
       return data.success ? data.data : [];
     } catch (e) {
@@ -163,7 +168,7 @@ export const chatService = {
   /**
    * Gửi tin nhắn đến MongoDB & phát qua Socket
    */
-  sendMessage: async ({ conversationId, senderId, senderName, recipientId, text, recipientPhone }) => {
+  sendMessage: async ({ conversationId, senderId, senderName, recipientId, recipientName, text, recipientPhone }) => {
     try {
       const res = await fetch(`${API_BASE}/chat/messages`, {
         method: "POST",
@@ -173,6 +178,7 @@ export const chatService = {
           senderId,
           senderName,
           recipientId,
+          recipientName,
           text,
           recipientPhone
         })
@@ -200,4 +206,3 @@ export const chatService = {
     }
   }
 };
-
