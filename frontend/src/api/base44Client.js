@@ -273,6 +273,25 @@ const saveClientRooms = (rooms) => {
   } catch (e) {}
 };
 
+// BẢO VỆ DỮ LIỆU CÁ NHÂN (OWASP ZAP - Information Disclosure in localStorage):
+// Loại bỏ triệt để các trường nhạy cảm cao: CCCD/CMND (citizenId, idCard), giấy tờ sở hữu nhà đất (landlordDocuments), hồ sơ bằng lái xe (transporterProfile), passwordHash...
+const sanitizeUserForStorage = (user) => {
+  if (!user || typeof user !== 'object') return null;
+  return {
+    id: user.id || user._id,
+    _id: user._id || user.id,
+    fullName: user.fullName || user.name || '',
+    email: user.email || '',
+    role: user.role || 'student',
+    avatar: user.avatar || '',
+    phone: user.phone || '',
+    campus: user.campus || '',
+    isEmailVerified: Boolean(user.isEmailVerified),
+    phoneVerified: Boolean(user.phoneVerified),
+    verificationStatus: user.verificationStatus || 'APPROVED'
+  };
+};
+
 export const base44 = {
   entities: {
     Room: {
@@ -338,25 +357,37 @@ export const base44 = {
               body: JSON.stringify(data)
             });
             const json = await res.json();
-            if (json.data) {
-              FALLBACK_ROOMS.unshift({ ...json.data, id: json.data._id || json.data.id });
-              return json.data;
+            if (res.ok && json.data) {
+              const saved = { ...json.data, id: json.data._id || json.data.id };
+              FALLBACK_ROOMS.unshift(saved);
+              const cur = loadClientRooms();
+              cur.unshift(saved);
+              saveClientRooms(cur);
+              return saved;
             }
-        } catch (e) {
-          console.warn('Create room API fallback:', e);
-        }
-        const newR = {
-          _id: `room_${Date.now()}`,
-          id: `room_${Date.now()}`,
-          ...data,
-          createdAt: new Date()
-        };
-        const currentRooms = loadClientRooms();
-        currentRooms.unshift(newR);
-        saveClientRooms(currentRooms);
-        FALLBACK_ROOMS.unshift(newR);
-        return newR;
-      },
+            if (!res.ok) {
+              console.error('Server error creating room:', json);
+              throw new Error(json.message || json.error || `Lỗi máy chủ (${res.status})`);
+            }
+          } catch (e) {
+            console.warn('Create room API error / fallback:', e);
+            const isNetworkError = e.name === 'TypeError' || (typeof navigator !== 'undefined' && !navigator.onLine);
+            if (!isNetworkError) {
+              throw e;
+            }
+          }
+          const newR = {
+            _id: `room_${Date.now()}`,
+            id: `room_${Date.now()}`,
+            ...data,
+            createdAt: new Date()
+          };
+          const currentRooms = loadClientRooms();
+          currentRooms.unshift(newR);
+          saveClientRooms(currentRooms);
+          FALLBACK_ROOMS.unshift(newR);
+          return newR;
+        },
 
       update: async (id, data) => {
         try {
@@ -454,7 +485,7 @@ export const base44 = {
       },
 
       myRooms: async () => {
-        const token = localStorage.getItem('smartstay_token');
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
         if (!token) return { count: 0, stats: {}, data: [] };
         try {
           const res = await fetch(`${API_BASE}/rooms/my-rooms`, {
@@ -468,7 +499,7 @@ export const base44 = {
       },
 
       landlordStats: async () => {
-        const token = localStorage.getItem('smartstay_token');
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
         if (!token) return { stats: {} };
         try {
           const res = await fetch(`${API_BASE}/rooms/landlord/stats`, {
@@ -1816,6 +1847,9 @@ export const base44 = {
     }
   },
 
+
+
+
   auth: {
     getToken: () => localStorage.getItem('smartstay_token'),
     setToken: (token) => {
@@ -1838,7 +1872,7 @@ export const base44 = {
         }
         if (data.access_token) {
           localStorage.setItem('smartstay_token', data.access_token);
-          localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+          localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
         }
         return data;
       } catch (err) {
@@ -1889,7 +1923,7 @@ export const base44 = {
           };
           const fallbackToken = 'jwt_offline_' + btoa(unescape(encodeURIComponent(JSON.stringify(userPayload))));
           localStorage.setItem('smartstay_token', fallbackToken);
-          localStorage.setItem('smartstay_user', JSON.stringify(found));
+          localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(found)));
           return { success: true, access_token: fallbackToken, user: found };
         }
         
@@ -1912,7 +1946,7 @@ export const base44 = {
       }
       if (data.access_token) {
         localStorage.setItem('smartstay_token', data.access_token);
-        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+        localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
       }
       return data;
     },
@@ -1976,7 +2010,7 @@ export const base44 = {
       }
       if (data.access_token) {
         localStorage.setItem('smartstay_token', data.access_token);
-        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+        localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
       }
       return data;
     },
@@ -2082,7 +2116,7 @@ export const base44 = {
       }
       if (data.access_token) {
         localStorage.setItem('smartstay_token', data.access_token);
-        localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+        localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
       }
       return data;
     },
@@ -2095,7 +2129,7 @@ export const base44 = {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          localStorage.setItem('smartstay_user', JSON.stringify(data.user));
+          localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
           return data.user;
         }
       } catch (e) {

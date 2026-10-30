@@ -227,7 +227,7 @@ const validateAppointmentMiddleware = (req, res, next) => {
     if (!validation.isValid) {
         return res.status(400).json({
             success: false,
-            message: 'Dữ liệu đặt lịch xem phòng không hợp lệ (CWE-20: Improper Input Validation).',
+            message: 'Dữ liệu đặt lịch xem phòng không hợp lệ. Vui lòng kiểm tra lại.',
             errors: validation.errors
         });
     }

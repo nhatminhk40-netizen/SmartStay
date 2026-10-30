@@ -66,6 +66,7 @@ export default function RoomDetail() {
     const [bookingPhone, setBookingPhone] = useState("");
     const [bookingNote, setBookingNote] = useState("");
     const [bookingResult, setBookingResult] = useState(null);
+    const [bookingError, setBookingError] = useState("");
     const [bookingLoading, setBookingLoading] = useState(false);
 
     // Form khiếu nại báo cáo
@@ -172,16 +173,18 @@ export default function RoomDetail() {
     const handleBookingSubmit = async (e) => {
         e.preventDefault();
 
+        setBookingError("");
+
         // 1. Kiểm tra ngày đặt lịch: chỉ cho phép từ hôm nay đến tối đa 2 tháng
         if (!bookingDate || bookingDate < minBookingDate || bookingDate > maxBookingDate) {
-            alert(`Ngày xem phòng không hợp lệ! Bạn chỉ có thể đặt lịch từ hôm nay đến trước 2 tháng (tối đa đến ngày ${twoMonthsLaterObj.toLocaleDateString('vi-VN')}).`);
+            setBookingError(`Ngày xem phòng không hợp lệ! Bạn chỉ có thể đặt lịch từ hôm nay đến trước 2 tháng (tối đa đến ngày ${twoMonthsLaterObj.toLocaleDateString('vi-VN')}).`);
             return;
         }
 
-        // 2. Kiểm tra số điện thoại: chỉ số, 10 số bắt đầu bằng 0
+        // 2. Kiểm tra số điện thoại: 10 chữ số chuẩn mạng di động Việt Nam (03, 05, 07, 08, 09)
         const cleanPhone = String(bookingPhone || '').replace(/\D/g, '');
-        if (!/^0\d{9}$/.test(cleanPhone)) {
-            alert("Số điện thoại không hợp lệ! Vui lòng chỉ nhập số điện thoại Việt Nam gồm 10 chữ số (bắt đầu bằng số 0).");
+        if (!/^(0|\+84)(3|5|7|8|9)[0-9]{8}$/.test(cleanPhone)) {
+            setBookingError("Số điện thoại không hợp lệ! Vui lòng nhập số điện thoại di động Việt Nam gồm 10 chữ số (đầu số 03, 05, 07, 08 hoặc 09).");
             return;
         }
 
@@ -209,11 +212,12 @@ export default function RoomDetail() {
             const json = await res.json();
             if (json.success) {
                 setBookingResult(json);
+                setBookingError("");
             } else {
-                alert(json.message || "Không thể đặt lịch");
+                setBookingError(json.errors?.[0]?.message || json.message || "Dữ liệu đặt lịch chưa hợp lệ. Vui lòng kiểm tra lại.");
             }
         } catch (err) {
-            alert("Lỗi kết nối khi đặt lịch xem phòng.");
+            setBookingError("Lỗi kết nối đến máy chủ khi đặt lịch xem phòng. Vui lòng thử lại sau.");
         } finally {
             setBookingLoading(false);
         }
@@ -1131,7 +1135,7 @@ export default function RoomDetail() {
                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative">
                         <button
-                            onClick={() => { setShowBookingModal(false); setBookingResult(null); }}
+                            onClick={() => { setShowBookingModal(false); setBookingResult(null); setBookingError(""); }}
                             className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:bg-slate-100"
                         >
                             <X className="w-5 h-5" />
@@ -1160,7 +1164,7 @@ export default function RoomDetail() {
                                     <p>• Hệ thống sẽ gửi tin nhắn SMS/Zalo nhắc trước 2 giờ.</p>
                                 </div>
                                 <button
-                                    onClick={() => { setShowBookingModal(false); setBookingResult(null); }}
+                                    onClick={() => { setShowBookingModal(false); setBookingResult(null); setBookingError(""); }}
                                     className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
                                 >
                                     Đã hiểu & Đóng
@@ -1168,6 +1172,12 @@ export default function RoomDetail() {
                             </div>
                         ) : (
                             <form onSubmit={handleBookingSubmit} className="space-y-3.5 text-xs">
+                                {bookingError && (
+                                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-2.5 text-xs">
+                                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                                        <span>{bookingError}</span>
+                                    </div>
+                                )}
                                 {room.rooms_list && room.rooms_list.length > 0 && (
                                     <div className="p-3 bg-orange-50/70 rounded-2xl border border-orange-200">
                                         <label className="text-slate-800 font-bold block mb-1">

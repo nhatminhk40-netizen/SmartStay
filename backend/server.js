@@ -32,6 +32,9 @@ const PORT = process.env.PORT || 5000;
 // Tắt thông tin header X-Powered-By để tránh rò rỉ công nghệ server
 app.disable('x-powered-by');
 
+// Tin tưởng reverse proxy (Render / Cloudflare) để nhận diện chính xác giao thức HTTPS và Client IP
+app.set('trust proxy', 1);
+
 // Security Middlewares - Helmet bảo mật HTTP Headers
 app.use(helmet({
     contentSecurityPolicy: {
@@ -41,7 +44,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://res.cloudinary.com", "https://*.googleusercontent.com", "https://api.dicebear.com"],
-            connectSrc: ["'self'", "http://localhost:5173", "http://localhost:5000", "ws://localhost:5173", "ws://localhost:5000", "wss://localhost:5000", "https://accounts.google.com"],
+            connectSrc: ["'self'", "http://localhost:5173", "http://localhost:5000", "ws://localhost:5173", "ws://localhost:5000", "wss://localhost:5000", "https://accounts.google.com", "https://smart-stay-swart.vercel.app", "https://*.onrender.com", "wss://*.onrender.com", "https://*.vercel.app"],
             frameSrc: ["'self'", "https://accounts.google.com"],
             frameAncestors: ["'self'"],
             formAction: ["'self'"],
@@ -68,6 +71,8 @@ app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+    // Đảm bảo mọi kết nối (kể cả WebSocket qua Render proxy) luôn nhận header HSTS
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     next();
 });
 
@@ -83,14 +88,29 @@ app.use(cors({
     origin: function (origin, callback) {
         // Cho phép request không có origin (server-to-server, mobile app, postman/curl)
         if (!origin) return callback(null, true);
-        if (allowedCorsOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
+        if (
+            allowedCorsOrigins.includes(origin) || 
+            origin.endsWith('.vercel.app') || 
+            origin.endsWith('.onrender.com') ||
+            origin.startsWith('http://localhost:')
+        ) {
             return callback(null, true);
         }
         return callback(new Error('CORS Policy: Nguồn truy cập này không được phép liên kết dữ liệu với SmartStay API.'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+    allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'X-Requested-With', 
+        'Accept', 
+        'x-admin-pin', 
+        'Origin', 
+        'Cache-Control', 
+        'Pragma'
+    ],
+    exposedHeaders: ['Authorization', 'x-admin-pin']
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
@@ -830,15 +850,22 @@ app.get('/api/rooms/my-rooms', protect, authorize('landlord', 'admin', 'employee
     try {
         const currentUserId = req.user._id || req.user.id;
         const currentUserEmail = req.user.email?.toLowerCase();
+        const userPhone = req.user.phone ? String(req.user.phone).trim() : null;
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
 
         if (isDbConnected) {
-            const query = isAdmin ? {} : {
-                $or: [
-                    { owner: currentUserId },
-                    { ownerEmail: currentUserEmail }
-                ]
-            };
+            const orConditions = [];
+            if (currentUserId && mongoose.Types.ObjectId.isValid(currentUserId)) {
+                orConditions.push({ owner: currentUserId });
+            }
+            if (currentUserEmail) {
+                orConditions.push({ ownerEmail: { $regex: new RegExp(`^${currentUserEmail}$`, 'i') } });
+            }
+            if (userPhone) {
+                orConditions.push({ contactPhone: userPhone });
+            }
+
+            const query = isAdmin ? {} : (orConditions.length > 0 ? { $or: orConditions } : { ownerEmail: '__none__' });
 
             const rooms = await Room.find(query).sort({ createdAt: -1 });
 
@@ -863,7 +890,8 @@ app.get('/api/rooms/my-rooms', protect, authorize('landlord', 'admin', 'employee
         const myRooms = fallbackRooms.filter(r => 
             isAdmin ||
             isSameId(r.owner, currentUserId) ||
-            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail) ||
+            (userPhone && r.contactPhone && String(r.contactPhone).trim() === userPhone)
         );
 
         const stats = {
@@ -897,26 +925,60 @@ app.get('/api/rooms/landlord/stats', protect, authorize('landlord', 'admin', 'em
         let myContracts = [];
         let pendingAppointmentsCount = 0;
 
+        const userPhone = (req.user.phone && String(req.user.phone).trim()) ? String(req.user.phone).trim() : null;
+
         if (isDbConnected) {
-            const roomQuery = isAdmin ? {} : {
-                $or: [{ owner: currentUserId }, { ownerEmail: currentUserEmail }]
-            };
+            const roomConditions = [];
+            if (currentUserId && mongoose.Types.ObjectId.isValid(currentUserId)) {
+                roomConditions.push({ owner: currentUserId });
+            }
+            if (currentUserEmail) {
+                roomConditions.push({ ownerEmail: { $regex: new RegExp(`^${currentUserEmail}$`, 'i') } });
+            }
+            if (userPhone) {
+                roomConditions.push({ contactPhone: userPhone });
+            }
+            const roomQuery = isAdmin ? {} : (roomConditions.length > 0 ? { $or: roomConditions } : { ownerEmail: '__none__' });
             myRooms = await Room.find(roomQuery);
 
-            const contractQuery = isAdmin ? {} : { landlord: currentUserId };
+            const contractQuery = isAdmin ? {} : {
+                $or: [{ landlord: currentUserId }, ...(currentUserEmail ? [{ landlordEmail: currentUserEmail }] : [])]
+            };
             const Contract = mongoose.model('Contract');
             myContracts = await Contract.find(contractQuery);
 
             const roomIds = myRooms.map(r => r._id);
-            pendingAppointmentsCount = await Appointment.countDocuments({
-                $or: [
-                    { roomId: { $in: roomIds }, status: 'pending_landlord' },
-                    { landlordPhone: req.user.phone, status: 'pending_landlord' }
-                ]
-            });
+            const apptConditions = [];
+            if (roomIds.length > 0) {
+                apptConditions.push({ roomId: { $in: roomIds }, status: 'pending_landlord' });
+            }
+            if (userPhone) {
+                apptConditions.push({ landlordPhone: userPhone, status: 'pending_landlord' });
+            }
+            if (isAdmin) {
+                pendingAppointmentsCount = await Appointment.countDocuments({ status: 'pending_landlord' });
+            } else if (apptConditions.length > 0) {
+                pendingAppointmentsCount = await Appointment.countDocuments({ $or: apptConditions });
+            } else {
+                pendingAppointmentsCount = 0;
+            }
         } else {
-            myRooms = fallbackRooms;
-            pendingAppointmentsCount = fallbackAppointments.filter(a => a.status === 'pending_landlord').length;
+            myRooms = isAdmin 
+                ? fallbackRooms 
+                : fallbackRooms.filter(r => 
+                    isSameId(r.owner, currentUserId) || 
+                    (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+                );
+            const myRoomIds = new Set(myRooms.map(r => String(r._id || r.id)));
+            pendingAppointmentsCount = isAdmin 
+                ? fallbackAppointments.filter(a => a.status === 'pending_landlord').length
+                : fallbackAppointments.filter(a => {
+                    if (a.status !== 'pending_landlord') return false;
+                    const aRoomId = a.roomId?._id || a.roomId?.id || a.roomId;
+                    const matchRoom = aRoomId && myRoomIds.has(String(aRoomId));
+                    const matchPhone = userPhone && a.landlordPhone && String(a.landlordPhone).trim() === userPhone;
+                    return matchRoom || matchPhone;
+                }).length;
         }
 
         const totalRooms = myRooms.length;
@@ -956,7 +1018,7 @@ app.get('/api/rooms/landlord/stats', protect, authorize('landlord', 'admin', 'em
 });
 
 // 1.3. Cập nhật nhanh tình trạng phòng (Còn phòng / Đã thuê) & Xác nhận minh bạch
-app.patch('/api/rooms/:id/availability', protect, checkRoomOwnership, async (req, res) => {
+app.patch('/api/rooms/:id/availability', protect, async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body; // 'available' | 'rented' | 'repairing'
@@ -965,13 +1027,27 @@ app.patch('/api/rooms/:id/availability', protect, checkRoomOwnership, async (req
             return res.status(400).json({ success: false, message: 'Trạng thái phòng không hợp lệ.' });
         }
 
+        let targetRoom = null;
+        if (isDbConnected && mongoose.Types.ObjectId.isValid(id)) {
+            targetRoom = await Room.findById(id);
+        } else {
+            targetRoom = fallbackRooms.find(r => isSameId(r._id, id) || isSameId(r.id, id));
+        }
+
+        if (!targetRoom) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
+        }
+
+        if (!checkRoomOwnership(targetRoom, req.user)) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền cập nhật trạng thái phòng này.' });
+        }
+
         if (isDbConnected) {
             const room = await Room.findByIdAndUpdate(
                 id,
                 { status, lastAvailabilityConfirmedAt: new Date() },
                 { new: true }
             );
-            if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
             return res.status(200).json({
                 success: true,
                 message: `Đã cập nhật tình trạng phòng: ${status === 'available' ? 'Còn phòng' : (status === 'rented' ? 'Đã cho thuê' : 'Đang sửa chữa')}`,
@@ -979,12 +1055,11 @@ app.patch('/api/rooms/:id/availability', protect, checkRoomOwnership, async (req
             });
         }
 
-        const room = fallbackRooms.find(r => isSameId(r._id, id) || isSameId(r.id, id));
-        if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
-        room.status = status;
-        room.lastAvailabilityConfirmedAt = new Date();
+        targetRoom.status = status;
+        targetRoom.lastAvailabilityConfirmedAt = new Date();
+        saveFallbackRooms(fallbackRooms);
 
-        res.status(200).json({ success: true, message: 'Đã cập nhật tình trạng phòng (Fallback).', data: room });
+        res.status(200).json({ success: true, message: 'Đã cập nhật tình trạng phòng (Fallback).', data: targetRoom });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -1085,6 +1160,10 @@ app.get('/api/rooms/:id', async (req, res) => {
 app.post('/api/rooms', protect, async (req, res) => {
     try {
         const data = { ...req.body };
+        // QUAN TRỌNG: Loại bỏ _id và id giả lập của client để MongoDB tự sinh ObjectId hợp lệ
+        delete data._id;
+        delete data.id;
+
         if (!data.image_url && data.images && data.images.length > 0) {
             data.image_url = data.images[0];
         }
@@ -1109,7 +1188,13 @@ app.post('/api/rooms', protect, async (req, res) => {
         data.isDemo = req.body.isDemo !== undefined ? req.body.isDemo : false;
         data.isSurveyed = req.body.isSurveyed !== undefined ? req.body.isSurveyed : true;
         data.verificationStatus = data.safe_badge || data.isSurveyed ? 'verified' : (req.body.verificationStatus || 'unverified');
-        data.owner = req.user?._id || req.user?.id;
+
+        const validUserId = req.user?._id || req.user?.id;
+        if (validUserId && mongoose.Types.ObjectId.isValid(validUserId)) {
+            data.owner = validUserId;
+        } else {
+            delete data.owner;
+        }
         data.ownerEmail = req.user?.email || '';
         data.lastAvailabilityConfirmedAt = new Date();
 
@@ -1128,6 +1213,7 @@ app.post('/api/rooms', protect, async (req, res) => {
         saveFallbackRooms(fallbackRooms);
         res.status(201).json({ success: true, data: newRoom });
     } catch (error) {
+        console.error('Lỗi POST /api/rooms:', error);
         res.status(400).json({ success: false, error: error.message });
     }
 });
@@ -1144,10 +1230,18 @@ app.post('/api/rooms/pass', protect, async (req, res) => {
             isSafeBadge: false,
             safe_badge: false,
             verificationStatus: 'unverified',
-            owner: req.user._id || req.user.id,
-            ownerEmail: req.user.email || '',
+            ownerEmail: req.user?.email || '',
             lastAvailabilityConfirmedAt: new Date()
         };
+        delete passData._id;
+        delete passData.id;
+
+        const validUserId = req.user?._id || req.user?.id;
+        if (validUserId && mongoose.Types.ObjectId.isValid(validUserId)) {
+            passData.owner = validUserId;
+        } else {
+            delete passData.owner;
+        }
 
         if (isDbConnected) {
             const room = await Room.create(passData);
@@ -2612,12 +2706,12 @@ app.delete('/api/admin/landlords/:id', protect, authorize('admin'), adminIpWhite
     try {
         const { id } = req.params;
         if (isDbConnected) {
-            const deleted = await User.findOneAndDelete({ _id: id, role: 'landlord' });
+            const deleted = await User.findOneAndDelete({ _id: id });
             if (!deleted) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ này.' });
-            return res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ thành công.' });
+            return res.status(200).json({ success: true, message: 'Đã xóa / thu hồi tài khoản Chủ trọ thành công.' });
         }
         const fallbackUsers = req.app.locals.fallbackUsers || [];
-        const idx = fallbackUsers.findIndex(u => (String(u._id) === id || String(u.id) === id) && u.role === 'landlord');
+        const idx = fallbackUsers.findIndex(u => String(u._id) === id || String(u.id) === id);
         if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ.' });
         fallbackUsers.splice(idx, 1);
         res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ.' });
@@ -2825,23 +2919,40 @@ app.get('/api/appointments/landlord', protect, authorize('landlord', 'admin', 'e
     try {
         const currentUserId = req.user._id || req.user.id;
         const currentUserEmail = req.user.email?.toLowerCase();
+        const userPhone = (req.user.phone && String(req.user.phone).trim()) ? String(req.user.phone).trim() : null;
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
 
         if (isDbConnected) {
             let roomIds = [];
             if (!isAdmin) {
                 const myRooms = await Room.find({
-                    $or: [{ owner: currentUserId }, { ownerEmail: currentUserEmail }]
+                    $or: [
+                        { owner: currentUserId },
+                        ...(currentUserEmail ? [{ ownerEmail: currentUserEmail }] : [])
+                    ]
                 }).select('_id');
                 roomIds = myRooms.map(r => r._id);
             }
 
-            const query = isAdmin ? {} : {
-                $or: [
-                    { roomId: { $in: roomIds } },
-                    { landlordPhone: req.user.phone }
-                ]
-            };
+            let query = {};
+            if (!isAdmin) {
+                const conditions = [];
+                if (roomIds.length > 0) {
+                    conditions.push({ roomId: { $in: roomIds } });
+                }
+                if (userPhone) {
+                    conditions.push({ landlordPhone: userPhone });
+                }
+                // Nếu chủ trọ chưa có phòng nào và không có SĐT -> Trả về mảng rỗng [] ngay
+                if (conditions.length === 0) {
+                    return res.status(200).json({
+                        success: true,
+                        count: 0,
+                        data: []
+                    });
+                }
+                query = { $or: conditions };
+            }
 
             const appts = await Appointment.find(query)
                 .sort({ createdAt: -1 })
@@ -2854,10 +2965,36 @@ app.get('/api/appointments/landlord', protect, authorize('landlord', 'admin', 'e
             });
         }
 
+        // Chế độ Fallback Local: lọc chặt chẽ theo danh sách phòng sở hữu hoặc số điện thoại của chủ trọ
+        const myRooms = fallbackRooms.filter(r => 
+            isAdmin ||
+            isSameId(r.owner, currentUserId) ||
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail)
+        );
+        const myRoomIds = new Set(myRooms.map(r => String(r._id || r.id)));
+
+        // Nếu chủ trọ không phải admin và không sở hữu phòng nào và không có phone:
+        if (!isAdmin && myRoomIds.size === 0 && !userPhone) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                data: []
+            });
+        }
+
+        const filtered = isAdmin 
+            ? fallbackAppointments 
+            : fallbackAppointments.filter(a => {
+                const aRoomId = a.roomId?._id || a.roomId?.id || a.roomId;
+                const matchRoom = aRoomId && myRoomIds.has(String(aRoomId));
+                const matchPhone = userPhone && a.landlordPhone && String(a.landlordPhone).trim() === userPhone;
+                return matchRoom || matchPhone;
+            });
+
         res.status(200).json({
             success: true,
-            count: fallbackAppointments.length,
-            data: fallbackAppointments
+            count: filtered.length,
+            data: filtered
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

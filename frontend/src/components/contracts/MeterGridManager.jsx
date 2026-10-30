@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import html2canvas from "html2canvas";
 import * as XLSX from "xlsx";
 import QRCode from "qrcode";
@@ -2119,8 +2120,8 @@ export default function MeterGridManager({
       )}
 
       {/* ── MODAL GHI NHẬN THU TIỀN & THU MỘT PHẦN (DEBT TRACKING) ── */}
-      {paymentModal.open && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: 9999 }}>
+      {paymentModal.open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <div>
@@ -2220,12 +2221,13 @@ export default function MeterGridManager({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL CÀI ĐẶT ĐƠN GIÁ CHUNG CẢ DÃY (BATCH RATES) ── */}
-      {batchRatesModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: 9999 }}>
+      {batchRatesModal && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <div>
@@ -2325,12 +2327,13 @@ export default function MeterGridManager({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL 1: ĐÍNH KÈM ẢNH CHỤP CÔNG TƠ MINH BẠCH ── */}
-      {photoModal.open && photoModal.rowIndex !== null && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]" style={{ zIndex: 9999 }}>
+      {photoModal.open && photoModal.rowIndex !== null && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
@@ -2409,12 +2412,13 @@ export default function MeterGridManager({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL XEM VÀ IN HÓA ĐƠN CHI TIẾT TỪ BẢNG LƯỚI (HỖ TRỢ COPY ẢNH GỬI ZALO) ── */}
-      {viewingInvoice && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto" style={{ zIndex: 9999 }}>
+      {viewingInvoice && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto" style={{ zIndex: 99999 }}>
           
           <style>{`
             @media print {
@@ -2750,12 +2754,13 @@ export default function MeterGridManager({
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL 2: TÙY CHỈNH PHỤ PHÍ & GHI CHÚ RIÊNG CỦA PHÒNG ── */}
-      {feeModal.open && feeModal.rowIndex !== null && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]" style={{ zIndex: 9999 }}>
+      {feeModal.open && feeModal.rowIndex !== null && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
@@ -2912,7 +2917,8 @@ export default function MeterGridManager({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

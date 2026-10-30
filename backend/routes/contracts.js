@@ -54,15 +54,21 @@ router.get('/lookup/rooms', protect, authorize('landlord', 'admin', 'employee'),
         const isDbConnected = req.app.locals.isDbConnected;
         const currentUserId = req.user._id || req.user.id;
         const currentUserEmail = (req.user.email || '').toLowerCase();
+        const userPhone = req.user.phone ? String(req.user.phone).trim() : null;
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
 
         if (isDbConnected) {
-            const query = isAdmin ? {} : {
-                $or: [
-                    { owner: currentUserId },
-                    { ownerEmail: req.user.email }
-                ]
-            };
+            const orConditions = [];
+            if (currentUserId && mongoose.Types.ObjectId.isValid(currentUserId)) {
+                orConditions.push({ owner: currentUserId });
+            }
+            if (currentUserEmail) {
+                orConditions.push({ ownerEmail: { $regex: new RegExp(`^${currentUserEmail}$`, 'i') } });
+            }
+            if (userPhone) {
+                orConditions.push({ contactPhone: userPhone });
+            }
+            const query = isAdmin ? {} : (orConditions.length > 0 ? { $or: orConditions } : { ownerEmail: '__none__' });
             const rooms = await Room.find(query).select('title address price status area_sqm campus contactPhone');
             return res.status(200).json({ success: true, data: rooms });
         }
@@ -70,7 +76,9 @@ router.get('/lookup/rooms', protect, authorize('landlord', 'admin', 'employee'),
         // Fallback local mode
         const fallbackRooms = req.app.locals.fallbackRooms || [];
         const rooms = isAdmin ? fallbackRooms : fallbackRooms.filter(r => 
-            isSameId(r.owner, currentUserId) || (r.ownerEmail && r.ownerEmail.toLowerCase() === req.user.email?.toLowerCase())
+            isSameId(r.owner, currentUserId) || 
+            (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail) ||
+            (userPhone && r.contactPhone && String(r.contactPhone).trim() === userPhone)
         );
         return res.status(200).json({ success: true, data: rooms });
     } catch (error) {
@@ -118,6 +126,7 @@ router.get('/', protect, async (req, res) => {
         const limitNum = Math.max(1, parseInt(limit, 10));
         const isDbConnected = req.app.locals.isDbConnected;
         const currentUserId = req.user._id || req.user.id;
+        const currentUserEmail = (req.user.email || '').toLowerCase();
         const isAdmin = req.user.role === 'admin' || req.user.role === 'employee';
         const isStudent = req.user.role === 'student';
 

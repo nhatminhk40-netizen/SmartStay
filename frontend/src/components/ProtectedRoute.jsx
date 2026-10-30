@@ -17,7 +17,7 @@ export default function ProtectedRoute({
     requiredRoles = [], 
     children 
 }) {
-    const { user, isAuthenticated, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
+    const { user, isAuthenticated, isLoadingAuth, authChecked, authError, checkUserAuth, logout } = useAuth();
     const location = useLocation();
 
     useEffect(() => {
@@ -45,18 +45,60 @@ export default function ProtectedRoute({
     if (requiredRoles.length > 0 && user) {
         const hasRequiredRole = requiredRoles.includes(user.role);
         if (!hasRequiredRole) {
+            const roleLabels = {
+                admin: "Quản trị viên (Admin)",
+                landlord: "Chủ trọ (Landlord)",
+                employee: "Nhân viên hỗ trợ",
+                transporter: "Tài xế vận tải",
+                student: "Người thuê / Sinh viên"
+            };
+            const currentRoleLabel = roleLabels[user.role] || user.role;
+            const requiredRolesLabel = requiredRoles.map(r => roleLabels[r] || r).join(", ");
+
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-2xl mb-4">
+                    <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-2xl mb-4 shadow-sm">
                         ⛔
                     </div>
                     <h2 className="text-xl font-bold text-slate-900 mb-2">Quyền truy cập bị từ chối</h2>
-                    <p className="text-sm text-slate-500 max-w-sm mb-6">
-                        Tài khoản của bạn ({user.role}) không có quyền truy cập vào phân hệ này.
+                    <p className="text-sm text-slate-600 max-w-md mb-2">
+                        Tài khoản hiện tại của bạn là <span className="font-semibold text-rose-600">{currentRoleLabel}</span>.
                     </p>
-                    <a href="/" className="px-5 py-2.5 bg-slate-900 text-white rounded-full text-xs font-bold hover:bg-slate-800 transition">
-                        Về trang chủ
-                    </a>
+                    <p className="text-xs text-slate-400 max-w-md mb-6">
+                        Phân hệ này yêu cầu quyền: <span className="font-medium text-slate-700">{requiredRolesLabel}</span>.
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                        {(user.role === 'landlord' || user.role === 'employee') && (
+                            <a 
+                                href="/chu-tro" 
+                                className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition shadow-sm"
+                            >
+                                Vào Kênh Quản lý Chủ trọ
+                            </a>
+                        )}
+                        {user.role === 'admin' && (
+                            <a 
+                                href="/admin" 
+                                className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition shadow-sm"
+                            >
+                                Vào Trang Quản trị (Admin)
+                            </a>
+                        )}
+                        <a 
+                            href="/" 
+                            className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition"
+                        >
+                            Về trang chủ
+                        </a>
+                        <button 
+                            type="button"
+                            onClick={() => logout(true)} 
+                            className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100 transition shadow-xs cursor-pointer"
+                        >
+                            Đăng xuất / Đổi tài khoản
+                        </button>
+                    </div>
                 </div>
             );
         }

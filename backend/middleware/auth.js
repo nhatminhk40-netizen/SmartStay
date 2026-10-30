@@ -148,9 +148,10 @@ const authorize = (...roles) => {
 // Helper kiểm tra quyền sở hữu phòng (Owner hoặc Admin)
 const checkRoomOwnership = (room, user) => {
     if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (user.role === 'admin' || user.role === 'employee') return true;
     if (room.owner && String(room.owner) === String(user._id || user.id)) return true;
-    if (room.ownerEmail && room.ownerEmail === user.email) return true;
+    if (room.ownerEmail && (user.email || '') && room.ownerEmail.toLowerCase() === user.email.toLowerCase()) return true;
+    if (room.contactPhone && user.phone && String(room.contactPhone).trim() === String(user.phone).trim()) return true;
     return false;
 };
 
