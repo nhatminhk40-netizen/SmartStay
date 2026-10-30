@@ -36,7 +36,8 @@ import {
     Download,
     Printer,
     UserCheck,
-    DoorOpen
+    DoorOpen,
+    Building2
 } from "lucide-react";
 
 export default function RoomDetail() {
