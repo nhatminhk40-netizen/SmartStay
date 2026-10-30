@@ -85,8 +85,12 @@ const AuthenticatedApp = () => {
           </ProtectedRoute>
         } />
 
-        {/* 3. Phân hệ Tài xế Vận tải (Transporter Portal) */}
-        <Route path="/tai-xe" element={<Navigate to="/" replace />} />
+        {/* 3. Phân hệ Tài xế Vận tải (Chuyển trọ Sinh viên - Transporter Portal) */}
+        <Route path="/tai-xe" element={
+          <ProtectedRoute requiredRoles={['transporter', 'admin']}>
+            <TransporterPortal />
+          </ProtectedRoute>
+        } />
 
         {/* 4. Xác nhận Pass phòng */}
         <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
@@ -98,7 +102,7 @@ const AuthenticatedApp = () => {
           <Route path="/phong/:id" element={<RoomDetail />} />
           <Route path="/so-sanh" element={<CompareRooms />} />
           <Route path="/ghep-ban" element={<Roommates />} />
-          <Route path="/chuyen-tro" element={<Navigate to="/" replace />} />
+          <Route path="/chuyen-tro" element={<TransporterPortal />} />
           <Route path="/pass-phong" element={<RoomPass />} />
           <Route path="/pass-phong/:id" element={<PassRoomDetail />} />
           <Route path="/pass-phong/cua-toi" element={

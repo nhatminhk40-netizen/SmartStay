@@ -878,19 +878,88 @@ router.get('/my-bills', protect, async (req, res) => {
     try {
         const isDbConnected = req.app.locals.isDbConnected;
         const currentUserId = req.user._id || req.user.id;
+        const userEmail = (req.user.email || '').toLowerCase();
+
+        const getDemoBills = () => [
+            {
+                _id: 'bill_demo_student_10_2026',
+                id: 'bill_demo_student_10_2026',
+                month: 10,
+                year: 2026,
+                room: {
+                    title: 'Phòng 102 - Studio ban công thoáng mát gần ĐH Cần Thơ',
+                    address: 'Hẻm 51 đường 3 Tháng 2, Xuân Khánh, Ninh Kiều, Cần Thơ'
+                },
+                landlord: {
+                    fullName: 'Cô Ba (Chủ nhà trọ SmartStay)',
+                    phone: '0901234567',
+                    email: 'chutro@smartstay.vn'
+                },
+                monthlyRent: 2200000,
+                electricUsage: 120,
+                electricPrice: 3800,
+                electricTotal: 456000,
+                electricPhotoUrl: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=600&q=80',
+                waterUsage: 6,
+                waterPrice: 15000,
+                waterTotal: 90000,
+                otherTotal: 50000,
+                totalAmount: 2796000,
+                status: 'unpaid',
+                createdAt: '2026-10-01T00:00:00.000Z'
+            },
+            {
+                _id: 'bill_demo_student_09_2026',
+                id: 'bill_demo_student_09_2026',
+                month: 9,
+                year: 2026,
+                room: {
+                    title: 'Phòng 102 - Studio ban công thoáng mát gần ĐH Cần Thơ',
+                    address: 'Hẻm 51 đường 3 Tháng 2, Xuân Khánh, Ninh Kiều, Cần Thơ'
+                },
+                landlord: {
+                    fullName: 'Cô Ba (Chủ nhà trọ SmartStay)',
+                    phone: '0901234567',
+                    email: 'chutro@smartstay.vn'
+                },
+                monthlyRent: 2200000,
+                electricUsage: 110,
+                electricPrice: 3800,
+                electricTotal: 418000,
+                waterUsage: 5,
+                waterPrice: 15000,
+                waterTotal: 75000,
+                otherTotal: 50000,
+                totalAmount: 2743000,
+                status: 'paid',
+                paidAt: '2026-09-05T10:00:00.000Z',
+                createdAt: '2026-09-01T00:00:00.000Z'
+            }
+        ];
 
         if (isDbConnected) {
-            const bills = await Bill.find({ tenant: currentUserId })
+            let bills = await Bill.find({ tenant: currentUserId })
                 .sort({ createdAt: -1 })
                 .populate('room', 'title address images image_url')
                 .populate('landlord', 'fullName phone email')
                 .populate('contract', 'startDate endDate monthlyRent electricPrice waterPrice');
+
+            // Chỉ hiển thị hóa đơn mẫu cho đúng tài khoản demo sinhvien@smartstay.vn
+            if (bills.length === 0 && userEmail === 'sinhvien@smartstay.vn') {
+                bills = getDemoBills();
+            }
 
             return res.status(200).json({
                 success: true,
                 count: bills.length,
                 data: bills
             });
+        }
+
+        // Fallback offline mode: Chỉ tài khoản demo sinh viên mới thấy hóa đơn mẫu
+        if (userEmail === 'sinhvien@smartstay.vn') {
+            const demoBills = getDemoBills();
+            return res.status(200).json({ success: true, count: demoBills.length, data: demoBills });
         }
 
         res.status(200).json({ success: true, count: 0, data: [] });

@@ -69,9 +69,8 @@ const loginLimiter = rateLimit({
 // Kho lưu trữ tạm mã OTP xác thực số điện thoại
 const phoneOtpStore = new Map();
 
-// Danh sách tài khoản demo (CHỈ dành cho môi trường local development khi MongoDB chưa sẵn sàng)
-const isProd = process.env.NODE_ENV === 'production';
-const defaultDemoUsers = isProd ? [] : [
+// Danh sách 4 tài khoản demo SmartStay chính thức
+const defaultDemoUsers = [
     {
         _id: 'usr_admin_001',
         fullName: 'Quản trị viên Hệ thống (Dev Mode)',

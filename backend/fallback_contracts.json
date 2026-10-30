@@ -22,11 +22,11 @@
       "role": "student"
     },
     "landlord": {
-      "_id": "usr_landlord_nhatminh",
-      "id": "usr_landlord_nhatminh",
-      "fullName": "Đinh Trịnh Nhật Minh",
-      "email": "nhatminhk40@gmail.com",
-      "phone": "0939112233",
+      "_id": "usr_landlord_001",
+      "id": "usr_landlord_001",
+      "fullName": "Cô Ba (Chủ nhà trọ SmartStay)",
+      "email": "chutro@smartstay.vn",
+      "phone": "0901234567",
       "role": "landlord"
     },
     "startDate": "2026-08-20T07:38:31.082Z",
@@ -68,21 +68,21 @@
       "status": "rented"
     },
     "tenant": {
-      "_id": "usr_tenant_002",
-      "id": "usr_tenant_002",
-      "fullName": "Lê Thị Thu Thảo",
-      "email": "thuthaole@gmail.com",
-      "phone": "0979888999",
-      "studentId": "MSSV18002",
-      "campus": "ĐH Cần Thơ",
+      "_id": "usr_student_001",
+      "id": "usr_student_001",
+      "fullName": "Nguyễn Văn Sinh Viên (FPT Cần Thơ)",
+      "email": "sinhvien@smartstay.vn",
+      "phone": "0988776655",
+      "studentId": "CE180001",
+      "campus": "FPT Can Tho",
       "role": "student"
     },
     "landlord": {
-      "_id": "usr_landlord_nhatminh",
-      "id": "usr_landlord_nhatminh",
-      "fullName": "Đinh Trịnh Nhật Minh",
-      "email": "nhatminhk40@gmail.com",
-      "phone": "0939112233",
+      "_id": "usr_landlord_001",
+      "id": "usr_landlord_001",
+      "fullName": "Cô Ba (Chủ nhà trọ SmartStay)",
+      "email": "chutro@smartstay.vn",
+      "phone": "0901234567",
       "role": "landlord"
     },
     "startDate": "2025-11-05T07:38:31.082Z",
@@ -129,11 +129,11 @@
       "role": "student"
     },
     "landlord": {
-      "_id": "usr_landlord_nhatminh",
-      "id": "usr_landlord_nhatminh",
-      "fullName": "Đinh Trịnh Nhật Minh",
-      "email": "nhatminhk40@gmail.com",
-      "phone": "0939112233",
+      "_id": "usr_landlord_001",
+      "id": "usr_landlord_001",
+      "fullName": "Cô Ba (Chủ nhà trọ SmartStay)",
+      "email": "chutro@smartstay.vn",
+      "phone": "0901234567",
       "role": "landlord"
     },
     "startDate": "2026-10-17T07:38:31.082Z",
@@ -180,11 +180,11 @@
       "role": "student"
     },
     "landlord": {
-      "_id": "usr_landlord_nhatminh",
-      "id": "usr_landlord_nhatminh",
-      "fullName": "Đinh Trịnh Nhật Minh",
-      "email": "nhatminhk40@gmail.com",
-      "phone": "0939112233",
+      "_id": "usr_landlord_001",
+      "id": "usr_landlord_001",
+      "fullName": "Cô Ba (Chủ nhà trọ SmartStay)",
+      "email": "chutro@smartstay.vn",
+      "phone": "0901234567",
       "role": "landlord"
     },
     "startDate": "2025-09-20T07:38:31.082Z",

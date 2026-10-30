@@ -203,7 +203,8 @@ const surveyedRoomsData = [
         hasSeparateMeter: true,
         depositMonths: 1,
         extraFees: { wifi: 0, trash: 0, parking: 0 },
-        isDemo: false,
+        isDemo: true,
+        ownerEmail: 'chutro@smartstay.vn',
         verificationStatus: 'unverified',
         approvalStatus: 'approved',
         listingType: 'standard',
@@ -224,6 +225,7 @@ const surveyedRoomsData = [
         area_sqm: 25,
         room_type: 'Phòng trọ khép kín',
         contactPhone: '0907297338',
+        ownerEmail: 'chutro@smartstay.vn',
         description: 'Dãy trọ Lê Khải an ninh, giờ giấc tự do, có bảo vệ và camera 24/7. Các phòng đều có gác lửng đúc kiên cố, ban công thoáng mát.',
         rating: 4.8,
         image_url: 'https://lh3.googleusercontent.com/d/1RscDS08IT5hjZKrOlqJyjeySppXuUzq0',
@@ -253,7 +255,8 @@ const surveyedRoomsData = [
         hasSeparateMeter: true,
         depositMonths: 1,
         extraFees: { wifi: 0, trash: 0, parking: 0 },
-        isDemo: false,
+        isDemo: true,
+        ownerEmail: 'chutro@smartstay.vn',
         verificationStatus: 'unverified',
         approvalStatus: 'approved',
         listingType: 'standard',
@@ -268,6 +271,7 @@ const surveyedRoomsData = [
         area_sqm: 30,
         room_type: 'Phòng trọ khép kín',
         contactPhone: '0907297338',
+        ownerEmail: 'chutro@smartstay.vn',
         description: 'Có ban công thuận tiện cho việc phơi đồ',
         rating: 4.8,
         image_url: 'https://lh3.googleusercontent.com/d/1RfcMWHVi-78DD6cvoY4jMHZn5L-HCBlS',
@@ -289,7 +293,8 @@ const surveyedRoomsData = [
         hasSeparateMeter: true,
         depositMonths: 1,
         extraFees: { wifi: 0, trash: 0, parking: 0 },
-        isDemo: false,
+        isDemo: true,
+        ownerEmail: 'chutro@smartstay.vn',
         verificationStatus: 'unverified',
         approvalStatus: 'approved',
         listingType: 'standard',
@@ -300,12 +305,37 @@ const surveyedRoomsData = [
 const syncSurveyedRoomsToDatabase = async () => {
     if (!isDbConnected) return;
     try {
+        const chutroUser = await User.findOne({ email: 'chutro@smartstay.vn' });
+        const chutroId = chutroUser ? chutroUser._id : null;
+
         for (const r of surveyedRoomsData) {
             const exists = await Room.findOne({ title: r.title, price: r.price });
             if (!exists) {
-                await Room.create({ ...r, approvalStatus: 'approved', safe_badge: false, isSafeBadge: false, verificationStatus: 'unverified' });
+                await Room.create({ 
+                    ...r, 
+                    owner: chutroId,
+                    ownerEmail: 'chutro@smartstay.vn',
+                    approvalStatus: 'approved', 
+                    safe_badge: false, 
+                    isSafeBadge: false, 
+                    verificationStatus: 'unverified' 
+                });
                 console.log(`✅ Đã tự động đồng bộ phòng vào MongoDB Atlas: ${r.title} (${r.price})`);
+            } else if (!exists.ownerEmail || exists.ownerEmail === '') {
+                exists.ownerEmail = 'chutro@smartstay.vn';
+                if (chutroId && !exists.owner) exists.owner = chutroId;
+                await exists.save();
             }
+        }
+        // Gán tài khoản demo chutro@smartstay.vn cho các phòng mẫu chưa có email chủ trọ
+        if (chutroId) {
+            await Room.updateMany(
+                { 
+                    $or: [{ ownerEmail: '' }, { ownerEmail: null }, { ownerEmail: { $exists: false } }],
+                    title: { $in: ['Phòng trọ cao cấp gần ĐH FPT Cần Thơ (Gác lửng, full nội thất)', 'Phòng trọ sinh viên giá rẻ gần ĐH Cần Thơ - Khu 2', 'SmartStay Pass: Sang nhượng phòng ban công view thoáng (còn cọc 2 tháng)', 'Homestay sinh viên full tiện ích gần ĐH Y Dược Cần Thơ', 'Phòng Trọ Thanh Sơn', 'Phòng Trọ Lê khải'] }
+                },
+                { $set: { owner: chutroId, ownerEmail: 'chutro@smartstay.vn' } }
+            );
         }
         // Gỡ bỏ hoàn toàn huy hiệu xác minh thực địa của tất cả phòng cũ
         await Room.updateMany(
@@ -879,7 +909,7 @@ app.get('/api/rooms/my-rooms', protect, authorize('landlord', 'admin', 'employee
             if (currentUserEmail) {
                 orConditions.push({ ownerEmail: { $regex: new RegExp(`^${currentUserEmail}$`, 'i') } });
             }
-            if (userPhone) {
+            if (userPhone && currentUserEmail === 'chutro@smartstay.vn') {
                 orConditions.push({ contactPhone: userPhone });
             }
 
@@ -909,7 +939,7 @@ app.get('/api/rooms/my-rooms', protect, authorize('landlord', 'admin', 'employee
             isAdmin ||
             isSameId(r.owner, currentUserId) ||
             (r.ownerEmail && r.ownerEmail.toLowerCase() === currentUserEmail) ||
-            (userPhone && r.contactPhone && String(r.contactPhone).trim() === userPhone)
+            (currentUserEmail === 'chutro@smartstay.vn' && userPhone && r.contactPhone && String(r.contactPhone).trim() === userPhone)
         );
 
         const stats = {
@@ -2030,9 +2060,11 @@ app.get('/api/logistics-request/my-requests', protect, async (req, res) => {
             });
         }
 
+        const userEmail = (req.user.email || '').toLowerCase();
         const filtered = fallbackLogisticsRequests.filter(r => 
             (r.phone && req.user.phone && r.phone.replace(/\s+/g, '') === req.user.phone.replace(/\s+/g, '')) ||
-            (userRole === 'transporter' && r.status === 'in_progress')
+            (userRole === 'transporter' && userEmail === 'taixe@smartstay.vn' && (r.status === 'in_progress' || r.status === 'completed')) ||
+            (r.driver && String(r.driver) === String(userId))
         );
 
         res.status(200).json({

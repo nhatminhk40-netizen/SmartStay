@@ -1432,7 +1432,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
         });
       }
     });
-    if (map.size === 0) {
+    if (map.size === 0 && user?.email === "chutro@smartstay.vn") {
       map.set("Nhà trọ Lê Khải", {
         property_name: "Nhà trọ Lê Khải",
         address: "Khu vực gần ĐH FPT Cần Thơ, Cần Thơ",
@@ -1667,25 +1667,32 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
               </button>
             </div>
 
-            <select
-              value={selectedPropName}
-              onChange={(e) => {
-                const nextVal = e.target.value;
-                setSelectedPropName(nextVal);
-                const found = propertyOptions.find(p => p.property_name === nextVal);
-                if (found) {
-                  setSinglePrice(String(found.price || 1800000));
-                  setBulkPrice(String(found.price || 1800000));
-                }
-              }}
-              className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-bold focus:outline-none focus:border-[#f97316]"
-            >
-              {propertyOptions.map(p => (
-                <option key={p.property_name} value={p.property_name}>
-                  🏠 {p.property_name} — {p.address}
-                </option>
-              ))}
-            </select>
+            {propertyOptions.length === 0 ? (
+              <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs space-y-1">
+                <p className="font-bold">⚠️ Bạn chưa tạo Cơ sở / Dãy trọ nào.</p>
+                <p>Vui lòng bấm <strong>"Tạo trọ ở vị trí mới"</strong> ở góc trên bên phải để thiết lập cơ sở trọ đầu tiên của bạn trước khi thêm từng phòng.</p>
+              </div>
+            ) : (
+              <select
+                value={selectedPropName}
+                onChange={(e) => {
+                  const nextVal = e.target.value;
+                  setSelectedPropName(nextVal);
+                  const found = propertyOptions.find(p => p.property_name === nextVal);
+                  if (found) {
+                    setSinglePrice(String(found.price || 1800000));
+                    setBulkPrice(String(found.price || 1800000));
+                  }
+                }}
+                className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-bold focus:outline-none focus:border-[#f97316]"
+              >
+                {propertyOptions.map(p => (
+                  <option key={p.property_name} value={p.property_name}>
+                    🏠 {p.property_name} — {p.address}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Thông tin kế thừa tự động */}
             {activeProp && (

@@ -305,10 +305,21 @@ router.get('/my-contracts', protect, async (req, res) => {
         const userPhone = req.user.phone;
 
         if (isDbConnected) {
-            const contracts = await Contract.find({ tenant: currentUserId })
+            let contracts = await Contract.find({ 
+                $or: [
+                    { tenant: currentUserId },
+                    { 'tenant.email': userEmail }
+                ]
+            })
                 .populate('room', 'title address price campus images image_url amenities contactPhone status')
                 .populate('landlord', 'fullName email phone')
                 .sort({ createdAt: -1 });
+
+            // Nếu là tài khoản Demo sinhvien@smartstay.vn mà trong DB chưa có: Cho phép hiển thị hợp đồng mẫu
+            if (contracts.length === 0 && userEmail === 'sinhvien@smartstay.vn') {
+                const fallbackList = loadFallbackContracts();
+                contracts = fallbackList.filter(c => c.tenant?.email === 'sinhvien@smartstay.vn');
+            }
 
             return res.status(200).json({
                 success: true,
