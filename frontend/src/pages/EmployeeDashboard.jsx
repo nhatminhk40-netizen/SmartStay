@@ -2949,7 +2949,7 @@ export default function EmployeeDashboard() {
   const propertyGroups = React.useMemo(() => {
     const map = new Map();
 
-    realRooms.forEach(room => {
+    (Array.isArray(realRooms) ? realRooms : []).forEach(room => {
       const propName = (room.property_name && room.property_name.trim()) 
         ? room.property_name.trim() 
         : (room.address && room.address.trim()) 
