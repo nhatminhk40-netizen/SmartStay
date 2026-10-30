@@ -328,18 +328,21 @@ router.get('/my-contracts', protect, async (req, res) => {
             });
         }
 
-        // Fallback local mode
-        const contracts = loadFallbackContracts();
-        const myContracts = contracts.filter(c => 
-            isSameId(c.tenant?._id || c.tenant?.id || c.tenant, currentUserId) ||
-            (c.tenant?.email && c.tenant.email.toLowerCase() === userEmail) ||
-            (c.tenant?.phone && userPhone && c.tenant.phone.includes(userPhone.slice(-6)))
-        );
+        // Fallback local mode: Chỉ hiển thị dữ liệu mẫu cho tài khoản demo sinh viên
+        if (userEmail === 'sinhvien@smartstay.vn') {
+            const contracts = loadFallbackContracts();
+            const myContracts = contracts.filter(c => c.tenant?.email === 'sinhvien@smartstay.vn');
+            return res.status(200).json({
+                success: true,
+                count: myContracts.length,
+                data: myContracts
+            });
+        }
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            count: myContracts.length,
-            data: myContracts
+            count: 0,
+            data: []
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Lỗi tải hợp đồng của tôi: ' + error.message });

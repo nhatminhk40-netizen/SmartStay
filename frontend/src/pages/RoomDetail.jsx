@@ -377,15 +377,6 @@ export default function RoomDetail() {
             </div>
 
             <main className="max-w-6xl mx-auto px-6 pt-6">
-                {/* Banner Dữ liệu minh họa nếu có */}
-                {room.isDemo && (
-                    <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-3 shadow-sm">
-                        <Info className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                        <div className="text-xs leading-relaxed">
-                            <span className="font-bold">Chế độ Dữ liệu minh họa SmartStay:</span> Tin đăng này được dùng cho mục đích trải nghiệm và minh họa cấu trúc dữ liệu chuẩn, chưa được khảo sát thực tế tại địa chỉ.
-                        </div>
-                    </div>
-                )}
 
                 {/* Tiêu đề & Badges */}
                 <div className="bg-white rounded-3xl p-6 md:p-8 border border-border shadow-sm mb-6">

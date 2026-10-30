@@ -327,16 +327,20 @@ const syncSurveyedRoomsToDatabase = async () => {
                 await exists.save();
             }
         }
-        // Gán tài khoản demo chutro@smartstay.vn cho các phòng mẫu chưa có email chủ trọ
-        if (chutroId) {
-            await Room.updateMany(
-                { 
-                    $or: [{ ownerEmail: '' }, { ownerEmail: null }, { ownerEmail: { $exists: false } }],
-                    title: { $in: ['Phòng trọ cao cấp gần ĐH FPT Cần Thơ (Gác lửng, full nội thất)', 'Phòng trọ sinh viên giá rẻ gần ĐH Cần Thơ - Khu 2', 'SmartStay Pass: Sang nhượng phòng ban công view thoáng (còn cọc 2 tháng)', 'Homestay sinh viên full tiện ích gần ĐH Y Dược Cần Thơ', 'Phòng Trọ Thanh Sơn', 'Phòng Trọ Lê khải'] }
-                },
-                { $set: { owner: chutroId, ownerEmail: 'chutro@smartstay.vn' } }
-            );
-        }
+        // Gán tài khoản demo chutro@smartstay.vn và đánh dấu isDemo: true cho toàn bộ phòng mẫu
+        const SAMPLE_ROOM_TITLES = [
+            'Phòng trọ cao cấp gần ĐH FPT Cần Thơ (Gác lửng, full nội thất)', 
+            'Phòng trọ sinh viên giá rẻ gần ĐH Cần Thơ - Khu 2', 
+            'SmartStay Pass: Sang nhượng phòng ban công view thoáng (còn cọc 2 tháng)', 
+            'Homestay sinh viên full tiện ích gần ĐH Y Dược Cần Thơ', 
+            'Phòng Trọ Thanh Sơn', 
+            'Phòng Trọ Lê khải',
+            'Phòng Trọ Lê Khải'
+        ];
+        await Room.updateMany(
+            { title: { $in: SAMPLE_ROOM_TITLES } },
+            { $set: { isDemo: true, ownerEmail: 'chutro@smartstay.vn', ...(chutroId ? { owner: chutroId } : {}) } }
+        );
         // Gỡ bỏ hoàn toàn huy hiệu xác minh thực địa của tất cả phòng cũ
         await Room.updateMany(
             { $or: [{ safe_badge: true }, { isSafeBadge: true }, { verificationStatus: 'verified' }] },
@@ -834,7 +838,7 @@ app.get('/health', (req, res) => {
 // 1. Lấy danh sách phòng trọ (kèm bộ lọc an toàn chống ReDoS)
 app.get('/api/rooms', async (req, res) => {
     try {
-        const { campus, maxPrice, electricityCostType, seekingRoommate, amenities, type, all } = req.query;
+        const { campus, maxPrice, electricityCostType, seekingRoommate, amenities, type, all, includeDemo } = req.query;
 
         if (isDbConnected) {
             let query = {};
@@ -842,6 +846,11 @@ app.get('/api/rooms', async (req, res) => {
             // Tuyệt đối không hiển thị tin đăng đang 'pending' (chờ duyệt) hoặc 'rejected' (từ chối)
             if (all !== 'true') {
                 query.approvalStatus = { $nin: ['pending', 'rejected'] };
+            }
+
+            // Dữ liệu mẫu (demo) chỉ hiển thị trên các tài khoản demo đã được cấp, không hiển thị trên trang tìm kiếm công khai
+            if (includeDemo !== 'true') {
+                query.isDemo = { $ne: true };
             }
 
             if (campus && campus !== 'Tất cả khu vực') query.campus = new RegExp(escapeRegex(campus), 'i');
@@ -858,6 +867,9 @@ app.get('/api/rooms', async (req, res) => {
         let list = [...fallbackRooms];
         if (all !== 'true') {
             list = list.filter((r) => r.approvalStatus !== 'pending' && r.approvalStatus !== 'rejected');
+        }
+        if (includeDemo !== 'true') {
+            list = list.filter((r) => !r.isDemo && !['Phòng Trọ Thanh Sơn', 'Phòng Trọ Lê khải', 'Phòng Trọ Lê Khải', 'Homestay sinh viên full tiện ích gần ĐH Y Dược Cần Thơ', 'SmartStay Pass: Sang nhượng phòng ban công view thoáng (còn cọc 2 tháng)', 'Phòng trọ cao cấp gần ĐH FPT Cần Thơ (Gác lửng, full nội thất)', 'Phòng trọ sinh viên giá rẻ gần ĐH Cần Thơ - Khu 2'].includes(r.title));
         }
         if (campus && campus !== 'Tất cả khu vực') {
             list = list.filter((r) => r.campus.toLowerCase().includes(campus.toLowerCase()));

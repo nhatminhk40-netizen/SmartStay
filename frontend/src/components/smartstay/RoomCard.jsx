@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Maximize, Flame, Columns, DoorOpen } from "lucide-react";
+import { MapPin, Maximize, Columns, DoorOpen } from "lucide-react";
 import { Image } from "@/components/ui/image";
 
 export default function RoomCard({ room }) {
@@ -47,13 +47,6 @@ export default function RoomCard({ room }) {
                             </span>
                         )}
                     </div>
-
-                    {/* Tag ảnh cổng trọ */}
-                    <div className="absolute bottom-2.5 left-2.5 z-10">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-medium backdrop-blur">
-                            Ảnh cổng trọ & khuôn viên
-                        </span>
-                    </div>
                 </Link>
 
                 <div className="p-4">
@@ -83,13 +76,8 @@ export default function RoomCard({ room }) {
                         )}
                     </div>
 
-                    {/* Huy hiệu tiện ích an toàn */}
+                    {/* Tiện ích phòng */}
                     <div className="mt-2.5 flex items-center gap-2 text-[11px] text-slate-500">
-                        {room.fireSafetyCertified && (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
-                                <Flame className="w-3 h-3" /> PCCC Đạt
-                            </span>
-                        )}
                         {room.hasSeparateMeter && (
                             <span className="inline-flex items-center gap-1 text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium">
                                 Đồng hồ riêng
