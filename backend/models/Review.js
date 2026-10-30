@@ -16,8 +16,7 @@ const reviewSchema = new mongoose.Schema({
     stayId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Stay',
-        default: null,
-        index: true
+        default: null
     },
 
     studentEmail: { type: String, default: '' },

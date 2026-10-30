@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const conversationSchema = new mongoose.Schema({
     participants: [{
         type: String,
-        required: true,
-        index: true
+        required: true
     }],
     participantDetails: [{
         id: { type: String, required: true },
