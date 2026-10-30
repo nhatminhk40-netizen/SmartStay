@@ -28,12 +28,20 @@ const roomSchema = new mongoose.Schema({
         parking: { type: Number, default: 0 }
     },
 
-    // Xác thực chủ sở hữu & Trạng thái kiểm duyệt
+    // Xác thực chủ sở hữu & Trạng thái kiểm duyệt bài đăng (Admin approval)
     owner: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
     ownerEmail: { type: String, default: '' },
+    approvalStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending' // Tin mới đăng bởi chủ trọ bắt buộc chờ Admin duyệt
+    },
+    approvedAt: { type: Date },
+    approvedBy: { type: String, default: '' },
+    rejectionReason: { type: String, default: '' },
     isDemo: { type: Boolean, default: false }, // Đánh dấu tin demo/minh họa
     demoNote: { type: String, default: '' },
 

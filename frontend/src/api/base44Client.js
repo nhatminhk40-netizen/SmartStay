@@ -26,14 +26,15 @@ const FALLBACK_ROOMS = [
     hasSeparateMeter: true,
     depositMonths: 1,
     extraFees: { wifi: 0, trash: 0, parking: 0 },
-    listingType: 'safe',
-    isSafeBadge: true,
-    safe_badge: true,
-    verificationStatus: 'verified',
+    listingType: 'standard',
+    isSafeBadge: false,
+    safe_badge: false,
+    verificationStatus: 'unverified',
+    approvalStatus: 'approved',
     fireSafetyCertified: true,
     isDemo: false,
-    isSurveyed: true,
-    is_surveyed: true,
+    isSurveyed: false,
+    is_surveyed: false,
     seeking_roommate: false,
     rating: 4.8
   },
@@ -76,14 +77,15 @@ const FALLBACK_ROOMS = [
     hasSeparateMeter: true,
     depositMonths: 1,
     extraFees: { wifi: 0, trash: 0, parking: 0 },
-    listingType: 'safe',
-    isSafeBadge: true,
-    safe_badge: true,
-    verificationStatus: 'verified',
+    listingType: 'standard',
+    isSafeBadge: false,
+    safe_badge: false,
+    verificationStatus: 'unverified',
+    approvalStatus: 'approved',
     fireSafetyCertified: true,
     isDemo: false,
-    isSurveyed: true,
-    is_surveyed: true,
+    isSurveyed: false,
+    is_surveyed: false,
     seeking_roommate: false,
     rating: 4.8
   },
@@ -112,14 +114,15 @@ const FALLBACK_ROOMS = [
     hasSeparateMeter: true,
     depositMonths: 1,
     extraFees: { wifi: 0, trash: 0, parking: 0 },
-    listingType: 'safe',
-    isSafeBadge: true,
-    safe_badge: true,
-    verificationStatus: 'verified',
+    listingType: 'standard',
+    isSafeBadge: false,
+    safe_badge: false,
+    verificationStatus: 'unverified',
+    approvalStatus: 'approved',
     fireSafetyCertified: true,
     isDemo: false,
-    isSurveyed: true,
-    is_surveyed: true,
+    isSurveyed: false,
+    is_surveyed: false,
     seeking_roommate: false,
     rating: 4.8
   },
@@ -522,6 +525,34 @@ export const base44 = {
           body: JSON.stringify({ status })
         });
         return res.json();
+      },
+
+      adminList: async (params = {}) => {
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const query = new URLSearchParams();
+        if (params.status) query.set('status', params.status);
+        if (params.q) query.set('q', params.q);
+        try {
+          const res = await fetch(`${API_BASE}/admin/rooms?${query.toString()}`, { headers });
+          const json = await res.json();
+          return json.data || [];
+        } catch {
+          return [];
+        }
+      },
+
+      updateApproval: async (id, status, rejectionReason = '') => {
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${API_BASE}/admin/rooms/${id}/approval`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ status, rejectionReason })
+        });
+        return await res.json();
       }
     },
 

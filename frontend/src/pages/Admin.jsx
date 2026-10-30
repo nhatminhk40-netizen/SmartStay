@@ -689,7 +689,10 @@ export default function Admin() {
   const fetchRooms = async () => {
     setLoading(true);
     try {
-      const data = await base44.entities.Room.list("", 100);
+      let data = await base44.entities.Room.adminList({ status: "ALL" });
+      if (!data || data.length === 0) {
+        data = await base44.entities.Room.list("", 200);
+      }
       setRooms(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Lỗi tải phòng cho Admin:", err);
@@ -703,9 +706,45 @@ export default function Admin() {
     fetchRooms();
   }, []);
 
+  // Duyệt hiển thị phòng đăng bởi chủ trọ
+  const handleApproveRoom = async (room) => {
+    try {
+      const res = await base44.entities.Room.updateApproval(room.id || room._id, "approved");
+      if (res.success) {
+        showToast(`Đã duyệt hiển thị tin phòng "${room.title}"!`);
+        await fetchRooms();
+      } else {
+        showToast(res.message || "Lỗi khi duyệt tin", "error");
+      }
+    } catch (err) {
+      console.error("Lỗi duyệt phòng:", err);
+      showToast("Lỗi kết nối khi duyệt tin", "error");
+    }
+  };
+
+  // Từ chối hiển thị phòng đăng bởi chủ trọ
+  const handleRejectRoom = async (room) => {
+    const reason = window.prompt(`Nhập lý do từ chối tin đăng "${room.title}":`, "Thông tin phòng chưa đầy đủ hoặc không đúng thực tế");
+    if (reason === null) return;
+    try {
+      const res = await base44.entities.Room.updateApproval(room.id || room._id, "rejected", reason);
+      if (res.success) {
+        showToast(`Đã từ chối tin đăng "${room.title}"!`);
+        await fetchRooms();
+      } else {
+        showToast(res.message || "Lỗi khi từ chối tin", "error");
+      }
+    } catch (err) {
+      console.error("Lỗi từ chối phòng:", err);
+      showToast("Lỗi kết nối khi từ chối tin", "error");
+    }
+  };
+
   // ==================== TÍNH TOÁN DASHBOARD ====================
   const totalRooms = rooms.length;
-  const safeRooms = rooms.filter((r) => r.safe_badge || r.isSafeBadge).length;
+  const pendingRooms = rooms.filter((r) => r.approvalStatus === "pending").length;
+  const approvedRooms = rooms.filter((r) => r.approvalStatus === "approved" || !r.approvalStatus).length;
+  const rejectedRooms = rooms.filter((r) => r.approvalStatus === "rejected").length;
   const passRooms = rooms.filter((r) => r.has_pass || r.listingType === "pass").length;
   const boostedRooms = rooms.filter((r) => r.is_boosted).length;
   const roommateRooms = rooms.filter((r) => r.seeking_roommate).length;
@@ -718,6 +757,7 @@ export default function Admin() {
 
   // ==================== BƯỚC 3: QUẢN LÝ PHÒNG TRỌ (CRUD) ====================
   const [searchTerm, setSearchTerm] = useState("");
+  const [roomApprovalFilter, setRoomApprovalFilter] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all");
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
@@ -739,7 +779,7 @@ export default function Admin() {
     image_url: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
     imagesText: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
     amenities: ["Máy lạnh", "Gác lửng"],
-    safe_badge: true,
+    safe_badge: false,
     is_boosted: false,
     has_pass: false,
     pass_months_left: 3,
@@ -782,7 +822,7 @@ export default function Admin() {
       image_url: room.image_url || (room.images && room.images[0]) || "",
       imagesText: imgList,
       amenities: room.amenities || [],
-      safe_badge: Boolean(room.safe_badge || room.isSafeBadge),
+      safe_badge: false,
       is_boosted: Boolean(room.is_boosted),
       has_pass: Boolean(room.has_pass || room.listingType === "pass"),
       pass_months_left: room.pass_months_left || room.remaining_duration || 3,
@@ -826,8 +866,10 @@ export default function Admin() {
         area_sqm: Number(roomForm.area_sqm) || 20,
         rating: Number(roomForm.rating) || 5,
         pass_months_left: Number(roomForm.pass_months_left) || 0,
-        isSafeBadge: roomForm.safe_badge,
-        listingType: roomForm.has_pass ? "pass" : roomForm.safe_badge ? "safe" : "standard",
+        isSafeBadge: false,
+        safe_badge: false,
+        listingType: roomForm.has_pass ? "pass" : "standard",
+        approvalStatus: editingRoom ? (editingRoom.approvalStatus || "approved") : "approved",
         electricityCostType: roomForm.electricityCostType || "nha_nuoc",
         waterCost: roomForm.waterCost || "Theo giá nhà nước",
         hasSeparateMeter: Boolean(roomForm.hasSeparateMeter),
@@ -839,7 +881,7 @@ export default function Admin() {
         },
         isDemo: !roomForm.is_surveyed,
         isSurveyed: Boolean(roomForm.is_surveyed),
-        verificationStatus: roomForm.is_surveyed ? 'verified' : (roomForm.safe_badge ? 'verified' : 'unverified')
+        verificationStatus: 'unverified'
       };
 
       if (editingRoom) {
@@ -876,23 +918,31 @@ export default function Admin() {
     }
   };
 
-  // Lọc danh sách phòng theo tìm kiếm và badge
+  // Lọc danh sách phòng theo tìm kiếm, trạng thái duyệt và badge
   const filteredRooms = useMemo(() => {
     return rooms.filter((r) => {
       const matchSearch =
         (r.title && r.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (r.campus && r.campus.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (r.property_name && r.property_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (r.ownerEmail && r.ownerEmail.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (r.contactPhone && String(r.contactPhone).includes(searchTerm.trim())) ||
         (r.address && r.address.toLowerCase().includes(searchTerm.toLowerCase()));
       if (!matchSearch) return false;
 
-      if (filterBadge === "safe" && !(r.safe_badge || r.isSafeBadge)) return false;
+      // Lọc theo trạng thái duyệt của Admin
+      const status = r.approvalStatus || "approved";
+      if (roomApprovalFilter === "pending" && status !== "pending") return false;
+      if (roomApprovalFilter === "approved" && status !== "approved") return false;
+      if (roomApprovalFilter === "rejected" && status !== "rejected") return false;
+
       if (filterBadge === "pass" && !(r.has_pass || r.listingType === "pass")) return false;
       if (filterBadge === "boosted" && !r.is_boosted) return false;
       if (filterBadge === "roommate" && !r.seeking_roommate) return false;
 
       return true;
     });
-  }, [rooms, searchTerm, filterBadge]);
+  }, [rooms, searchTerm, roomApprovalFilter, filterBadge]);
 
   // ==================== BƯỚC 4: QUẢN LÝ HERO BANNER ====================
   const [heroForm, setHeroForm] = useState(getHeroConfig);
@@ -1148,8 +1198,7 @@ export default function Admin() {
     { id: "appointments", label: "Lịch hẹn xem phòng", icon: Calendar, badge: pendingAppointmentsCount },
     { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users, badge: pendingLandlordCount },
     { id: "pass_rooms", label: "Duyệt & Quản lý Pass phòng", icon: KeyRound, badge: pendingPassCount },
-    
-    { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2 },
+    { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2, badge: pendingRooms },
     { id: "hero", label: "Quản lý banner (Hero)", icon: ImageIcon },
     { id: "campuses", label: "Danh mục khu vực / Campus", icon: GraduationCap },
     { id: "amenities", label: "Bộ lọc tiện nghi & Toggle", icon: SlidersHorizontal },
@@ -1350,7 +1399,7 @@ export default function Admin() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {room.safe_badge && <span className="px-2 py-1 rounded text-[10px] font-bold" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>SAFE</span>}
+                          {room.approvalStatus === "pending" && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">CHỜ DUYỆT</span>}
                           {room.is_boosted && <span className="px-2 py-1 rounded text-[10px] font-bold" style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}>TOP</span>}
                           {room.has_pass && <span className="px-2 py-1 rounded text-[10px] font-bold" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>PASS</span>}
                         </div>
@@ -1702,11 +1751,62 @@ export default function Admin() {
           {/* ── TAB: ROOMS ── */}
           {activeTab === "rooms" && (
             <div className="space-y-6">
+              {/* Thống kê & Bộ lọc trạng thái duyệt tin */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("all")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "all" ? "bg-white border-[#f97316] ring-2 ring-[#f97316]/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tất cả tin</div>
+                  <div className="text-xl font-black text-slate-900 mt-1">{totalRooms}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("pending")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "pending" ? "bg-amber-50 border-amber-500 ring-2 ring-amber-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center justify-between">
+                    <span>Chờ duyệt</span>
+                    {pendingRooms > 0 && <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />}
+                  </div>
+                  <div className="text-xl font-black text-amber-900 mt-1">{pendingRooms}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("approved")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "approved" ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Đã duyệt hiển thị</div>
+                  <div className="text-xl font-black text-emerald-900 mt-1">{approvedRooms}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("rejected")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "rejected" ? "bg-rose-50 border-rose-500 ring-2 ring-rose-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-rose-700 uppercase tracking-wider">Bị từ chối</div>
+                  <div className="text-xl font-black text-rose-900 mt-1">{rejectedRooms}</div>
+                </button>
+              </div>
+
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3 w-full md:w-auto flex-1">
                   <input
                     type="text"
-                    placeholder="Tìm theo tên phòng, trường, địa chỉ..."
+                    placeholder="Tìm theo tên phòng, trường, địa chỉ, chủ trọ, SĐT..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="flex-1 max-w-md px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
@@ -1718,9 +1818,8 @@ export default function Admin() {
                     className="px-4 py-2.5 rounded-lg text-sm font-bold border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
                     style={{ borderColor: "#f4ebd9" }}
                   >
-                    <option value="all">Tất cả badge</option>
-                    <option value="safe">Badge Safe</option>
-                    <option value="pass">Đang Pass</option>
+                    <option value="all">Tất cả loại tin</option>
+                    <option value="pass">Đang Pass phòng</option>
                     <option value="boosted">Lên đầu</option>
                     <option value="roommate">Tìm ghép</option>
                   </select>
@@ -1741,8 +1840,8 @@ export default function Admin() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                        {["Ảnh", "Tên phòng / Địa chỉ", "Campus", "Giá / tháng", "Diện tích", "Badges", "Rating", "Hành động"].map((h, i) => (
-                          <th key={h} className={cn("p-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider", i === 7 && "text-right", i === 0 && "pl-6")}>
+                        {["Ảnh", "Tên phòng / Địa chỉ / Người đăng", "Campus", "Giá / tháng", "Kiểm duyệt", "Badges", "Hành động"].map((h, i) => (
+                          <th key={h} className={cn("p-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider", i === 6 && "text-right", i === 0 && "pl-6")}>
                             {h}
                           </th>
                         ))}
@@ -1751,54 +1850,117 @@ export default function Admin() {
                     <tbody className="divide-y" style={{ borderColor: "#f4ebd9" }}>
                       {filteredRooms.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="p-12 text-center text-slate-500 font-medium">
-                            Không tìm thấy phòng trọ nào.
+                          <td colSpan="7" className="p-12 text-center text-slate-500 font-medium">
+                            Không tìm thấy phòng trọ nào phù hợp.
                           </td>
                         </tr>
                       ) : (
-                        filteredRooms.map((room) => (
-                          <tr key={room.id || room._id} className="transition-colors hover:bg-slate-50">
-                            <td className="p-4 pl-6">
-                              <div className="w-14 h-14 rounded-lg bg-slate-200 border border-slate-200 overflow-hidden">
-                                <img src={room.image_url || (room.images && room.images[0])} alt={room.title} className="w-full h-full object-cover" />
-                              </div>
-                            </td>
-                            <td className="p-4 max-w-xs">
-                              <div className="font-bold text-slate-900 truncate mb-1">{room.title}</div>
-                              <div className="text-xs font-medium text-slate-500 truncate">{room.address || room.location}</div>
-                            </td>
-                            <td className="p-4">
-                              <span className="font-bold text-slate-700 text-xs px-2.5 py-1 rounded" style={{ background: "#f4ebd9" }}>
-                                {room.campus}
-                              </span>
-                            </td>
-                            <td className="p-4 font-black" style={{ color: "#f97316" }}>
-                              {Number(room.price || 0).toLocaleString("vi-VN")}đ
-                            </td>
-                            <td className="p-4 font-medium text-slate-600">{room.area_sqm || 20} m²</td>
-                            <td className="p-4">
-                              <div className="flex flex-wrap gap-1.5 max-w-[140px]">
-                                {room.safe_badge && <span className="px-2 py-1 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>SAFE</span>}
-                                {room.is_boosted && <span className="px-2 py-1 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}>TOP</span>}
-                                {room.has_pass && <span className="px-2 py-1 rounded border text-[10px] font-bold tracking-wider" style={{ borderColor: "#f59e0b", color: "#f59e0b" }}>PASS</span>}
-                                {room.seeking_roommate && <span className="px-2 py-1 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(168,85,247,0.1)", color: "#a855f7" }}>GHÉP</span>}
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <span className="font-black text-slate-900">
-                                {(room.rating || room._avgRating || 4.5).toFixed(1)} / 5
-                              </span>
-                            </td>
-                            <td className="p-4 text-right space-x-2">
-                              <button onClick={() => handleOpenEditRoom(room)} className="px-3 py-1.5 rounded text-slate-700 text-xs font-bold transition-colors hover:bg-slate-200" style={{ background: "#f4ebd9" }}>
-                                Sửa
-                              </button>
-                              <button onClick={() => setDeleteConfirmRoom(room)} className="px-3 py-1.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-colors">
-                                Xóa
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                        filteredRooms.map((room) => {
+                          const status = room.approvalStatus || "approved";
+                          return (
+                            <tr key={room.id || room._id} className="transition-colors hover:bg-slate-50">
+                              <td className="p-4 pl-6">
+                                <div className="w-14 h-14 rounded-lg bg-slate-200 border border-slate-200 overflow-hidden">
+                                  <img src={room.image_url || (room.images && room.images[0])} alt={room.title} className="w-full h-full object-cover" />
+                                </div>
+                              </td>
+                              <td className="p-4 max-w-xs">
+                                <div className="font-bold text-slate-900 truncate mb-0.5">{room.title}</div>
+                                {room.property_name && (
+                                  <div className="text-xs font-semibold text-orange-600 truncate mb-0.5">Dãy: {room.property_name}</div>
+                                )}
+                                <div className="text-xs font-medium text-slate-500 truncate">{room.address || room.location}</div>
+                                {(room.ownerEmail || room.contactPhone) && (
+                                  <div className="text-[11px] text-slate-400 mt-1 truncate">
+                                    Đăng bởi: <strong className="text-slate-600">{room.ownerEmail || room.contactPhone}</strong>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <span className="font-bold text-slate-700 text-xs px-2.5 py-1 rounded" style={{ background: "#f4ebd9" }}>
+                                  {room.campus}
+                                </span>
+                              </td>
+                              <td className="p-4 font-black" style={{ color: "#f97316" }}>
+                                {Number(room.price || 0).toLocaleString("vi-VN")}đ
+                              </td>
+                              <td className="p-4">
+                                {status === "pending" && (
+                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-1 shadow-xs animate-pulse">
+                                    ⏳ Chờ duyệt
+                                  </span>
+                                )}
+                                {status === "approved" && (
+                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
+                                    ✓ Đã duyệt
+                                  </span>
+                                )}
+                                {status === "rejected" && (
+                                  <div>
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 inline-flex items-center gap-1" title={room.rejectionReason}>
+                                      ❌ Bị từ chối
+                                    </span>
+                                    {room.rejectionReason && (
+                                      <p className="text-[10px] text-rose-600 line-clamp-1 mt-1 font-medium">{room.rejectionReason}</p>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-wrap gap-1.5 max-w-[140px]">
+                                  {room.is_boosted && <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}>TOP</span>}
+                                  {room.has_pass && <span className="px-2 py-0.5 rounded border text-[10px] font-bold tracking-wider" style={{ borderColor: "#f59e0b", color: "#f59e0b" }}>PASS</span>}
+                                  {room.seeking_roommate && <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(168,85,247,0.1)", color: "#a855f7" }}>GHÉP</span>}
+                                </div>
+                              </td>
+                              <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                {status === "pending" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveRoom(room)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                                    >
+                                      ✓ Duyệt
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRejectRoom(room)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs"
+                                    >
+                                      Từ chối
+                                    </button>
+                                  </>
+                                )}
+                                {status === "rejected" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveRoom(room)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                                  >
+                                    Duyệt lại
+                                  </button>
+                                )}
+                                {status === "approved" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRejectRoom(room)}
+                                    className="px-2 py-1.5 rounded text-amber-700 hover:bg-amber-100 text-xs font-semibold transition"
+                                    title="Tạm ngừng hiển thị tin này"
+                                  >
+                                    Ẩn tin
+                                  </button>
+                                )}
+                                <button onClick={() => handleOpenEditRoom(room)} className="px-2.5 py-1.5 rounded text-slate-700 text-xs font-bold transition-colors hover:bg-slate-200" style={{ background: "#f4ebd9" }}>
+                                  Sửa
+                                </button>
+                                <button onClick={() => setDeleteConfirmRoom(room)} className="px-2.5 py-1.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-colors">
+                                  Xóa
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -2594,7 +2756,6 @@ export default function Admin() {
                   <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Huy hiệu hiển thị</span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm font-bold text-slate-700">
                     {[
-                      { key: "safe_badge", label: "SAFE" },
                       { key: "is_boosted", label: "TOP (Lên đầu)" },
                       { key: "seeking_roommate", label: "GHÉP BẠN" },
                       { key: "has_pass", label: "PASS PHÒNG" },

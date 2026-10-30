@@ -571,7 +571,10 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null, onSw
         images: finalImages,
         image_url: finalImages[0],
         status: editingRoom?.status || "available",
-        listingType: "standard"
+        listingType: "standard",
+        approvalStatus: editingRoom?.approvalStatus || "pending",
+        safe_badge: false,
+        isSafeBadge: false
       };
 
       const rawId = editingRoom?._id || editingRoom?.id;
@@ -1531,9 +1534,10 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
           amenities: activeProp.amenities || ["Gác lửng"],
           images: activeProp.sampleRoom?.images || [activeProp.image_url],
           image_url: activeProp.image_url,
-          safe_badge: true,
-          isSafeBadge: true,
-          listingType: "safe",
+          safe_badge: false,
+          isSafeBadge: false,
+          listingType: "standard",
+          approvalStatus: "pending",
           tenant: singleStatus === "rented" && singleTenantName.trim() ? {
             name: singleTenantName.trim(),
             phone: singleTenantPhone.trim(),
@@ -1546,7 +1550,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
         const createdRoom = await base44.entities.Room.create(payload);
         const savedRoom = createdRoom || { ...payload, _id: `room_${Date.now()}`, id: `room_${Date.now()}` };
 
-        alert(`🎉 Đã thêm thành công phòng "${singleNumber.trim()}" vào khu trọ "${activeProp.property_name}"!`);
+        alert(`🎉 Đã thêm thành công phòng "${singleNumber.trim()}" vào khu trọ "${activeProp.property_name}"!\n\nTin đăng đang ở trạng thái "Chờ Admin duyệt" trước khi hiển thị công khai trên danh sách trọ.`);
         onSuccess?.(savedRoom);
         onClose();
       } else {
@@ -1590,9 +1594,10 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
             amenities: activeProp.amenities || ["Gác lửng"],
             images: activeProp.sampleRoom?.images || [activeProp.image_url],
             image_url: activeProp.image_url,
-            safe_badge: true,
-            isSafeBadge: true,
-            listingType: "safe",
+            safe_badge: false,
+            isSafeBadge: false,
+            listingType: "standard",
+            approvalStatus: "pending",
             tenant: null,
             meterHistory: []
           };
@@ -1605,7 +1610,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
           }
         }
 
-        alert(`🎉 Tuyệt vời! Đã tự động tạo nhanh ${generatedRooms.length} phòng (${bulkPreviewList.join(", ")}) vào khu trọ "${activeProp.property_name}"!`);
+        alert(`🎉 Tuyệt vời! Đã tự động tạo nhanh ${generatedRooms.length} phòng (${bulkPreviewList.join(", ")}) vào khu trọ "${activeProp.property_name}"!\n\nCác phòng đang ở trạng thái "Chờ Admin duyệt" trước khi hiển thị công khai.`);
         onSuccess?.(generatedRooms);
         onClose();
       }
@@ -4347,7 +4352,36 @@ export default function EmployeeDashboard() {
                                   )}>
                                     {isAvail ? "● Còn phòng" : (isRent ? "● Đang cho thuê" : "● Đang sửa")}
                                   </span>
+
+                                  {room.approvalStatus === "pending" && (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 bg-amber-500 text-white flex items-center gap-1 shadow-sm animate-pulse">
+                                      ⏳ Chờ Admin duyệt tin
+                                    </span>
+                                  )}
+                                  {room.approvalStatus === "rejected" && (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 bg-rose-600 text-white flex items-center gap-1 shadow-sm" title={room.rejectionReason || "Bị từ chối"}>
+                                      ❌ Bị từ chối
+                                    </span>
+                                  )}
+                                  {(room.approvalStatus === "approved" || !room.approvalStatus) && (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                      ✓ Đã duyệt
+                                    </span>
+                                  )}
                                 </div>
+
+                                {room.approvalStatus === "pending" && (
+                                  <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 mb-2 font-medium flex items-center gap-1.5">
+                                    <span>⏳</span>
+                                    <span>Tin đăng đang chờ Quản trị viên duyệt trước khi hiển thị công khai trên danh sách tìm kiếm.</span>
+                                  </div>
+                                )}
+                                {room.approvalStatus === "rejected" && (
+                                  <div className="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1 mb-2 font-medium flex items-center gap-1.5">
+                                    <span>❌</span>
+                                    <span>Tin đăng bị từ chối: {room.rejectionReason || "Chưa đạt tiêu chuẩn thông tin phòng"}</span>
+                                  </div>
+                                )}
 
                                 {room.property_name && (
                                   <div className="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1.5">

@@ -192,8 +192,8 @@ const surveyedRoomsData = [
             'https://lh3.googleusercontent.com/d/1XHvuCrepg6y90WixkwEYIXiGm0_k26NY'
         ],
         amenities: ['Máy lạnh', 'Gác lửng'],
-        safe_badge: true,
-        isSafeBadge: true,
+        safe_badge: false,
+        isSafeBadge: false,
         is_boosted: true,
         has_pass: false,
         pass_months_left: 3,
@@ -204,8 +204,9 @@ const surveyedRoomsData = [
         depositMonths: 1,
         extraFees: { wifi: 0, trash: 0, parking: 0 },
         isDemo: false,
-        verificationStatus: 'verified',
-        listingType: 'safe',
+        verificationStatus: 'unverified',
+        approvalStatus: 'approved',
+        listingType: 'standard',
         fireSafetyCertified: true
     },
     {
@@ -241,8 +242,8 @@ const surveyedRoomsData = [
             { room_number: 'P.202', price: 2400000, area_sqm: 30, status: 'rented', amenities: ['Gác lửng', 'Máy lạnh', 'Ban công'], tenant: { name: 'Nguyễn Hoàng', phone: '0918 777 888' } }
         ],
         amenities: ['Gác lửng', 'Máy lạnh', 'Camera 24/7'],
-        safe_badge: true,
-        isSafeBadge: true,
+        safe_badge: false,
+        isSafeBadge: false,
         is_boosted: true,
         has_pass: false,
         pass_months_left: 3,
@@ -253,8 +254,9 @@ const surveyedRoomsData = [
         depositMonths: 1,
         extraFees: { wifi: 0, trash: 0, parking: 0 },
         isDemo: false,
-        verificationStatus: 'verified',
-        listingType: 'safe',
+        verificationStatus: 'unverified',
+        approvalStatus: 'approved',
+        listingType: 'standard',
         fireSafetyCertified: true
     },
     {
@@ -276,8 +278,8 @@ const surveyedRoomsData = [
             'https://lh3.googleusercontent.com/d/1wINldbqxIIdVPfRMkv4NeYM6lNnZN93t'
         ],
         amenities: ['Máy lạnh', 'Gác lửng'],
-        safe_badge: true,
-        isSafeBadge: true,
+        safe_badge: false,
+        isSafeBadge: false,
         is_boosted: true,
         has_pass: false,
         pass_months_left: 3,
@@ -288,8 +290,9 @@ const surveyedRoomsData = [
         depositMonths: 1,
         extraFees: { wifi: 0, trash: 0, parking: 0 },
         isDemo: false,
-        verificationStatus: 'verified',
-        listingType: 'safe',
+        verificationStatus: 'unverified',
+        approvalStatus: 'approved',
+        listingType: 'standard',
         fireSafetyCertified: true
     }
 ];
@@ -300,12 +303,22 @@ const syncSurveyedRoomsToDatabase = async () => {
         for (const r of surveyedRoomsData) {
             const exists = await Room.findOne({ title: r.title, price: r.price });
             if (!exists) {
-                await Room.create(r);
-                console.log(`✅ Đã tự động đồng bộ phòng khảo sát vào MongoDB Atlas: ${r.title} (${r.price})`);
+                await Room.create({ ...r, approvalStatus: 'approved', safe_badge: false, isSafeBadge: false, verificationStatus: 'unverified' });
+                console.log(`✅ Đã tự động đồng bộ phòng vào MongoDB Atlas: ${r.title} (${r.price})`);
             }
         }
+        // Gỡ bỏ hoàn toàn huy hiệu xác minh thực địa của tất cả phòng cũ
+        await Room.updateMany(
+            { $or: [{ safe_badge: true }, { isSafeBadge: true }, { verificationStatus: 'verified' }] },
+            { $set: { safe_badge: false, isSafeBadge: false, verificationStatus: 'unverified' } }
+        );
+        // Đảm bảo tất cả phòng có sẵn (không phải phòng mới tạo chờ duyệt) đều có approvalStatus: 'approved'
+        await Room.updateMany(
+            { approvalStatus: { $exists: false } },
+            { $set: { approvalStatus: 'approved' } }
+        );
     } catch (err) {
-        console.warn('⚠️ Lỗi đồng bộ phòng khảo sát:', err.message);
+        console.warn('⚠️ Lỗi đồng bộ phòng:', err.message);
     }
 };
 
@@ -791,14 +804,19 @@ app.get('/health', (req, res) => {
 // 1. Lấy danh sách phòng trọ (kèm bộ lọc an toàn chống ReDoS)
 app.get('/api/rooms', async (req, res) => {
     try {
-        const { campus, maxPrice, electricityCostType, isSafeBadge, seekingRoommate, amenities, type } = req.query;
+        const { campus, maxPrice, electricityCostType, seekingRoommate, amenities, type, all } = req.query;
 
         if (isDbConnected) {
             let query = {};
+            // CHỈ hiển thị các phòng ĐÃ ĐƯỢC ADMIN DUYỆT (approved) cho khách thuê
+            // Tuyệt đối không hiển thị tin đăng đang 'pending' (chờ duyệt) hoặc 'rejected' (từ chối)
+            if (all !== 'true') {
+                query.approvalStatus = { $nin: ['pending', 'rejected'] };
+            }
+
             if (campus && campus !== 'Tất cả khu vực') query.campus = new RegExp(escapeRegex(campus), 'i');
             if (maxPrice) query.price = { $lte: Number(maxPrice) };
             if (electricityCostType) query.electricityCostType = electricityCostType;
-            if (isSafeBadge !== undefined) query.isSafeBadge = isSafeBadge === 'true';
             if (seekingRoommate !== undefined) query.seeking_roommate = seekingRoommate === 'true';
             if (type) query.listingType = type;
 
@@ -808,14 +826,14 @@ app.get('/api/rooms', async (req, res) => {
 
         // Chế độ dự phòng khi DB chưa kết nối
         let list = [...fallbackRooms];
+        if (all !== 'true') {
+            list = list.filter((r) => r.approvalStatus !== 'pending' && r.approvalStatus !== 'rejected');
+        }
         if (campus && campus !== 'Tất cả khu vực') {
             list = list.filter((r) => r.campus.toLowerCase().includes(campus.toLowerCase()));
         }
         if (maxPrice) {
             list = list.filter((r) => r.price <= Number(maxPrice));
-        }
-        if (isSafeBadge !== undefined) {
-            list = list.filter((r) => (r.safe_badge || r.isSafeBadge) === (isSafeBadge === 'true'));
         }
         if (seekingRoommate !== undefined) {
             list = list.filter((r) => Boolean(r.seeking_roommate) === (seekingRoommate === 'true'));
@@ -1181,13 +1199,20 @@ app.post('/api/rooms', protect, async (req, res) => {
         // Tự động sử dụng số điện thoại đã xác minh của chủ trọ
         data.contactPhone = req.user?.phone || data.contactPhone || '0901234567';
 
-        // Bảo mật & Huy hiệu
+        // Trạng thái kiểm duyệt bài đăng (Admin approval)
+        // Chủ trọ đăng bài mới thì approvalStatus = 'pending' (chờ Admin duyệt), Admin đăng thì duyệt ngay
         const isAdmin = req.user?.role === 'admin' || req.user?.role === 'employee';
-        data.isSafeBadge = isAdmin ? Boolean(req.body.isSafeBadge || req.body.safe_badge) : Boolean(req.body.isSafeBadge);
-        data.safe_badge = isAdmin ? Boolean(req.body.safe_badge || req.body.isSafeBadge) : Boolean(req.body.safe_badge);
+        data.approvalStatus = isAdmin ? 'approved' : 'pending';
+        data.approvedAt = isAdmin ? new Date() : null;
+        data.approvedBy = isAdmin ? (req.user?.fullName || 'Admin') : '';
+        data.rejectionReason = '';
+
+        // Bỏ hoàn toàn việc tự gán huy hiệu xác minh thực địa cho tin mới
+        data.safe_badge = false;
+        data.isSafeBadge = false;
+        data.verificationStatus = 'unverified';
         data.isDemo = req.body.isDemo !== undefined ? req.body.isDemo : false;
-        data.isSurveyed = req.body.isSurveyed !== undefined ? req.body.isSurveyed : true;
-        data.verificationStatus = data.safe_badge || data.isSurveyed ? 'verified' : (req.body.verificationStatus || 'unverified');
+        data.isSurveyed = false;
 
         const validUserId = req.user?._id || req.user?.id;
         if (validUserId && mongoose.Types.ObjectId.isValid(validUserId)) {
@@ -2715,6 +2740,96 @@ app.delete('/api/admin/landlords/:id', protect, authorize('admin'), adminIpWhite
         if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản chủ trọ.' });
         fallbackUsers.splice(idx, 1);
         res.status(200).json({ success: true, message: 'Đã thu hồi tài khoản Chủ trọ.' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 5. Admin lấy danh sách toàn bộ phòng trọ (hỗ trợ lọc theo trạng thái duyệt: pending, approved, rejected)
+app.get('/api/admin/rooms', protect, authorize('admin', 'employee'), async (req, res) => {
+    try {
+        const { status, q } = req.query;
+        let filter = {};
+        if (status && status !== 'ALL') {
+            filter.approvalStatus = status;
+        }
+        if (q && q.trim()) {
+            const escaped = escapeRegex(q.trim());
+            filter.$or = [
+                { title: new RegExp(escaped, 'i') },
+                { property_name: new RegExp(escaped, 'i') },
+                { address: new RegExp(escaped, 'i') },
+                { campus: new RegExp(escaped, 'i') }
+            ];
+        }
+
+        if (isDbConnected) {
+            const rooms = await Room.find(filter).sort({ createdAt: -1 });
+            return res.status(200).json({ success: true, count: rooms.length, data: rooms });
+        }
+
+        let list = [...fallbackRooms];
+        if (status && status !== 'ALL') {
+            list = list.filter(r => (r.approvalStatus || 'approved') === status);
+        }
+        if (q && q.trim()) {
+            const lower = q.trim().toLowerCase();
+            list = list.filter(r => 
+                (r.title && r.title.toLowerCase().includes(lower)) ||
+                (r.property_name && r.property_name.toLowerCase().includes(lower)) ||
+                (r.address && r.address.toLowerCase().includes(lower))
+            );
+        }
+        res.status(200).json({ success: true, count: list.length, data: list });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 6. Admin duyệt hoặc từ chối tin đăng phòng trọ của Chủ trọ (approved / rejected / pending)
+app.put('/api/admin/rooms/:id/approval', protect, authorize('admin', 'employee'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, rejectionReason = '' } = req.body;
+        if (!['approved', 'rejected', 'pending'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Trạng thái kiểm duyệt không hợp lệ (approved / rejected / pending).' });
+        }
+
+        if (isDbConnected && mongoose.Types.ObjectId.isValid(id)) {
+            const room = await Room.findById(id);
+            if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
+
+            room.approvalStatus = status;
+            if (status === 'approved') {
+                room.approvedAt = new Date();
+                room.approvedBy = req.user?.fullName || 'Admin';
+                room.rejectionReason = '';
+            } else if (status === 'rejected') {
+                room.rejectionReason = rejectionReason.trim() || 'Tin đăng chưa đạt tiêu chuẩn quy định của hệ thống';
+            } else {
+                room.rejectionReason = '';
+            }
+            await room.save();
+            return res.status(200).json({ 
+                success: true, 
+                message: `Đã ${status === 'approved' ? 'duyệt hiển thị' : (status === 'rejected' ? 'từ chối' : 'chuyển về chờ duyệt')} tin đăng.`, 
+                data: room 
+            });
+        }
+
+        const idx = fallbackRooms.findIndex(r => String(r._id) === id || String(r.id) === id);
+        if (idx === -1) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng trọ.' });
+
+        fallbackRooms[idx].approvalStatus = status;
+        if (status === 'approved') {
+            fallbackRooms[idx].approvedAt = new Date();
+            fallbackRooms[idx].approvedBy = req.user?.fullName || 'Admin';
+            fallbackRooms[idx].rejectionReason = '';
+        } else if (status === 'rejected') {
+            fallbackRooms[idx].rejectionReason = rejectionReason.trim() || 'Chưa đạt yêu cầu';
+        }
+        saveFallbackRooms(fallbackRooms);
+        return res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt thành công (Fallback)', data: fallbackRooms[idx] });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

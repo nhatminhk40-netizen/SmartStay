@@ -101,11 +101,6 @@ export default function RoomDetailDrawer({ room, open, onClose, onSeekingRoommat
             <X className="w-5 h-5 text-slate-700" />
           </button>
           <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5">
-            {room.safe_badge && (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500 text-white text-xs font-bold shadow">
-                <ShieldCheck className="w-3.5 h-3.5" /> Safe Listing
-              </span>
-            )}
             {room.seeking_roommate && (
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500 text-white text-xs font-bold shadow">
                 <Users className="w-3.5 h-3.5" /> Đang tìm ghép
