@@ -366,7 +366,6 @@ export default function Login() {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="ten@smartstay.vn"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10 h-11 rounded-xl"
@@ -391,7 +390,6 @@ export default function Login() {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pl-10 pr-10 h-11 rounded-xl"
