@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Maximize, BadgeCheck, ShieldCheck, Flame, Info, Columns, DoorOpen, Home as HomeIcon } from "lucide-react";
+import { MapPin, Maximize, Flame, Columns, DoorOpen } from "lucide-react";
 import { Image } from "@/components/ui/image";
 
 export default function RoomCard({ room }) {
@@ -34,27 +34,6 @@ export default function RoomCard({ room }) {
                         }}
                     />
                     
-                    {/* Badges góc trên trái */}
-                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10">
-                        {room.isDemo ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[10px] font-bold backdrop-blur shadow-sm">
-                                <Info className="w-3 h-3" />
-                                Minh họa
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600/95 text-white text-[10px] font-bold backdrop-blur shadow-sm">
-                                <BadgeCheck className="w-3 h-3 text-emerald-200" />
-                                {room.safe_badge ? "Đã xác minh" : "Đã khảo sát"}
-                            </span>
-                        )}
-                        {room.has_pass && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-foreground/80 text-background text-[10px] font-medium backdrop-blur shadow-sm">
-                                <ShieldCheck className="w-3 h-3 text-white" />
-                                Cọc an toàn
-                            </span>
-                        )}
-                    </div>
-
                     {/* Badge số phòng còn trống góc dưới phải ảnh */}
                     <div className="absolute bottom-2.5 right-2.5 z-10">
                         {availableRooms > 0 ? (

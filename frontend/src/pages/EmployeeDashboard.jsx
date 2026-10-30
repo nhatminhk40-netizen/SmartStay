@@ -3848,7 +3848,7 @@ export default function EmployeeDashboard() {
                         </button>
                       </div>
                       <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Theo dõi tiền cọc giữ chỗ, thời hạn kết thúc hợp đồng và bàn giao hiện trạng phòng minh bạch.
+                        Theo dõi tiền cọc giữ chỗ, thời hạn kết thúc hợp đồng và bàn giao hiện trạng phòng rõ ràng, tiện lợi.
                       </p>
                     </div>
 

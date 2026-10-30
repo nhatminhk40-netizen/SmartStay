@@ -41,8 +41,8 @@ const INITIAL_NOTIFICATIONS = [
   
   {
     id: 3,
-    title: "Xác minh Safe Badge",
-    desc: "Trọ Mini An Khánh vừa cập nhật chứng nhận Safe Badge (đồng hồ riêng, PCCC).",
+    title: "Cập nhật phòng mới",
+    desc: "Trọ Mini An Khánh vừa cập nhật thêm phòng trống mới sẵn sàng đón khách.",
     time: "2 giờ trước",
     read: false,
     action: "explore"
@@ -587,7 +587,7 @@ export default function AppHeader({
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 shadow-md shadow-emerald-500/20"
           >
             <Plus className="w-4 h-4" />
-            Đăng tin Safe Badge
+            Đăng tin phòng trọ
           </button>
         </div>
       )}

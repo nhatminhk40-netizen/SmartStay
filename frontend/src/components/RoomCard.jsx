@@ -31,11 +31,6 @@ export default function RoomCard({ room, onOpen }) {
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
         <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
-          {room.safe_badge && (
-            <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500 text-white text-[10px] font-bold shadow-md">
-              <ShieldCheck className="w-3 h-3" /> Safe
-            </span>
-          )}
           {room.is_boosted && (
             <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500 text-white text-[10px] font-bold shadow-md">
               <TrendingUp className="w-3 h-3" /> Lên đầu

@@ -390,32 +390,21 @@ export default function RoomDetail() {
                 {/* Tiêu đề & Badges */}
                 <div className="bg-white rounded-3xl p-6 md:p-8 border border-border shadow-sm mb-6">
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                        {room.verificationStatus === 'verified' && !room.isDemo ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                                <BadgeCheck className="w-4 h-4 text-emerald-600" />
-                                Đã xác minh thực địa SmartStay
-                            </span>
-                        ) : room.verificationStatus === 'pending' ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium">
-                                <Clock className="w-4 h-4 text-blue-600" />
-                                Đang chờ kiểm duyệt hồ sơ
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-xs font-medium">
-                                Tin tự do (Chưa kiểm duyệt)
-                            </span>
-                        )}
-
-                        {room.has_pass && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 text-accent border border-accent/20 text-xs font-bold">
-                                <ShieldCheck className="w-4 h-4" />
-                                SmartStay Pass: Sang nhượng an toàn
-                            </span>
-                        )}
-
                         {room.property_name && (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100/80 text-orange-800 border border-orange-200 text-xs font-bold">
                                 🏠 {room.property_name}
+                            </span>
+                        )}
+
+                        {room.room_type && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">
+                                🚪 {room.room_type}
+                            </span>
+                        )}
+
+                        {room.campus && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold">
+                                📍 Khu vực {room.campus}
                             </span>
                         )}
 
@@ -700,51 +689,10 @@ export default function RoomDetail() {
                             </div>
                         </div>
 
-                        {/* 3. DIỄN GIẢI ĐIỂM TIN CẬY (Tiêu chí 5.1) */}
-                        <div className="bg-white rounded-3xl p-6 md:p-7 border border-border shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <h2 className="font-heading font-bold text-base text-foreground">Diễn giải Điểm tin cậy (Trust Score)</h2>
-                                    <p className="text-xs text-muted-foreground">Không chấp nhận mua điểm hay dùng quảng cáo để thay thế xác minh</p>
-                                </div>
-                                <div className="px-3 py-1 bg-emerald-50 text-emerald-700 font-black text-sm rounded-xl border border-emerald-200">
-                                    {room.safe_badge && !room.isDemo ? "88 / 100" : "55 / 100"}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 text-xs">
-                                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                                    <span className="flex items-center gap-2">
-                                        <Check className="w-4 h-4 text-emerald-600" /> Xác minh quyền cho thuê & danh tính người đăng
-                                    </span>
-                                    <span className="font-bold text-emerald-600">{room.safe_badge ? "+25đ (Đã duyệt)" : "0đ (Chờ duyệt)"}</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                                    <span className="flex items-center gap-2">
-                                        {room.fireSafetyCertified ? <Check className="w-4 h-4 text-emerald-600" /> : <X className="w-4 h-4 text-slate-400" />}
-                                        Kiểm định trang bị PCCC & Lối thoát hiểm
-                                    </span>
-                                    <span className="font-bold text-emerald-600">{room.fireSafetyCertified ? "+25đ (Đạt chuẩn)" : "0đ"}</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                                    <span className="flex items-center gap-2">
-                                        <Check className="w-4 h-4 text-emerald-600" /> Biểu phí chi tiết (Điện, nước, cọc niêm yết rõ)
-                                    </span>
-                                    <span className="font-bold text-emerald-600">+20đ</span>
-                                </div>
-                                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                                    <span className="flex items-center gap-2">
-                                        <Check className="w-4 h-4 text-emerald-600" /> Xác nhận tình trạng còn phòng trong 7 ngày
-                                    </span>
-                                    <span className="font-bold text-emerald-600">+10đ</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 4. ĐIỀU KIỆN SỐNG & AN TOÀN PCCC */}
+                        {/* 3. ĐIỀU KIỆN SỐNG & TIỆN NGHI */}
                         <div className="bg-white rounded-3xl p-6 md:p-7 border border-border shadow-sm">
                             <h2 className="font-heading font-bold text-base text-foreground mb-4">
-                                Quy định sinh hoạt & Tiêu chuẩn an toàn
+                                Quy định sinh hoạt & Tiện nghi phòng
                             </h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                 <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60">
@@ -876,8 +824,8 @@ export default function RoomDetail() {
                             </div>
 
                             <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-muted-foreground">
-                                <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
-                                    <ShieldCheck className="w-3.5 h-3.5" /> SmartStay cọc an toàn
+                                <span className="inline-flex items-center gap-1 text-slate-600 font-medium">
+                                    <Building2 className="w-3.5 h-3.5 text-accent" /> Hỗ trợ tìm & quản lý phòng trọ
                                 </span>
                                 <button
                                     onClick={() => setShowReportModal(true)}

@@ -27,7 +27,7 @@ export default function Home() {
 
     const loadRooms = () => {
         setLoading(true);
-        base44.entities.Room.list("-safe_badge", 50)
+        base44.entities.Room.list("-createdAt", 50)
             .then((res) => {
                 const list = res.items || res || [];
                 setRooms(list);
@@ -61,7 +61,6 @@ export default function Home() {
 
             if (findRoommate && !r.seeking_roommate) return false;
             if (fireSafetyOnly && !r.fireSafetyCertified) return false;
-            if (verifiedOnly && !r.safe_badge) return false;
             if (noLandlord && r.isWithLandlord) return false;
 
             if (selectedAmenities.length > 0) {

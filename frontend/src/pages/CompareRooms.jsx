@@ -264,29 +264,7 @@ export default function CompareRooms() {
                                         ))}
                                     </tr>
 
-                                    {/* 9. Trạng thái xác minh */}
-                                    <tr className="hover:bg-slate-50/50">
-                                        <td className="p-4 font-bold text-slate-700 bg-slate-50/40">Trạng thái xác minh</td>
-                                        {rooms.map(r => (
-                                            <td key={r.id || r._id} className="p-4">
-                                                {r.safe_badge && !r.isDemo ? (
-                                                    <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
-                                                        <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" /> Đã xác minh thực địa
-                                                    </span>
-                                                ) : r.isDemo ? (
-                                                    <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium">
-                                                        Dữ liệu minh họa
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                                                        Chưa xác minh thực địa
-                                                    </span>
-                                                )}
-                                            </td>
-                                        ))}
-                                    </tr>
-
-                                    {/* 10. Nút hành động */}
+                                    {/* 9. Nút hành động */}
                                     <tr className="bg-slate-50/80">
                                         <td className="p-4 font-bold text-slate-700">Hành động</td>
                                         {rooms.map(r => (

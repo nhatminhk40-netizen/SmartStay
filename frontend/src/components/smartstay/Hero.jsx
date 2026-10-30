@@ -1,21 +1,21 @@
 import React from "react";
-import { ShieldCheck, FileCheck, Tags } from "lucide-react";
+import { Search, Building2, Receipt } from "lucide-react";
 
 const features = [
     {
-        icon: ShieldCheck,
-        title: "100% kiểm duyệt phòng trọ",
-        desc: "Xác minh phòng trọ thật trước khi đăng",
+        icon: Search,
+        title: "Tìm phòng nhanh & chính xác",
+        desc: "Dễ dàng lọc theo trường ĐH Cần Thơ, FPT, Nam Cần Thơ... đúng giá và tiện nghi",
     },
     {
-        icon: FileCheck,
-        title: "Sang nhượng cọc an toàn",
-        desc: "Ký kết an toàn, bảo lãnh cọc rõ ràng",
+        icon: Building2,
+        title: "Kênh quản lý cho Chủ trọ",
+        desc: "Quản lý số phòng trống, khách đang thuê, hợp đồng và cọc giữ chỗ tiện lợi",
     },
     {
-        icon: Tags,
-        title: "Giá niêm yết rõ ràng",
-        desc: "Trọn gói rõ ràng, không phụ phí ẩn",
+        icon: Receipt,
+        title: "Chốt điện nước & Hóa đơn",
+        desc: "Bảng chốt số điện nước tự động, lưu trữ lịch sử và tính tiền nhanh chóng",
     },
 ];
 
@@ -24,14 +24,14 @@ export default function Hero() {
         <section className="relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-[#fdfbf7] via-[#faf3e3] to-[#f4ebd9]" />
             <div className="relative max-w-5xl mx-auto px-6 pt-16 pb-14 text-center">
-                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium mb-6">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Nền tảng hỗ trợ tìm phòng & Quản lí phòng trọ tại Cần Thơ
+                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-semibold mb-6">
+                    <Building2 className="w-3.5 h-3.5" /> Hỗ trợ tìm phòng cho người thuê & Quản lý phòng trọ cho chủ trọ tại Cần Thơ
                 </span>
                 <h1 className="font-heading text-4xl md:text-5xl font-extrabold text-foreground leading-tight">
-                    Hỗ trợ tìm phòng & <span className="text-accent">quản lí phòng trọ</span>
+                    Hỗ trợ tìm phòng & <span className="text-accent">quản lý phòng trọ</span>
                 </h1>
                 <p className="mt-4 text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-                    Tìm phòng đúng vị trí, đúng túi tiền — đánh giá thực tế từ người đã ở, quản lý nghiêm ngặt nhưng dễ dùng, bảo vệ cọc an toàn tuyệt đối.
+                    Nền tảng kết nối trực tiếp: Giúp người thuê tìm phòng trọ ưng ý theo vị trí và mức giá, đồng thời hỗ trợ chủ trọ quản lý cơ sở, khách thuê và điện nước hiệu quả.
                 </p>
 
                 <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
