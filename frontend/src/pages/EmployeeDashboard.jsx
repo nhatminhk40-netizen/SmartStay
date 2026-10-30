@@ -2954,8 +2954,9 @@ export default function EmployeeDashboard() {
   // Gom nhóm danh sách phòng theo từng cơ sở / khu vực địa chỉ
   const propertyGroups = React.useMemo(() => {
     const map = new Map();
+    const safeRoomsList = Array.isArray(realRooms) ? realRooms : [];
 
-    realRooms.forEach(room => {
+    safeRoomsList.forEach(room => {
       const propName = (room.property_name && room.property_name.trim()) 
         ? room.property_name.trim() 
         : (room.address && room.address.trim()) 
@@ -3422,9 +3423,9 @@ export default function EmployeeDashboard() {
               {/* Stats */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={Building2} title="Tổng số phòng" value={stats.total || realRooms.length} sub="Đang quản lý" colorClass="bg-blue-100 text-blue-600" />
-                <StatCard icon={CheckCircle} title="Phòng trống" value={stats.available || realRooms.filter(r => r.status === "available" || r.status === "Trống").length} sub="Sẵn sàng đón khách" colorClass="bg-emerald-100 text-emerald-600" />
-                <StatCard icon={Users} title="Đang thuê" value={stats.rented || realRooms.filter(r => r.status === "rented" || r.status === "Đang thuê").length} sub="Hợp đồng đang ở" colorClass="bg-amber-100 text-amber-600" />
-                <StatCard icon={Receipt} title="Lịch hẹn mới" value={appointments.filter(a => a.status === "pending").length} sub="Người thuê chờ duyệt" colorClass="bg-[#f97316]/10 text-[#f97316]" />
+                <StatCard icon={CheckCircle} title="Phòng trống" value={stats.available || (Array.isArray(realRooms) ? realRooms.filter(r => r.status === "available" || r.status === "Trống").length : 0)} sub="Sẵn sàng đón khách" colorClass="bg-emerald-100 text-emerald-600" />
+                <StatCard icon={Users} title="Đang thuê" value={stats.rented || (Array.isArray(realRooms) ? realRooms.filter(r => r.status === "rented" || r.status === "Đang thuê").length : 0)} sub="Hợp đồng đang ở" colorClass="bg-amber-100 text-amber-600" />
+                <StatCard icon={Receipt} title="Lịch hẹn mới" value={Array.isArray(appointments) ? appointments.filter(a => a.status === "pending").length : 0} sub="Người thuê chờ duyệt" colorClass="bg-[#f97316]/10 text-[#f97316]" />
               </div>
               
               {/* Lối tắt thao tác nhanh cho chủ trọ */}

@@ -8,6 +8,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 // Add page imports here
 import Home from '@/pages/Home';
@@ -73,7 +74,9 @@ const AuthenticatedApp = () => {
         {/* 2. Phân hệ Chủ trọ (Landlord Portal) */}
         <Route path="/chu-tro" element={
           <ProtectedRoute requiredRoles={['landlord', 'admin', 'employee']}>
-            <EmployeeDashboard />
+            <ErrorBoundary>
+              <EmployeeDashboard />
+            </ErrorBoundary>
           </ProtectedRoute>
         } />
         <Route path="/employee" element={
@@ -118,7 +121,9 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <Router>
           <ScrollToTop />
-          <AuthenticatedApp />
+          <ErrorBoundary>
+            <AuthenticatedApp />
+          </ErrorBoundary>
         </Router>
         <Toaster />
       </QueryClientProvider>
