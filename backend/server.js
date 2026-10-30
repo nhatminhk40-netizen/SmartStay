@@ -1662,7 +1662,7 @@ app.post('/api/surveys', async (req, res) => {
     try {
         const surveyData = {
             ...req.body,
-            allowCrossGender: req.body.allowCrossGender === true || req.body.allowCrossGender === 'true',
+            allowCrossGender: false,
             isPrivate: req.body.isPrivate || false,
             allowShareContact: req.body.allowShareContact || false,
             isDemo: false
@@ -1710,11 +1710,10 @@ app.get('/api/surveys/matches/:id', async (req, res) => {
         const myGenderNorm = normalizeGender(mySurvey.gender);
         const myAllowCross = Boolean(mySurvey.allowCrossGender);
 
-        // Lọc cứng: cùng giới tính HOẶC cả 2 bên cùng bật cho phép ghép khác giới
+        // Lọc cứng: CHỈ ghép người cùng giới tính (nam ghép nam, nữ ghép nữ)
         const eligibleCandidates = otherSurveys.filter((candidate) => {
             const cGenderNorm = normalizeGender(candidate.gender);
-            if (cGenderNorm && myGenderNorm === cGenderNorm) return true;
-            return myAllowCross && Boolean(candidate.allowCrossGender);
+            return cGenderNorm && myGenderNorm === cGenderNorm;
         });
 
         const matchedResults = eligibleCandidates.map((candidate) => {
@@ -1823,17 +1822,11 @@ app.get('/api/surveys', async (req, res) => {
         });
 
         // ==================== LỌC CỨNG Ở PHÍA SERVER ====================
-        // Nếu xác định được giới tính người xem:
-        // - Cùng giới tính: luôn được hiển thị
-        // - Khác giới tính: CHỈ hiển thị khi CẢ HAI BÊN đều bật allowCrossGender
+        // Nếu xác định được giới tính người xem: CHỈ hiển thị người cùng giới tính
         if (vGenderNorm) {
             safeSurveys = safeSurveys.filter((candidate) => {
                 const cGenderNorm = normalizeGender(candidate.gender);
-                if (cGenderNorm && vGenderNorm === cGenderNorm) {
-                    return true;
-                }
-                const bothAllowCross = Boolean(viewerAllowCross) && Boolean(candidate.allowCrossGender);
-                return bothAllowCross;
+                return cGenderNorm && vGenderNorm === cGenderNorm;
             });
         }
 

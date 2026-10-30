@@ -315,10 +315,9 @@ export default function Roommates() {
                 const myGenderNorm = normalizeGender(myProfile.gender);
                 const otherGenderNorm = normalizeGender(it.gender);
 
-                // Nếu khác giới tính: chỉ hiển thị khi CẢ HAI BÊN đều bật allowCrossGender
+                // Quy định an toàn: Chỉ ghép bạn cùng giới tính (Nam ghép Nam, Nữ ghép Nữ)
                 if (myGenderNorm && otherGenderNorm && myGenderNorm !== otherGenderNorm) {
-                    const bothAllow = Boolean(myProfile.allowCrossGender) && Boolean(it.allowCrossGender);
-                    if (!bothAllow) return false;
+                    return false;
                 }
             }
 
@@ -825,12 +824,8 @@ export default function Roommates() {
                                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                             Hồ sơ của bạn (Đang tìm bạn)
                                         </span>
-                                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                                            myProfile.allowCrossGender
-                                                ? "bg-purple-50 text-purple-800 border-purple-200"
-                                                : "bg-blue-50 text-blue-800 border-blue-200"
-                                        }`}>
-                                            {myProfile.allowCrossGender ? "👫 Cho phép ghép khác giới" : "🛡️ Chỉ ghép cùng giới"}
+                                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border bg-blue-50 text-blue-800 border-blue-200">
+                                            🛡️ Ghép cùng giới tính
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
