@@ -96,7 +96,7 @@ router.get('/', async (req, res) => {
 
         if (isDbConnected) {
             const query = {
-                status: verifiedOnly === 'true' ? 'verified' : { $in: ['verified', 'pending_landlord'] }
+                status: 'verified'
             };
 
             if (q && q.trim()) {
@@ -158,8 +158,7 @@ router.get('/', async (req, res) => {
 
         // Chỉ hiện verified hoặc pending_landlord cho người xem
         fallbackList = fallbackList.filter(r => {
-            if (verifiedOnly === 'true') return r.status === 'verified';
-            return r.status === 'verified' || r.status === 'pending_landlord';
+            return r.status === 'verified';
         });
 
         if (q && q.trim()) {

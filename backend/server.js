@@ -1697,14 +1697,14 @@ app.get('/api/surveys/matches/:id', async (req, res) => {
         if (isDbConnected) {
             mySurvey = await RoommateSurvey.findById(id);
             if (!mySurvey) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ của bạn' });
-            // Không ghép với những người chọn ẩn hồ sơ (isPrivate = true)
-            otherSurveys = await RoommateSurvey.find({ _id: { $ne: mySurvey._id }, isPrivate: { $ne: true } });
+            // Không ghép với những người chọn ẩn hồ sơ (isPrivate = true) hoặc hồ sơ mẫu (isDemo = true)
+            otherSurveys = await RoommateSurvey.find({ _id: { $ne: mySurvey._id }, isPrivate: { $ne: true }, isDemo: { $ne: true } });
         } else {
             mySurvey = fallbackSurveys.find((s) => String(s._id) === id || String(s.id) === id);
             if (!mySurvey) {
                 mySurvey = fallbackSurveys[0];
             }
-            otherSurveys = fallbackSurveys.filter((s) => String(s._id) !== String(mySurvey?._id) && !s.isPrivate);
+            otherSurveys = fallbackSurveys.filter((s) => String(s._id) !== String(mySurvey?._id) && !s.isPrivate && !s.isDemo);
         }
 
         const myGenderNorm = normalizeGender(mySurvey.gender);
@@ -1761,9 +1761,9 @@ app.get('/api/surveys', async (req, res) => {
     try {
         let surveys = [];
         if (isDbConnected) {
-            surveys = await RoommateSurvey.find({ isPrivate: { $ne: true } }).sort({ createdAt: -1 });
+            surveys = await RoommateSurvey.find({ isPrivate: { $ne: true }, isDemo: { $ne: true } }).sort({ createdAt: -1 });
         } else {
-            surveys = fallbackSurveys.filter((s) => !s.isPrivate);
+            surveys = fallbackSurveys.filter((s) => !s.isPrivate && !s.isDemo);
         }
 
         // Thông tin người xem (viewer) để áp dụng thuật toán SSOT và lọc phía Server

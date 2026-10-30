@@ -45,6 +45,20 @@ export const cleanPhoneNumber = (phone = "") => {
 export const openZaloChat = (phone) => {
   const clean = cleanPhoneNumber(phone);
   if (clean && clean.length >= 9) {
+    // Chặn các đầu số mẫu giả định trong môi trường test/demo để tránh bấm nhầm vào Zalo của người thật
+    const DUMMY_TEST_PHONES = [
+      '0901111222',
+      '0903333444',
+      '0905555666',
+      '0907777888',
+      '0909998877',
+      '0912345678',
+      '0988776655'
+    ];
+    if (DUMMY_TEST_PHONES.includes(clean)) {
+      alert("Đây là số điện thoại mẫu giả lập của hệ thống, không chuyển hướng đến Zalo bên ngoài.");
+      return false;
+    }
     window.open(`https://zalo.me/${clean}`, "_blank");
     return true;
   }

@@ -42,7 +42,7 @@ import { formatGender } from "@/utils/genderLabel";
 import { calcCompatibility, normalizeGender } from "@/utils/compatibility";
 import { roommateApi } from "@/services/roommateApi";
 import { checkHasRecipientReplied } from "@/services/messengerSync";
-import { getCurrentChatIdentity } from "@/services/chatService";
+import { getCurrentChatIdentity, openZaloChat } from "@/services/chatService";
 
 const campuses = ["ĐH Cần Thơ", "ĐH Y Dược", "ĐH Nam Cần Thơ", "ĐH FPT"];
 const PAGE_SIZE = 12;
@@ -630,7 +630,7 @@ export default function Roommates() {
         const phone = selectedRoommate.rawContact || selectedRoommate.contact || "";
         const cleanPhone = phone.replace(/[^0-9]/g, "");
         if (cleanPhone && cleanPhone.length >= 9) {
-            window.open(`https://zalo.me/${cleanPhone}`, "_blank");
+            openZaloChat(cleanPhone);
         } else {
             handleCopyMessage();
             alert("Đã sao chép tin nhắn! Bạn có thể dán vào Zalo hoặc Messenger của người này.");
