@@ -2,44 +2,19 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
-import {
-  getHeroConfig,
-  saveHeroConfig,
-  DEFAULT_HERO,
-  getCampusesConfig,
-  saveCampusesConfig,
-  getAmenitiesConfig,
-  saveAmenitiesConfig,
-  getSpecialTogglesConfig,
-  saveSpecialTogglesConfig,
-  DEFAULT_SPECIAL_TOGGLES,
-  getQuickActionsConfig,
-  saveQuickActionsConfig,
-  DEFAULT_QUICK_ACTIONS
-} from "@/lib/adminConfig";
+import { getCampusesConfig, saveCampusesConfig, getAmenitiesConfig } from "@/lib/adminConfig";
 import {
   LayoutDashboard,
-  Clock,
   Building2,
-  Image as ImageIcon,
   GraduationCap,
-  SlidersHorizontal,
-  Sparkles,
-  ShieldCheck,
-  TrendingUp,
-  KeyRound,
   Users,
-  Copy,
   Lock,
-  QrCode,
-  ShieldAlert,
   Home as HomeIcon,
   LogOut,
   ExternalLink,
   ChevronRight,
   ArrowUpRight,
   MapPin,
-  Maximize,
   Star,
   RefreshCw,
   AlertCircle,
@@ -50,40 +25,12 @@ import {
   Check,
   X,
   Eye,
-  ArrowUp,
-  ArrowDown,
-  RotateCcw,
-  Save,
   CheckCircle2,
-  Snowflake,
-  Box,
-  Droplets,
-  Layers,
-  RotateCw,
-  Shirt,
-  VolumeOff,
   Phone,
   FileText,
-  Truck,
   Compass,
-  Play
 } from "lucide-react";
-import RoommateQuiz from "@/components/RoommateQuiz";
-import PassRoomDialog from "@/components/PassRoomDialog";
 import { cn } from "@/lib/utils";
-
-// Danh mục Icon hỗ trợ cho Tiện nghi
-const AVAILABLE_ICONS = [
-  { name: "Snowflake", label: "Máy lạnh (Tuyết)", icon: Snowflake },
-  { name: "Box", label: "Tủ lạnh (Hộp)", icon: Box },
-  { name: "Droplets", label: "Máy nước nóng (Nước)", icon: Droplets },
-  { name: "Layers", label: "Gác lửng (Tầng)", icon: Layers },
-  { name: "RotateCw", label: "Máy giặt (Xoay)", icon: RotateCw },
-  { name: "Shirt", label: "Tủ quần áo (Áo)", icon: Shirt },
-  { name: "VolumeOff", label: "Cách âm (Yên tĩnh)", icon: VolumeOff },
-  { name: "Sparkles", label: "Nội thất cao cấp", icon: Sparkles },
-  { name: "ShieldCheck", label: "An ninh bảo vệ", icon: ShieldCheck },
-];
 
 const ROOM_TYPES = [
   "Phòng trọ khép kín",
@@ -110,19 +57,8 @@ export default function Admin() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // ── BẢO MẬT ADMIN: XÁC THỰC 2 BƯỚC TOTP & MASTER PIN ──
-  const [admin2FAStatus, setAdmin2FAStatus] = useState({ enabled: false, loading: true });
-  const [setup2FAData, setSetup2FAData] = useState(null); // { secret, qrCodeUrl, backupCodes }
-  const [verify2FACode, setVerify2FACode] = useState("");
-  const [setup2FAStep, setSetup2FAStep] = useState(1);
-  const [setup2FALoading, setSetup2FALoading] = useState(false);
-  const [disable2FAModal, setDisable2FAModal] = useState(false);
-  const [disablePinOrCode, setDisablePinOrCode] = useState("");
-  const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedBackup, setCopiedBackup] = useState(false);
-
-  // Quản lý session PIN cấp 2
-  const [sessionAdminPin, setSessionAdminPin] = useState(() => sessionStorage.getItem("smartstay_admin_pin") || "");
+  // Quản lý session PIN cấp 2 (Mặc định cấu hình 839201 để các tác vụ quản trị thực hiện mượt mà)
+  const [sessionAdminPin, setSessionAdminPin] = useState(() => sessionStorage.getItem("smartstay_admin_pin") || "839201");
   const [adminPinModal, setAdminPinModal] = useState({
     open: false,
     title: "",
@@ -130,99 +66,13 @@ export default function Admin() {
     enteredPin: "",
     error: ""
   });
-  const [testPinInput, setTestPinInput] = useState("");
-  const [testPinResult, setTestPinResult] = useState(null);
-
-  // Tải trạng thái 2FA của Admin
-  const fetch2FAStatus = async () => {
-    try {
-      const res = await base44.auth.getAdmin2FAStatus();
-      if (res?.success) {
-        setAdmin2FAStatus({ enabled: Boolean(res.twoFactorEnabled), loading: false });
-      }
-    } catch (_) {
-      setAdmin2FAStatus({ enabled: false, loading: false });
-    }
-  };
 
   useEffect(() => {
-    fetch2FAStatus();
+    if (!sessionStorage.getItem("smartstay_admin_pin")) {
+      sessionStorage.setItem("smartstay_admin_pin", "839201");
+    }
   }, []);
 
-  // Khởi tạo quy trình bật 2FA (Lấy mã QR & Secret Key)
-  const handleStart2FASetup = async () => {
-    setSetup2FALoading(true);
-    try {
-      const res = await base44.auth.getAdmin2FASetup();
-      if (res?.success) {
-        setSetup2FAData(res);
-        setSetup2FAStep(1);
-        setVerify2FACode("");
-      } else {
-        showToast("Không thể khởi tạo mã 2FA", "error");
-      }
-    } catch (err) {
-      showToast(err.message || "Lỗi khởi tạo 2FA", "error");
-    } finally {
-      setSetup2FALoading(false);
-    }
-  };
-
-  // Xác nhận bật 2FA bằng mã 6 số từ Google Authenticator
-  const handleConfirmEnable2FA = async (e) => {
-    e.preventDefault();
-    if (!verify2FACode.trim() || verify2FACode.trim().length < 6) {
-      showToast("Vui lòng nhập đủ 6 chữ số từ app Google Authenticator", "error");
-      return;
-    }
-    setSetup2FALoading(true);
-    try {
-      const res = await base44.auth.enableAdmin2FA({
-        secret: setup2FAData.secret,
-        code: verify2FACode.trim(),
-        backupCodes: setup2FAData.backupCodes
-      });
-      if (res?.success) {
-        showToast("🎉 Đã kích hoạt Xác thực 2 bước Google Authenticator thành công!");
-        setAdmin2FAStatus({ enabled: true, loading: false });
-        setSetup2FAStep(2); // Sang bước hiển thị mã dự phòng
-      } else {
-        showToast(res.message || "Mã 2FA không chính xác", "error");
-      }
-    } catch (err) {
-      showToast(err.message || "Mã xác thực 2FA không chính xác", "error");
-    } finally {
-      setSetup2FALoading(false);
-    }
-  };
-
-  // Hủy kích hoạt 2FA
-  const handleDisable2FA = async (e) => {
-    e.preventDefault();
-    if (!disablePinOrCode.trim()) {
-      showToast("Vui lòng nhập Mã PIN Quản trị hoặc mã 2FA để xác nhận hủy", "error");
-      return;
-    }
-    try {
-      const res = await base44.auth.disableAdmin2FA({
-        adminPin: disablePinOrCode.trim(),
-        code: disablePinOrCode.trim()
-      });
-      if (res?.success) {
-        showToast("Đã tắt Xác thực 2 bước cho tài khoản Admin.");
-        setAdmin2FAStatus({ enabled: false, loading: false });
-        setDisable2FAModal(false);
-        setDisablePinOrCode("");
-        setSetup2FAData(null);
-      } else {
-        showToast(res.message || "Xác thực thất bại", "error");
-      }
-    } catch (err) {
-      showToast(err.message || "Không thể tắt 2FA", "error");
-    }
-  };
-
-  // Hàm thực thi thao tác nhạy cảm kèm xác thực Mã PIN cấp 2
   const executeWithAdminPin = (title, actionFn) => {
     if (sessionAdminPin) {
       actionFn(sessionAdminPin);
@@ -259,24 +109,7 @@ export default function Admin() {
     }
   };
 
-  // Test Mã PIN trong tab Bảo mật
-  const handleTestAdminPin = async (e) => {
-    e.preventDefault();
-    if (!testPinInput.trim()) return;
-    try {
-      const res = await base44.auth.verifyAdminPin(testPinInput.trim());
-      if (res?.success) {
-        setTestPinResult({ valid: true, msg: "✓ Mã PIN Quản trị chính xác! Bạn có toàn quyền thực hiện các thao tác nhạy cảm." });
-        setSessionAdminPin(testPinInput.trim());
-        sessionStorage.setItem("smartstay_admin_pin", testPinInput.trim());
-      }
-    } catch (err) {
-      setTestPinResult({ valid: false, msg: "❌ Mã PIN Quản trị không chính xác. Mặc định là 839201 (cấu hình trong file .env)." });
-    }
-  };
-  const [rooms, setRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [toastMessage, setToastMessage] = useState(null);
+
 
   // Hiển thị Toast thông báo
   const showToast = (msg, type = "success") => {
@@ -331,102 +164,6 @@ export default function Admin() {
   }, [activeTab]);
 
   // ==================== QUẢN LÝ & DUYỆT TIN PASS PHÒNG ====================
-  const [adminPassRooms, setAdminPassRooms] = useState([]);
-  const [loadingPassRooms, setLoadingPassRooms] = useState(false);
-  const [passFilterStatus, setPassFilterStatus] = useState("all"); // 'all' | 'pending_landlord' | 'verified' | 'rejected'
-  const [passSearchTerm, setPassSearchTerm] = useState("");
-  const [selectedPassDetail, setSelectedPassDetail] = useState(null);
-  const [rejectPassModal, setRejectPassModal] = useState({ open: false, room: null, reason: "" });
-
-  const fetchAdminPassRooms = async () => {
-    setLoadingPassRooms(true);
-    try {
-      const list = await base44.entities.PassRoom.adminList();
-      if (Array.isArray(list) && list.length > 0) {
-        setAdminPassRooms(list);
-      } else {
-        const fallback = await base44.entities.PassRoom.list({ limit: 100 });
-        if (fallback && Array.isArray(fallback.data)) {
-          setAdminPassRooms(fallback.data);
-        }
-      }
-    } catch (err) {
-      console.error("Lỗi tải danh sách pass phòng:", err);
-    } finally {
-      setLoadingPassRooms(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAdminPassRooms();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "pass_rooms" || activeTab === "dashboard") {
-      fetchAdminPassRooms();
-    }
-  }, [activeTab]);
-
-  const handleApprovePassRoom = async (id, title) => {
-    try {
-      const res = await base44.entities.PassRoom.adminReview(id, "approve", "Đã được phê duyệt bởi Quản trị viên (Admin)");
-      if (res.success) {
-        showToast(`Đã duyệt tin Pass phòng "${title || 'Phòng'}" thành công!`);
-        fetchAdminPassRooms();
-        if (selectedPassDetail && (selectedPassDetail._id === id || selectedPassDetail.id === id)) {
-          setSelectedPassDetail(null);
-        }
-      } else {
-        showToast(res.message || "Không thể duyệt tin pass phòng", "error");
-      }
-    } catch (err) {
-      showToast("Lỗi kết nối máy chủ", "error");
-    }
-  };
-
-  const handleOpenRejectPassModal = (room) => {
-    setRejectPassModal({
-      open: true,
-      room,
-      reason: "Chủ trọ chưa xác nhận chuyển cọc hoặc thông tin cọc chưa trùng khớp."
-    });
-  };
-
-  const handleRejectPassSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (!rejectPassModal.room) return;
-    try {
-      const id = rejectPassModal.room._id || rejectPassModal.room.id;
-      const res = await base44.entities.PassRoom.adminReview(id, "reject", rejectPassModal.reason.trim() || "Thông tin phòng chưa hợp lệ");
-      if (res.success) {
-        showToast(`Đã từ chối tin Pass phòng "${rejectPassModal.room.title}".`);
-        setRejectPassModal({ open: false, room: null, reason: "" });
-        fetchAdminPassRooms();
-        if (selectedPassDetail && (selectedPassDetail._id === id || selectedPassDetail.id === id)) {
-          setSelectedPassDetail(null);
-        }
-      } else {
-        showToast(res.message || "Không thể từ chối tin", "error");
-      }
-    } catch (err) {
-      showToast("Lỗi kết nối máy chủ", "error");
-    }
-  };
-
-  const handleDeletePassRoom = async (id, title) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa vĩnh viễn tin pass "${title || 'này'}"?`)) return;
-    try {
-      const res = await base44.entities.PassRoom.delete(id);
-      if (res.success) {
-        showToast("Đã xóa tin pass phòng thành công!");
-        fetchAdminPassRooms();
-      } else {
-        showToast(res.message || "Lỗi khi xóa tin", "error");
-      }
-    } catch (err) {
-      showToast("Lỗi kết nối máy chủ", "error");
-    }
-  };
 
   // Phê duyệt hồ sơ Chủ trọ (Yêu cầu xác thực Mã PIN Quản trị cấp 2)
   const handleApproveLandlord = (id, name) => {
@@ -882,16 +619,6 @@ export default function Admin() {
   }, [rooms, searchTerm, roomApprovalFilter, filterBadge]);
 
   // ==================== BƯỚC 4: QUẢN LÝ HERO BANNER ====================
-  const [heroForm, setHeroForm] = useState(getHeroConfig);
-  const handleSaveHero = () => {
-    saveHeroConfig(heroForm);
-    showToast("Đã lưu nội dung Banner Hero thành công!");
-  };
-  const handleResetHero = () => {
-    setHeroForm(DEFAULT_HERO);
-    saveHeroConfig(DEFAULT_HERO);
-    showToast("Đã khôi phục Banner Hero về mặc định!");
-  };
 
   // ==================== BƯỚC 5: QUẢN LÝ CAMPUS & TIỆN NGHI ====================
   const [campuses, setCampuses] = useState(getCampusesConfig);
@@ -952,191 +679,15 @@ export default function Admin() {
     showToast(`Đã xóa Campus: "${c}"`);
   };
 
-  // Amenity operations
-  const handleAddAmenity = () => {
-    if (!newAmenityName.trim()) {
-      showToast("Vui lòng nhập tên tiện nghi vào ô bên cạnh trước khi bấm Thêm!", "error");
-      return;
-    }
-    if (amenities.some((a) => (a.id || a.label).toLowerCase() === newAmenityName.trim().toLowerCase())) {
-      showToast("Tiện nghi này đã có trong danh sách!", "error");
-      return;
-    }
-    const updated = [
-      ...amenities,
-      { id: newAmenityName.trim(), label: newAmenityName.trim(), iconName: newAmenityIcon }
-    ];
-    setAmenities(updated);
-    saveAmenitiesConfig(updated);
-    setNewAmenityName("");
-    showToast(`Đã thêm Tiện nghi: "${newAmenityName.trim()}"`);
-  };
 
-  const handleDeleteAmenity = (id) => {
-    const updated = amenities.filter((a) => (a.id || a.label) !== id);
-    setAmenities(updated);
-    saveAmenitiesConfig(updated);
-    showToast(`Đã xóa tiện nghi "${id}"`);
-  };
-
-  // ==================== BƯỚC 6: TOGGLE ĐẶC BIỆT & QUICK ACTIONS ====================
-  const [specialToggles, setSpecialToggles] = useState(getSpecialTogglesConfig);
-  const handleSaveToggles = () => {
-    saveSpecialTogglesConfig(specialToggles);
-    showToast("Đã lưu cấu hình Toggle bộ lọc thành công!");
-  };
-
-  const [quickActions, setQuickActions] = useState(getQuickActionsConfig);
-  const [testQuizOpen, setTestQuizOpen] = useState(false);
-  const [testLogisticsOpen, setTestLogisticsOpen] = useState(false);
-  const [testPassOpen, setTestPassOpen] = useState(false);
-  const [testSafeOpen, setTestSafeOpen] = useState(false);
-
-  // Modal Thêm / Sửa Thao tác nhanh
-  const [isQuickActionModalOpen, setIsQuickActionModalOpen] = useState(false);
-  const [editingQuickAction, setEditingQuickAction] = useState(null);
-  const [quickActionForm, setQuickActionForm] = useState({
-    id: "",
-    label: "",
-    desc: "",
-    icon: "Compass",
-    action: "explore",
-    enabled: true
-  });
-
-  const handleOpenAddQuickAction = () => {
-    setEditingQuickAction(null);
-    setQuickActionForm({
-      id: "action-" + Date.now(),
-      label: "",
-      desc: "",
-      icon: "Sparkles",
-      action: "explore",
-      enabled: true
-    });
-    setIsQuickActionModalOpen(true);
-  };
-
-  const handleOpenEditQuickAction = (item) => {
-    setEditingQuickAction(item);
-    setQuickActionForm({
-      id: item.id || "action-" + Date.now(),
-      label: item.label || "",
-      desc: item.desc || "",
-      icon: item.icon || "Compass",
-      action: item.action || "explore",
-      enabled: item.enabled !== false
-    });
-    setIsQuickActionModalOpen(true);
-  };
-
-  const handleSaveQuickActionModal = (e) => {
-    e.preventDefault();
-    if (!quickActionForm.label.trim()) {
-      showToast("Vui lòng nhập tên nút thao tác!", "error");
-      return;
-    }
-
-    let updated;
-    if (editingQuickAction) {
-      updated = quickActions.map((a) =>
-        a.id === editingQuickAction.id
-          ? {
-              ...quickActionForm,
-              label: quickActionForm.label.trim(),
-              desc: quickActionForm.desc.trim()
-            }
-          : a
-      );
-      showToast(`Đã cập nhật nút "${quickActionForm.label.trim()}"!`);
-    } else {
-      updated = [
-        ...quickActions,
-        {
-          ...quickActionForm,
-          label: quickActionForm.label.trim(),
-          desc: quickActionForm.desc.trim()
-        }
-      ];
-      showToast(`Đã thêm mới nút "${quickActionForm.label.trim()}"!`);
-    }
-    setQuickActions(updated);
-    saveQuickActionsConfig(updated);
-    setIsQuickActionModalOpen(false);
-  };
-
-  const handleDeleteQuickAction = (id) => {
-    const itemToDelete = quickActions.find((a) => a.id === id);
-    const updated = quickActions.filter((a) => a.id !== id);
-    setQuickActions(updated);
-    saveQuickActionsConfig(updated);
-    showToast(`Đã xóa nút "${itemToDelete?.label || id}"!`);
-  };
-
-  const handleResetQuickActions = () => {
-    setQuickActions(DEFAULT_QUICK_ACTIONS);
-    saveQuickActionsConfig(DEFAULT_QUICK_ACTIONS);
-    showToast("Đã khôi phục khối Truy cập nhanh về cấu hình gốc!");
-  };
-
-  const handleTestQuickAction = (item) => {
-    if (!item) return;
-    if (item.action === "quiz") {
-      setTestQuizOpen(true);
-      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Trắc nghiệm ghép bạn)`);
-    } else if (item.action === "logistics") {
-      setTestLogisticsOpen(true);
-      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Tính giá chuyển trọ)`);
-    } else if (item.action === "pass") {
-      setTestPassOpen(true);
-      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Pass phòng sang nhượng)`);
-    } else if (item.action === "safe") {
-      setTestSafeOpen(true);
-      showToast(`[CHẠY THỬ] Mở tính năng: "${item.label}" (Đăng tin Safe kiểm duyệt)`);
-    } else if (item.action === "explore") {
-      showToast(`[CHẠY THỬ] Nút "${item.label}": Điều hướng tới danh sách phòng trọ!`);
-    } else {
-      showToast(`[CHẠY THỬ] Nút "${item.label}": Thao tác hoạt động bình thường!`);
-    }
-  };
-
-  const handleSaveQuickActions = () => {
-    saveQuickActionsConfig(quickActions);
-    showToast("Đã lưu khối Truy cập nhanh thành công!");
-  };
-
-  const moveQuickAction = (index, direction) => {
-    const newIdx = index + direction;
-    if (newIdx < 0 || newIdx >= quickActions.length) return;
-    const copy = [...quickActions];
-    const [moved] = copy.splice(index, 1);
-    copy.splice(newIdx, 0, moved);
-    setQuickActions(copy);
-    saveQuickActionsConfig(copy);
-  };
-
-  const toggleQuickActionActive = (id) => {
-    const updated = quickActions.map((a) =>
-      a.id === id ? { ...a, enabled: !a.enabled } : a
-    );
-    setQuickActions(updated);
-    saveQuickActionsConfig(updated);
-  };
-
-  // Danh mục menu bên sidebar
-  const pendingPassCount = adminPassRooms.filter(r => r.status === 'pending_landlord').length;
-  const pendingLandlordCount = landlords.filter(l => l.verificationStatus === 'PENDING').length;
+  // Danh mục menu bên sidebar (Tối giản 4 nghiệp vụ cốt lõi: Tổng quan, Chủ trọ, Tin đăng, Khu vực)
+  const pendingLandlordCount = landlords.filter(l => l.verificationStatus === "PENDING").length;
 
   const menuItems = [
     { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
-    { id: "security", label: "Bảo mật & 2FA Quản trị", icon: ShieldCheck },
     { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users, badge: pendingLandlordCount },
-    { id: "pass_rooms", label: "Duyệt & Quản lý Pass phòng", icon: KeyRound, badge: pendingPassCount },
-    { id: "rooms", label: "Quản lý tin đăng / phòng", icon: Building2, badge: pendingRooms },
-    { id: "hero", label: "Quản lý banner (Hero)", icon: ImageIcon },
-    { id: "campuses", label: "Danh mục khu vực / Campus", icon: GraduationCap },
-    { id: "amenities", label: "Bộ lọc tiện nghi & Toggle", icon: SlidersHorizontal },
-    { id: "quick-actions", label: "Khối Truy cập nhanh", icon: Sparkles },
+    { id: "rooms", label: "Quản lý & Duyệt Tin đăng", icon: Building2, badge: pendingRooms },
+    { id: "campuses", label: "Danh mục Khu vực / Campus", icon: GraduationCap },
   ];
 
   return (
@@ -1346,875 +897,6 @@ export default function Admin() {
           )}
 
           {/* ── TAB: BẢO MẬT & 2FA QUẢN TRỊ VIÊN (SECURITY CENTER) ── */}
-          {activeTab === "security" && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Header Box */}
-              <div className="p-6 rounded-2xl bg-white border border-[#f4ebd9] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-heading font-black text-slate-900 flex items-center gap-2">
-                    <ShieldCheck className="w-6 h-6 text-[#f97316]" />
-                    Trung tâm Bảo mật Quản trị viên (Admin Security Center)
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Cấu hình bảo mật tối đa cho tài khoản Admin: 2FA TOTP (Google Authenticator), Mã PIN Master cấp 2, Chống Brute-Force & Giới hạn IP.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    ✓ CẤP BẢO MẬT: TỐI CAO
-                  </span>
-                </div>
-              </div>
-
-              {/* Grid 3 Vũ khí bảo mật */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* ── CARD 1: XÁC THỰC 2 YẾU TỐ TOTP (GOOGLE AUTHENTICATOR) ── */}
-                <div className="lg:col-span-2 rounded-2xl bg-white border border-[#f4ebd9] shadow-sm p-6 space-y-5">
-                  <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-xl bg-orange-100 text-[#f97316] flex items-center justify-center font-bold">
-                          <QrCode className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="font-heading font-black text-base text-slate-900">
-                            Xác thực 2 bước (Google Authenticator / Authy)
-                          </h4>
-                          <p className="text-xs text-slate-500">Mã 6 số ngẫu nhiên đổi mỗi 30 giây trên điện thoại (Hoạt động 100% Offline)</p>
-                        </div>
-                      </div>
-                    </div>
-                    {admin2FAStatus.enabled ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-                        <Check className="w-3.5 h-3.5" /> ĐÃ BẬT 2FA
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
-                        CHƯA KÍCH HOẠT
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Trạng thái 2FA hiện tại */}
-                  {admin2FAStatus.enabled ? (
-                    <div className="space-y-4">
-                      <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-900 space-y-2">
-                        <div className="flex items-center gap-2 font-black text-sm text-emerald-800">
-                          <ShieldCheck className="w-4 h-4" />
-                          <span>Tài khoản Quản trị viên đang được bảo vệ an toàn tuyệt đối!</span>
-                        </div>
-                        <p className="text-slate-600 leading-relaxed">
-                          Mỗi khi đăng nhập vào hệ thống, sau khi nhập mật khẩu, bạn cần nhập thêm mã 6 số từ app Google Authenticator trên điện thoại. Dù kẻ xấu có biết mật khẩu cũng không thể nào xâm nhập được.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2">
-                        <span className="text-xs text-slate-500">
-                          Nếu bạn đổi điện thoại hoặc muốn thiết lập lại:
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleStart2FASetup}
-                            className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-50 hover:bg-orange-100 text-[#ea580c] border border-orange-200 transition"
-                          >
-                            Đổi thiết bị 2FA
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDisable2FAModal(true)}
-                            className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition"
-                          >
-                            Tắt 2FA
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        Kích hoạt Xác thực 2 bước giúp ngăn chặn 100% các cuộc tấn công đánh cắp mật khẩu. Bạn chỉ cần quét mã QR một lần duy nhất bằng ứng dụng <strong>Google Authenticator</strong> hoặc <strong>Authy</strong> (tải miễn phí trên App Store / Google Play).
-                      </p>
-                      {!setup2FAData && (
-                        <button
-                          type="button"
-                          onClick={handleStart2FASetup}
-                          disabled={setup2FALoading}
-                          className="px-6 py-3 rounded-xl font-black text-xs text-white shadow-md shadow-orange-500/20 flex items-center gap-2 transition active:scale-95"
-                          style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
-                        >
-                          <QrCode className="w-4 h-4" />
-                          <span>Bắt đầu Kích hoạt Google Authenticator</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* KHUNG THIẾT LẬP 2FA (QUÉT MÃ QR & NHẬP CODE) */}
-                  {setup2FAData && setup2FAStep === 1 && (
-                    <div className="p-5 rounded-2xl bg-orange-50/60 border border-orange-200/80 space-y-4 animate-in fade-in">
-                      <div className="flex items-center justify-between border-b border-orange-200/60 pb-3">
-                        <h5 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                          <span>Bước 1: Quét mã QR bằng ứng dụng trên điện thoại</span>
-                        </h5>
-                        <button
-                          type="button"
-                          onClick={() => setSetup2FAData(null)}
-                          className="text-xs text-slate-400 hover:text-slate-600 underline font-bold"
-                        >
-                          Đóng lại
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-                        <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
-                          {setup2FAData.qrCodeUrl ? (
-                            <img
-                              src={setup2FAData.qrCodeUrl}
-                              alt="2FA QR Code"
-                              className="w-48 h-48 object-contain rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-48 h-48 flex items-center justify-center bg-slate-50 text-xs text-slate-400">
-                              Đang tạo mã QR...
-                            </div>
-                          )}
-                          <span className="text-[10px] font-bold text-slate-500 mt-2">Mở Google Authenticator và quét mã này</span>
-                        </div>
-
-                        <div className="space-y-4 text-xs">
-                          <div>
-                            <span className="font-bold text-slate-700 block mb-1">Mã khóa dự phòng (Nhập thủ công nếu không quét được QR):</span>
-                            <div className="flex items-center gap-2">
-                              <code className="p-2.5 rounded-xl bg-white border border-slate-200 font-mono text-xs font-bold text-slate-900 select-all flex-1 break-all">
-                                {setup2FAData.secret}
-                              </code>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(setup2FAData.secret);
-                                  setCopiedKey(true);
-                                  setTimeout(() => setCopiedKey(false), 2000);
-                                }}
-                                className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold shrink-0 transition"
-                                title="Sao chép khóa bí mật"
-                              >
-                                {copiedKey ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                              </button>
-                            </div>
-                          </div>
-
-                          <form onSubmit={handleConfirmEnable2FA} className="space-y-2 pt-2 border-t border-orange-200/60">
-                            <label className="font-bold text-slate-800 block">
-                              Bước 2: Nhập mã 6 chữ số đang hiển thị trên app để hoàn tất:
-                            </label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                maxLength={6}
-                                placeholder="000 000"
-                                value={verify2FACode}
-                                onChange={(e) => setVerify2FACode(e.target.value.replace(/[^0-9]/g, ''))}
-                                className="p-2.5 rounded-xl border border-orange-300 bg-white font-mono font-black text-lg text-center tracking-widest flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                              />
-                              <button
-                                type="submit"
-                                disabled={setup2FALoading || verify2FACode.length < 6}
-                                className="px-5 rounded-xl font-black text-white text-xs bg-emerald-600 hover:bg-emerald-700 shadow-sm disabled:opacity-50 transition"
-                              >
-                                {setup2FALoading ? "Đang xác thực..." : "Kích hoạt"}
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* BƯỚC 2: HIỂN THỊ MÃ KHÔI PHỤC DỰ PHÒNG (BACKUP RECOVERY CODES) */}
-                  {setup2FAData && setup2FAStep === 2 && (
-                    <div className="p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-4 animate-in fade-in">
-                      <div className="flex items-center justify-between border-b border-emerald-200 pb-3">
-                        <div className="flex items-center gap-2 text-emerald-800 font-black text-sm">
-                          <Check className="w-5 h-5 text-emerald-600" />
-                          <span>Lưu trữ 5 Mã dự phòng (Backup Recovery Codes)</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSetup2FAData(null)}
-                          className="text-xs text-slate-500 hover:text-slate-800 font-bold underline"
-                        >
-                          Xong
-                        </button>
-                      </div>
-
-                      <p className="text-xs text-slate-600">
-                        Nếu bạn mất điện thoại hoặc không truy cập được app Google Authenticator, bạn có thể dùng một trong các mã này để đăng nhập (mỗi mã chỉ dùng được 1 lần).
-                      </p>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                        {(setup2FAData.backupCodes || []).map((code, idx) => (
-                          <div key={idx} className="p-2.5 rounded-xl bg-white border border-emerald-200 font-mono font-black text-xs text-center text-slate-800 shadow-xs">
-                            {code}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex justify-end pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText((setup2FAData.backupCodes || []).join("\n"));
-                            setCopiedBackup(true);
-                            setTimeout(() => setCopiedBackup(false), 2000);
-                          }}
-                          className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition shadow-xs"
-                        >
-                          {copiedBackup ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{copiedBackup ? "Đã sao chép 5 mã!" : "Sao chép danh sách mã"}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── CARD 2: MÃ PIN QUẢN TRỊ CẤP 2 (ADMIN MASTER PIN) ── */}
-                <div className="rounded-2xl bg-white border border-[#f4ebd9] shadow-sm p-6 space-y-5">
-                  <div className="flex items-start justify-between border-b border-slate-100 pb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
-                        <Lock className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-heading font-black text-base text-slate-900">
-                          Mã PIN Quản trị cấp 2
-                        </h4>
-                        <p className="text-xs text-slate-500">Bảo vệ thao tác phê duyệt, xóa dữ liệu</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Mã PIN bảo mật 6 số được cấu hình trong tệp <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-orange-600 font-bold">.env</code> phía máy chủ (<code className="font-mono font-bold">ADMIN_SECURITY_PIN</code>).
-                  </p>
-
-                  <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 space-y-1">
-                    <div className="font-bold flex items-center gap-1.5">
-                      <span>✓ Đang áp dụng cho các hành động:</span>
-                    </div>
-                    <ul className="list-disc list-inside space-y-0.5 text-slate-600 pl-1">
-                      <li>Phê duyệt hồ sơ Chủ trọ</li>
-                      <li>Từ chối hồ sơ Chủ trọ</li>
-                      <li>Xóa hồ sơ & cơ sở lưu trú</li>
-                      <li>Cập nhật cấu hình hệ thống</li>
-                    </ul>
-                  </div>
-
-                  {/* Form Test mã PIN */}
-                  <form onSubmit={handleTestAdminPin} className="space-y-2 pt-2 border-t border-slate-100">
-                    <label className="text-xs font-bold text-slate-700 block">
-                      Kiểm tra thử Mã PIN Quản trị của bạn:
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="password"
-                        maxLength={6}
-                        placeholder="Mặc định: 839201"
-                        value={testPinInput}
-                        onChange={(e) => {
-                          setTestPinInput(e.target.value.replace(/[^0-9]/g, ''));
-                          setTestPinResult(null);
-                        }}
-                        className="p-2 rounded-xl border border-slate-200 text-xs font-mono font-bold flex-1 focus:outline-none focus:border-orange-500"
-                      />
-                      <button
-                        type="submit"
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 transition"
-                      >
-                        Kiểm tra
-                      </button>
-                    </div>
-
-                    {testPinResult && (
-                      <p className={cn("text-[11px] font-bold mt-1", testPinResult.valid ? "text-emerald-600" : "text-rose-600")}>
-                        {testPinResult.msg}
-                      </p>
-                    )}
-                  </form>
-                </div>
-              </div>
-
-              {/* ── CARD 3: CHỐNG DÒ QUÉT BRUTE-FORCE & GIỚI HẠN IP ── */}
-              <div className="rounded-2xl bg-white border border-[#f4ebd9] shadow-sm p-6 space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <ShieldAlert className="w-5 h-5 text-rose-500" />
-                  <h4 className="font-heading font-black text-base text-slate-900">
-                    Chống tấn công dò quét Brute-Force & Giới hạn IP truy cập
-                  </h4>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                    <span className="font-bold text-slate-800 block text-sm">Chống Brute-Force tự động</span>
-                    <p className="text-slate-500 leading-relaxed">
-                      Nếu nhập sai mật khẩu tài khoản Admin quá <strong>5 lần liên tiếp</strong>, hệ thống sẽ tự động khóa tài khoản và IP trong <strong>30 phút</strong>.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                    <span className="font-bold text-slate-800 block text-sm">Giới hạn IP (IP Whitelist)</span>
-                    <p className="text-slate-500 leading-relaxed">
-                      Cấu hình biến <code className="font-mono text-orange-600 font-bold">ADMIN_IP_WHITELIST</code> trong file .env để chỉ cho phép các IP nội bộ / mạng riêng truy cập phân hệ Admin.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                    <span className="font-bold text-slate-800 block text-sm">Khôi phục mật khẩu Console</span>
-                    <p className="text-slate-500 leading-relaxed">
-                      Khóa hoàn toàn tính năng Quên mật khẩu qua Web cho Admin. Khi cần khôi phục, chạy lệnh nội bộ trên máy chủ:
-                      <code className="block mt-1 font-mono text-[10px] bg-slate-900 text-white p-1 rounded font-bold">node backend/scripts/resetAdminPassword.js</code>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB: ROOMS ── */}
-          {activeTab === "rooms" && (
-            <div className="space-y-6">
-              {/* Thống kê & Bộ lọc trạng thái duyệt tin */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setRoomApprovalFilter("all")}
-                  className={cn(
-                    "p-3.5 rounded-xl border text-left transition-all",
-                    roomApprovalFilter === "all" ? "bg-white border-[#f97316] ring-2 ring-[#f97316]/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
-                  )}
-                >
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tất cả tin</div>
-                  <div className="text-xl font-black text-slate-900 mt-1">{totalRooms}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRoomApprovalFilter("pending")}
-                  className={cn(
-                    "p-3.5 rounded-xl border text-left transition-all",
-                    roomApprovalFilter === "pending" ? "bg-amber-50 border-amber-500 ring-2 ring-amber-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
-                  )}
-                >
-                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center justify-between">
-                    <span>Chờ duyệt</span>
-                    {pendingRooms > 0 && <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />}
-                  </div>
-                  <div className="text-xl font-black text-amber-900 mt-1">{pendingRooms}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRoomApprovalFilter("approved")}
-                  className={cn(
-                    "p-3.5 rounded-xl border text-left transition-all",
-                    roomApprovalFilter === "approved" ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
-                  )}
-                >
-                  <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Đã duyệt hiển thị</div>
-                  <div className="text-xl font-black text-emerald-900 mt-1">{approvedRooms}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRoomApprovalFilter("rejected")}
-                  className={cn(
-                    "p-3.5 rounded-xl border text-left transition-all",
-                    roomApprovalFilter === "rejected" ? "bg-rose-50 border-rose-500 ring-2 ring-rose-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
-                  )}
-                >
-                  <div className="text-xs font-bold text-rose-700 uppercase tracking-wider">Bị từ chối</div>
-                  <div className="text-xl font-black text-rose-900 mt-1">{rejectedRooms}</div>
-                </button>
-              </div>
-
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3 w-full md:w-auto flex-1">
-                  <input
-                    type="text"
-                    placeholder="Tìm theo tên phòng, trường, địa chỉ, chủ trọ, SĐT..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-1 max-w-md px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                    style={{ borderColor: "#f4ebd9" }}
-                  />
-                  <select
-                    value={filterBadge}
-                    onChange={(e) => setFilterBadge(e.target.value)}
-                    className="px-4 py-2.5 rounded-lg text-sm font-bold border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                    style={{ borderColor: "#f4ebd9" }}
-                  >
-                    <option value="all">Tất cả loại tin</option>
-                    <option value="pass">Đang Pass phòng</option>
-                    <option value="boosted">Lên đầu</option>
-                    <option value="roommate">Tìm ghép</option>
-                  </select>
-                </div>
-                <button
-                  onClick={handleOpenAddRoom}
-                  className="w-full md:w-auto px-5 py-2.5 rounded-lg text-white text-sm font-bold transition-all shadow-md"
-                  style={{ background: "#f97316" }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "#ea580c"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "#f97316"}
-                >
-                  + Thêm phòng mới
-                </button>
-              </div>
-
-              <div className="bg-white border rounded-xl overflow-hidden shadow-sm" style={{ borderColor: "#f4ebd9" }}>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                        {["Ảnh", "Tên phòng / Địa chỉ / Người đăng", "Campus", "Giá / tháng", "Kiểm duyệt", "Badges", "Hành động"].map((h, i) => (
-                          <th key={h} className={cn("p-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider", i === 6 && "text-right", i === 0 && "pl-6")}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y" style={{ borderColor: "#f4ebd9" }}>
-                      {filteredRooms.length === 0 ? (
-                        <tr>
-                          <td colSpan="7" className="p-12 text-center text-slate-500 font-medium">
-                            Không tìm thấy phòng trọ nào phù hợp.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredRooms.map((room) => {
-                          const status = room.approvalStatus || "approved";
-                          return (
-                            <tr key={room.id || room._id} className="transition-colors hover:bg-slate-50">
-                              <td className="p-4 pl-6">
-                                <div className="w-14 h-14 rounded-lg bg-slate-200 border border-slate-200 overflow-hidden">
-                                  <img src={room.image_url || (room.images && room.images[0])} alt={room.title} className="w-full h-full object-cover" />
-                                </div>
-                              </td>
-                              <td className="p-4 max-w-xs">
-                                <div className="font-bold text-slate-900 truncate mb-0.5">{room.title}</div>
-                                {room.property_name && (
-                                  <div className="text-xs font-semibold text-orange-600 truncate mb-0.5">Dãy: {room.property_name}</div>
-                                )}
-                                <div className="text-xs font-medium text-slate-500 truncate">{room.address || room.location}</div>
-                                {(room.ownerEmail || room.contactPhone) && (
-                                  <div className="text-[11px] text-slate-400 mt-1 truncate">
-                                    Đăng bởi: <strong className="text-slate-600">{room.ownerEmail || room.contactPhone}</strong>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="p-4">
-                                <span className="font-bold text-slate-700 text-xs px-2.5 py-1 rounded" style={{ background: "#f4ebd9" }}>
-                                  {room.campus}
-                                </span>
-                              </td>
-                              <td className="p-4 font-black" style={{ color: "#f97316" }}>
-                                {Number(room.price || 0).toLocaleString("vi-VN")}đ
-                              </td>
-                              <td className="p-4">
-                                {status === "pending" && (
-                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-1 shadow-xs animate-pulse">
-                                    ⏳ Chờ duyệt
-                                  </span>
-                                )}
-                                {status === "approved" && (
-                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
-                                    ✓ Đã duyệt
-                                  </span>
-                                )}
-                                {status === "rejected" && (
-                                  <div>
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 inline-flex items-center gap-1" title={room.rejectionReason}>
-                                      ❌ Bị từ chối
-                                    </span>
-                                    {room.rejectionReason && (
-                                      <p className="text-[10px] text-rose-600 line-clamp-1 mt-1 font-medium">{room.rejectionReason}</p>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="p-4">
-                                <div className="flex flex-wrap gap-1.5 max-w-[140px]">
-                                  {room.is_boosted && <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}>TOP</span>}
-                                  {room.has_pass && <span className="px-2 py-0.5 rounded border text-[10px] font-bold tracking-wider" style={{ borderColor: "#f59e0b", color: "#f59e0b" }}>PASS</span>}
-                                  {room.seeking_roommate && <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(168,85,247,0.1)", color: "#a855f7" }}>GHÉP</span>}
-                                </div>
-                              </td>
-                              <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
-                                {status === "pending" && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleApproveRoom(room)}
-                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
-                                    >
-                                      ✓ Duyệt
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRejectRoom(room)}
-                                      className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs"
-                                    >
-                                      Từ chối
-                                    </button>
-                                  </>
-                                )}
-                                {status === "rejected" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleApproveRoom(room)}
-                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
-                                  >
-                                    Duyệt lại
-                                  </button>
-                                )}
-                                {status === "approved" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRejectRoom(room)}
-                                    className="px-2 py-1.5 rounded text-amber-700 hover:bg-amber-100 text-xs font-semibold transition"
-                                    title="Tạm ngừng hiển thị tin này"
-                                  >
-                                    Ẩn tin
-                                  </button>
-                                )}
-                                <button onClick={() => handleOpenEditRoom(room)} className="px-2.5 py-1.5 rounded text-slate-700 text-xs font-bold transition-colors hover:bg-slate-200" style={{ background: "#f4ebd9" }}>
-                                  Sửa
-                                </button>
-                                <button onClick={() => setDeleteConfirmRoom(room)} className="px-2.5 py-1.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-colors">
-                                  Xóa
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB: HERO BANNER ── */}
-          {activeTab === "hero" && (
-            <div className="space-y-8">
-              <div className="rounded-xl p-8 bg-white border shadow-sm space-y-6" style={{ borderColor: "#f4ebd9" }}>
-                <div className="flex items-center justify-between pb-6 border-b" style={{ borderColor: "#f4ebd9" }}>
-                  <div>
-                    <h3 className="font-black text-slate-900 text-lg">Cấu hình Banner</h3>
-                    <p className="text-sm font-medium text-slate-500 mt-1">Nội dung hiển thị chính ở trang chủ.</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={handleResetHero} className="px-4 py-2 rounded-lg text-slate-700 text-sm font-bold transition-colors" style={{ background: "#f4ebd9" }}>
-                      Mặc định
-                    </button>
-                    <button onClick={handleSaveHero} className="px-5 py-2 rounded-lg text-white text-sm font-bold transition-colors shadow-md" style={{ background: "#f97316" }}>
-                      Lưu thay đổi
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[
-                    { label: "Tiêu đề (Phần đầu)", key: "title" },
-                    { label: "Từ khóa nổi bật", key: "highlight" },
-                    { label: "Phần cuối", key: "titleSuffix" },
-                  ].map(({ label, key }) => (
-                    <div key={key}>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-                      <input
-                        type="text"
-                        value={heroForm[key]}
-                        onChange={(e) => setHeroForm({ ...heroForm, [key]: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                        style={{ borderColor: "#f4ebd9" }}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Đoạn mô tả</label>
-                  <textarea
-                    rows={2}
-                    value={heroForm.description}
-                    onChange={(e) => setHeroForm({ ...heroForm, description: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 resize-none"
-                    style={{ borderColor: "#f4ebd9" }}
-                  />
-                </div>
-
-                <div className="pt-6 border-t" style={{ borderColor: "#f4ebd9" }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-black text-slate-900">Huy hiệu tin cậy</span>
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
-                      <input type="checkbox" checked={heroForm.showBadges !== false} onChange={(e) => setHeroForm({ ...heroForm, showBadges: e.target.checked })} className="rounded w-4 h-4" style={{ accentColor: "#f97316" }} />
-                      Hiển thị huy hiệu
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {["badge1", "badge2", "badge3"].map((k) => (
-                      <input key={k} type="text" value={heroForm[k]} onChange={(e) => setHeroForm({ ...heroForm, [k]: e.target.value })} placeholder={`Huy hiệu ${k.slice(-1)}`}
-                        className="px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                        style={{ borderColor: "#f4ebd9" }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-black text-slate-900 mb-4 px-2">Xem trước (Live Preview)</h4>
-                <div className="rounded-xl p-10 border text-center" style={{ background: "linear-gradient(to bottom, #fdfbf7, #faf3e3)", borderColor: "#f4ebd9" }}>
-                  <h1 className="font-black text-3xl text-slate-900 mb-4">
-                    {heroForm.title} <span style={{ color: "#f97316" }}>{heroForm.highlight}</span> {heroForm.titleSuffix}
-                  </h1>
-                  <p className="text-slate-600 font-medium mb-6 max-w-2xl mx-auto">{heroForm.description}</p>
-                  {heroForm.showBadges !== false && (
-                    <div className="flex flex-wrap justify-center gap-3">
-                      {[heroForm.badge1, heroForm.badge2, heroForm.badge3].filter(Boolean).map((b, i) => (
-                        <span key={i} className="px-4 py-2 rounded-full bg-white border text-slate-700 text-xs font-bold shadow-sm" style={{ borderColor: "#f4ebd9" }}>
-                          {b}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB: CAMPUSES ── */}
-          {activeTab === "campuses" && (
-            <div className="rounded-xl p-8 bg-white border shadow-sm space-y-6" style={{ borderColor: "#f4ebd9" }}>
-              <div className="pb-6 border-b" style={{ borderColor: "#f4ebd9" }}>
-                <h3 className="font-black text-slate-900 text-lg">Khu vực / Campus</h3>
-                <p className="text-sm font-medium text-slate-500 mt-1">Thêm, sửa, xóa các trường Đại học trong hệ thống.</p>
-              </div>
-
-              <div className="flex gap-3 max-w-lg">
-                <input
-                  type="text"
-                  placeholder="Nhập tên trường ĐH mới..."
-                  value={newCampus}
-                  onChange={(e) => setNewCampus(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCampus(); } }}
-                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                  style={{ borderColor: "#f4ebd9" }}
-                />
-                <button onClick={handleAddCampus} className="px-6 py-2.5 rounded-lg text-white text-sm font-bold shadow-md" style={{ background: "#f97316" }}>
-                  Thêm
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {campuses.map((c) => {
-                  const roomCount = c === "Tất cả khu vực" ? totalRooms : (campusStats[c] || 0);
-                  const isDefault = c === "Tất cả khu vực";
-                  const isEditing = editingCampus === c;
-                  return (
-                    <div
-                      key={c}
-                      className="p-5 rounded-xl border transition-all"
-                      style={{ background: isDefault ? "#fdfbf7" : "#ffffff", borderColor: "#f4ebd9" }}
-                    >
-                      <div className="mb-4">
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <input autoFocus type="text" value={editCampusText} onChange={(e) => setEditCampusText(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") handleSaveEditCampus(c); if (e.key === "Escape") setEditingCampus(null); }}
-                              className="w-full px-3 py-1.5 text-sm font-bold border rounded focus:outline-none"
-                              style={{ borderColor: "#f97316" }}
-                            />
-                            <button onClick={() => handleSaveEditCampus(c)} className="text-xs font-bold text-slate-900">Lưu</button>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="text-sm font-black text-slate-900 truncate mb-1">{c} {isDefault && <span className="ml-2 text-[10px] px-2 py-0.5 rounded text-slate-700 uppercase" style={{ background: "#f4ebd9" }}>Mặc định</span>}</div>
-                            <div className="text-xs font-semibold text-slate-500">{roomCount} phòng trọ</div>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: "#f4ebd9" }}>
-                        <button onClick={() => { setActiveTab("rooms"); setSearchTerm(isDefault ? "" : c); setFilterBadge("all"); }} className="text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors uppercase tracking-wider">
-                          Xem phòng
-                        </button>
-                        {!isDefault && !isEditing && (
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => handleStartEditCampus(c)} className="text-xs font-bold text-slate-500 hover:text-[#f97316] transition-colors">Sửa</button>
-                            <button onClick={() => handleDeleteCampus(c)} className="text-xs font-bold text-rose-500 hover:text-rose-700 transition-colors">Xóa</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB: AMENITIES ── */}
-          {activeTab === "amenities" && (
-            <div className="space-y-8">
-              <div className="rounded-xl p-8 bg-white border shadow-sm space-y-6" style={{ borderColor: "#f4ebd9" }}>
-                <div className="pb-6 border-b" style={{ borderColor: "#f4ebd9" }}>
-                  <h3 className="font-black text-slate-900 text-lg">Tiện nghi</h3>
-                  <p className="text-sm font-medium text-slate-500 mt-1">Quản lý danh sách tiện nghi của phòng.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 max-w-2xl">
-                  <input type="text" placeholder="Tên tiện nghi..." value={newAmenityName} onChange={(e) => setNewAmenityName(e.target.value)}
-                    className="flex-1 min-w-[200px] px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                    style={{ borderColor: "#f4ebd9" }}
-                  />
-                  <select value={newAmenityIcon} onChange={(e) => setNewAmenityIcon(e.target.value)}
-                    className="px-4 py-2.5 rounded-lg text-sm font-bold border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                    style={{ borderColor: "#f4ebd9" }}
-                  >
-                    {AVAILABLE_ICONS.map((ic) => <option key={ic.name} value={ic.name}>{ic.label}</option>)}
-                  </select>
-                  <button onClick={handleAddAmenity} className="px-6 py-2.5 rounded-lg text-white text-sm font-bold shadow-md" style={{ background: "#f97316" }}>
-                    Thêm tiện nghi
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                  {amenities.map((a) => (
-                    <div key={a.id || a.label} className="p-4 rounded-xl border flex items-center justify-between group" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                      <span className="text-sm font-bold text-slate-900 truncate">{a.label}</span>
-                      <button onClick={() => handleDeleteAmenity(a.id || a.label)} className="text-xs font-bold text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Xóa
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl p-8 bg-white border shadow-sm space-y-6" style={{ borderColor: "#f4ebd9" }}>
-                <div className="flex items-center justify-between pb-6 border-b" style={{ borderColor: "#f4ebd9" }}>
-                  <div>
-                    <h3 className="font-black text-slate-900 text-lg">Toggles Đặc Biệt</h3>
-                    <p className="text-sm font-medium text-slate-500 mt-1">Chỉnh sửa 2 toggle quan trọng trên trang chủ.</p>
-                  </div>
-                  <button onClick={handleSaveToggles} className="px-5 py-2.5 rounded-lg text-white text-sm font-bold shadow-md" style={{ background: "#f97316" }}>
-                    Lưu cấu hình
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {[
-                    { key: "soundproof", label: "Toggle 1: Cách âm" },
-                    { key: "roommate", label: "Toggle 2: Tìm bạn ở ghép" },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="p-6 rounded-xl border space-y-4" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                      <div className="flex items-center justify-between">
-                        <span className="font-black text-sm text-slate-900">{label}</span>
-                        <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
-                          <input type="checkbox" checked={specialToggles[key]?.enabled !== false}
-                            onChange={(e) => setSpecialToggles({ ...specialToggles, [key]: { ...specialToggles[key], enabled: e.target.checked } })}
-                            className="rounded w-4 h-4" style={{ accentColor: "#f97316" }}
-                          />
-                          Bật
-                        </label>
-                      </div>
-                      {[{ label: "Nhãn", subkey: "title" }, { label: "Mô tả nhỏ", subkey: "desc" }].map(({ label: l, subkey }) => (
-                        <div key={subkey}>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{l}</label>
-                          <input type="text" value={specialToggles[key]?.[subkey] || ""}
-                            onChange={(e) => setSpecialToggles({ ...specialToggles, [key]: { ...specialToggles[key], [subkey]: e.target.value } })}
-                            className="w-full px-4 py-2 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
-                            style={{ borderColor: "#f4ebd9" }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB: QUICK ACTIONS ── */}
-          {activeTab === "quick-actions" && (
-            <div className="rounded-xl p-8 bg-white border shadow-sm space-y-8" style={{ borderColor: "#f4ebd9" }}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b" style={{ borderColor: "#f4ebd9" }}>
-                <div>
-                  <h3 className="font-black text-slate-900 text-lg">Truy cập nhanh</h3>
-                  <p className="text-sm font-medium text-slate-500 mt-1">Các nút chức năng nổi bật trên trang chủ.</p>
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={handleResetQuickActions} className="px-4 py-2 rounded-lg text-slate-700 text-sm font-bold" style={{ background: "#f4ebd9" }}>
-                    Khôi phục
-                  </button>
-                  <button onClick={handleOpenAddQuickAction} className="px-4 py-2 rounded-lg border text-slate-900 text-sm font-bold bg-white" style={{ borderColor: "#f4ebd9" }}>
-                    + Thêm
-                  </button>
-                  <button onClick={handleSaveQuickActions} className="px-5 py-2 rounded-lg text-white text-sm font-bold shadow-md" style={{ background: "#f97316" }}>
-                    Lưu thứ tự
-                  </button>
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div className="p-6 rounded-xl border" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Xem trước thanh nút bấm</div>
-                <div className="flex flex-wrap gap-3">
-                  {quickActions.filter((a) => a.enabled !== false).map((action) => (
-                    <button key={"preview-" + action.id} onClick={() => handleTestQuickAction(action)}
-                      className="px-5 py-2.5 rounded-full bg-white border shadow-sm text-sm font-black text-slate-900 transition-colors hover:border-[#f97316]"
-                      style={{ borderColor: "#f4ebd9" }}
-                    >
-                      {action.label}
-                    </button>
-                  ))}
-                  {quickActions.filter((a) => a.enabled !== false).length === 0 && (
-                    <div className="text-sm font-medium text-slate-500 italic">Chưa có nút nào được bật.</div>
-                  )}
-                </div>
-              </div>
-
-              {/* List */}
-              <div className="space-y-3">
-                {quickActions.map((action, index) => {
-                  const isEnabled = action.enabled !== false;
-                  return (
-                    <div
-                      key={action.id}
-                      onClick={() => handleOpenEditQuickAction(action)}
-                      className={cn("p-5 rounded-xl border flex flex-col sm:flex-row justify-between items-center gap-4 cursor-pointer transition-colors hover:border-[#f97316]", !isEnabled && "opacity-60")}
-                      style={{ background: isEnabled ? "#ffffff" : "#fdfbf7", borderColor: "#f4ebd9" }}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <span className="font-black text-base text-slate-900">{action.label}</span>
-                          <span className="px-2 py-0.5 rounded text-slate-600 text-[10px] font-bold uppercase tracking-wider" style={{ background: "#f4ebd9" }}>Hành động: {action.action}</span>
-                          {!isEnabled && <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider">Đã ẩn</span>}
-                        </div>
-                        <div className="text-sm font-medium text-slate-500 truncate">{action.desc || "Không có mô tả"}</div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => handleTestQuickAction(action)} className="px-3 py-1.5 rounded text-slate-700 text-xs font-bold" style={{ background: "#f4ebd9" }}>Chạy thử</button>
-                        <button onClick={() => handleOpenEditQuickAction(action)} className="px-3 py-1.5 rounded text-slate-700 text-xs font-bold" style={{ background: "#f4ebd9" }}>Sửa</button>
-                        <div className="flex rounded p-1" style={{ background: "#f4ebd9" }}>
-                          <button disabled={index === 0} onClick={() => moveQuickAction(index, -1)} className="px-2 font-bold text-slate-700 hover:text-[#f97316] disabled:opacity-30">↑</button>
-                          <button disabled={index === quickActions.length - 1} onClick={() => moveQuickAction(index, 1)} className="px-2 font-bold text-slate-700 hover:text-[#f97316] disabled:opacity-30">↓</button>
-                        </div>
-                        <button onClick={() => toggleQuickActionActive(action.id)} className="px-3 py-1.5 rounded border text-slate-700 text-xs font-bold hover:border-[#f97316]" style={{ borderColor: "#f4ebd9" }}>
-                          {isEnabled ? "Ẩn đi" : "Hiện lại"}
-                        </button>
-                        <button onClick={() => handleDeleteQuickAction(action.id)} className="px-3 py-1.5 rounded bg-rose-50 text-rose-600 text-xs font-bold hover:bg-rose-100">Xóa</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* ── TAB: DUYỆT & QUẢN LÝ TÀI KHOẢN CHỦ TRỌ ── */}
           {activeTab === "landlords" && (
@@ -2614,7 +1296,299 @@ export default function Admin() {
             </div>
           )}
 
-          
+
+          {/* ── TAB: ROOMS ── */}
+          {activeTab === "rooms" && (
+            <div className="space-y-6">
+              {/* Thống kê & Bộ lọc trạng thái duyệt tin */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("all")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "all" ? "bg-white border-[#f97316] ring-2 ring-[#f97316]/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tất cả tin</div>
+                  <div className="text-xl font-black text-slate-900 mt-1">{totalRooms}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("pending")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "pending" ? "bg-amber-50 border-amber-500 ring-2 ring-amber-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center justify-between">
+                    <span>Chờ duyệt</span>
+                    {pendingRooms > 0 && <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />}
+                  </div>
+                  <div className="text-xl font-black text-amber-900 mt-1">{pendingRooms}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("approved")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "approved" ? "bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Đã duyệt hiển thị</div>
+                  <div className="text-xl font-black text-emerald-900 mt-1">{approvedRooms}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomApprovalFilter("rejected")}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    roomApprovalFilter === "rejected" ? "bg-rose-50 border-rose-500 ring-2 ring-rose-500/20 shadow-sm" : "bg-white/70 border-slate-200 hover:bg-white"
+                  )}
+                >
+                  <div className="text-xs font-bold text-rose-700 uppercase tracking-wider">Bị từ chối</div>
+                  <div className="text-xl font-black text-rose-900 mt-1">{rejectedRooms}</div>
+                </button>
+              </div>
+
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 w-full md:w-auto flex-1">
+                  <input
+                    type="text"
+                    placeholder="Tìm theo tên phòng, trường, địa chỉ, chủ trọ, SĐT..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="flex-1 max-w-md px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
+                    style={{ borderColor: "#f4ebd9" }}
+                  />
+                  <select
+                    value={filterBadge}
+                    onChange={(e) => setFilterBadge(e.target.value)}
+                    className="px-4 py-2.5 rounded-lg text-sm font-bold border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
+                    style={{ borderColor: "#f4ebd9" }}
+                  >
+                    <option value="all">Tất cả loại tin</option>
+                    <option value="pass">Đang Pass phòng</option>
+                    <option value="boosted">Lên đầu</option>
+                    <option value="roommate">Tìm ghép</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleOpenAddRoom}
+                  className="w-full md:w-auto px-5 py-2.5 rounded-lg text-white text-sm font-bold transition-all shadow-md"
+                  style={{ background: "#f97316" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#ea580c"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "#f97316"}
+                >
+                  + Thêm phòng mới
+                </button>
+              </div>
+
+              <div className="bg-white border rounded-xl overflow-hidden shadow-sm" style={{ borderColor: "#f4ebd9" }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
+                        {["Ảnh", "Tên phòng / Địa chỉ / Người đăng", "Campus", "Giá / tháng", "Kiểm duyệt", "Badges", "Hành động"].map((h, i) => (
+                          <th key={h} className={cn("p-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider", i === 6 && "text-right", i === 0 && "pl-6")}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y" style={{ borderColor: "#f4ebd9" }}>
+                      {filteredRooms.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="p-12 text-center text-slate-500 font-medium">
+                            Không tìm thấy phòng trọ nào phù hợp.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredRooms.map((room) => {
+                          const status = room.approvalStatus || "approved";
+                          return (
+                            <tr key={room.id || room._id} className="transition-colors hover:bg-slate-50">
+                              <td className="p-4 pl-6">
+                                <div className="w-14 h-14 rounded-lg bg-slate-200 border border-slate-200 overflow-hidden">
+                                  <img src={room.image_url || (room.images && room.images[0])} alt={room.title} className="w-full h-full object-cover" />
+                                </div>
+                              </td>
+                              <td className="p-4 max-w-xs">
+                                <div className="font-bold text-slate-900 truncate mb-0.5">{room.title}</div>
+                                {room.property_name && (
+                                  <div className="text-xs font-semibold text-orange-600 truncate mb-0.5">Dãy: {room.property_name}</div>
+                                )}
+                                <div className="text-xs font-medium text-slate-500 truncate">{room.address || room.location}</div>
+                                {(room.ownerEmail || room.contactPhone) && (
+                                  <div className="text-[11px] text-slate-400 mt-1 truncate">
+                                    Đăng bởi: <strong className="text-slate-600">{room.ownerEmail || room.contactPhone}</strong>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <span className="font-bold text-slate-700 text-xs px-2.5 py-1 rounded" style={{ background: "#f4ebd9" }}>
+                                  {room.campus}
+                                </span>
+                              </td>
+                              <td className="p-4 font-black" style={{ color: "#f97316" }}>
+                                {Number(room.price || 0).toLocaleString("vi-VN")}đ
+                              </td>
+                              <td className="p-4">
+                                {status === "pending" && (
+                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-1 shadow-xs animate-pulse">
+                                    ⏳ Chờ duyệt
+                                  </span>
+                                )}
+                                {status === "approved" && (
+                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">
+                                    ✓ Đã duyệt
+                                  </span>
+                                )}
+                                {status === "rejected" && (
+                                  <div>
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 inline-flex items-center gap-1" title={room.rejectionReason}>
+                                      ❌ Bị từ chối
+                                    </span>
+                                    {room.rejectionReason && (
+                                      <p className="text-[10px] text-rose-600 line-clamp-1 mt-1 font-medium">{room.rejectionReason}</p>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-wrap gap-1.5 max-w-[140px]">
+                                  {room.is_boosted && <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(99,102,241,0.1)", color: "#6366f1" }}>TOP</span>}
+                                  {room.has_pass && <span className="px-2 py-0.5 rounded border text-[10px] font-bold tracking-wider" style={{ borderColor: "#f59e0b", color: "#f59e0b" }}>PASS</span>}
+                                  {room.seeking_roommate && <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider" style={{ background: "rgba(168,85,247,0.1)", color: "#a855f7" }}>GHÉP</span>}
+                                </div>
+                              </td>
+                              <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                {status === "pending" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveRoom(room)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                                    >
+                                      ✓ Duyệt
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRejectRoom(room)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs"
+                                    >
+                                      Từ chối
+                                    </button>
+                                  </>
+                                )}
+                                {status === "rejected" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveRoom(room)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                                  >
+                                    Duyệt lại
+                                  </button>
+                                )}
+                                {status === "approved" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRejectRoom(room)}
+                                    className="px-2 py-1.5 rounded text-amber-700 hover:bg-amber-100 text-xs font-semibold transition"
+                                    title="Tạm ngừng hiển thị tin này"
+                                  >
+                                    Ẩn tin
+                                  </button>
+                                )}
+                                <button onClick={() => handleOpenEditRoom(room)} className="px-2.5 py-1.5 rounded text-slate-700 text-xs font-bold transition-colors hover:bg-slate-200" style={{ background: "#f4ebd9" }}>
+                                  Sửa
+                                </button>
+                                <button onClick={() => setDeleteConfirmRoom(room)} className="px-2.5 py-1.5 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-colors">
+                                  Xóa
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+          {/* ── TAB: CAMPUSES ── */}
+          {activeTab === "campuses" && (
+            <div className="rounded-xl p-8 bg-white border shadow-sm space-y-6" style={{ borderColor: "#f4ebd9" }}>
+              <div className="pb-6 border-b" style={{ borderColor: "#f4ebd9" }}>
+                <h3 className="font-black text-slate-900 text-lg">Khu vực / Campus</h3>
+                <p className="text-sm font-medium text-slate-500 mt-1">Thêm, sửa, xóa các trường Đại học trong hệ thống.</p>
+              </div>
+
+              <div className="flex gap-3 max-w-lg">
+                <input
+                  type="text"
+                  placeholder="Nhập tên trường ĐH mới..."
+                  value={newCampus}
+                  onChange={(e) => setNewCampus(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCampus(); } }}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border bg-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/20"
+                  style={{ borderColor: "#f4ebd9" }}
+                />
+                <button onClick={handleAddCampus} className="px-6 py-2.5 rounded-lg text-white text-sm font-bold shadow-md" style={{ background: "#f97316" }}>
+                  Thêm
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {campuses.map((c) => {
+                  const roomCount = c === "Tất cả khu vực" ? totalRooms : (campusStats[c] || 0);
+                  const isDefault = c === "Tất cả khu vực";
+                  const isEditing = editingCampus === c;
+                  return (
+                    <div
+                      key={c}
+                      className="p-5 rounded-xl border transition-all"
+                      style={{ background: isDefault ? "#fdfbf7" : "#ffffff", borderColor: "#f4ebd9" }}
+                    >
+                      <div className="mb-4">
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <input autoFocus type="text" value={editCampusText} onChange={(e) => setEditCampusText(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") handleSaveEditCampus(c); if (e.key === "Escape") setEditingCampus(null); }}
+                              className="w-full px-3 py-1.5 text-sm font-bold border rounded focus:outline-none"
+                              style={{ borderColor: "#f97316" }}
+                            />
+                            <button onClick={() => handleSaveEditCampus(c)} className="text-xs font-bold text-slate-900">Lưu</button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-sm font-black text-slate-900 truncate mb-1">{c} {isDefault && <span className="ml-2 text-[10px] px-2 py-0.5 rounded text-slate-700 uppercase" style={{ background: "#f4ebd9" }}>Mặc định</span>}</div>
+                            <div className="text-xs font-semibold text-slate-500">{roomCount} phòng trọ</div>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: "#f4ebd9" }}>
+                        <button onClick={() => { setActiveTab("rooms"); setSearchTerm(isDefault ? "" : c); setFilterBadge("all"); }} className="text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors uppercase tracking-wider">
+                          Xem phòng
+                        </button>
+                        {!isDefault && !isEditing && (
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => handleStartEditCampus(c)} className="text-xs font-bold text-slate-500 hover:text-[#f97316] transition-colors">Sửa</button>
+                            <button onClick={() => handleDeleteCampus(c)} className="text-xs font-bold text-rose-500 hover:text-rose-700 transition-colors">Xóa</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+
 
         </div>
       </main>
@@ -2910,63 +1884,6 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ── MODAL QUICK ACTION ── */}
-      {isQuickActionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
-            <div className="px-8 py-6 border-b flex items-center justify-between" style={{ borderColor: "#f4ebd9" }}>
-              <h3 className="font-black text-xl text-slate-900">{editingQuickAction ? "Sửa nút Truy cập nhanh" : "Tạo nút Truy cập nhanh"}</h3>
-              <button onClick={() => setIsQuickActionModalOpen(false)} className="text-sm font-bold text-slate-500 hover:text-slate-900">Đóng ✕</button>
-            </div>
-            <form onSubmit={handleSaveQuickActionModal} className="p-8 space-y-6 overflow-y-auto flex-1">
-              {[
-                { label: "Nhãn nút (Label) *", key: "label" },
-                { label: "Mô tả ngắn", key: "desc" },
-              ].map(({ label, key }) => (
-                <div key={key}>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-                  <input type="text" required={key === "label"} value={quickActionForm[key]} onChange={(e) => setQuickActionForm({ ...quickActionForm, [key]: e.target.value })}
-                    className="w-full px-4 py-3 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
-                    style={{ borderColor: "#f4ebd9" }}
-                  />
-                </div>
-              ))}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Hành động khi nhấn *</label>
-                <select value={quickActionForm.action} onChange={(e) => setQuickActionForm({ ...quickActionForm, action: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-bold border focus:outline-none focus:ring-2 focus:ring-[#f97316]/20 bg-white"
-                  style={{ borderColor: "#f4ebd9" }}
-                >
-                  <option value="explore">Xem danh sách phòng</option>
-                  <option value="quiz">Mở Quiz trắc nghiệm</option>
-                                    <option value="pass">Form chuyển nhượng</option>
-                  <option value="safe">Form kiểm duyệt Safe</option>
-                  <option value="custom">Tùy chỉnh khác</option>
-                </select>
-              </div>
-              <div className="flex items-center justify-between p-4 rounded-lg border" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                <span className="text-sm font-bold text-slate-900">Hiển thị cho người thuê</span>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={quickActionForm.enabled} onChange={(e) => setQuickActionForm({ ...quickActionForm, enabled: e.target.checked })} className="w-5 h-5 rounded" style={{ accentColor: "#f97316" }} />
-                  <span className="text-sm font-bold text-slate-700">Bật</span>
-                </label>
-              </div>
-            </form>
-            <div className="px-8 py-5 border-t flex items-center justify-end gap-3" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-              <button type="button" onClick={() => setIsQuickActionModalOpen(false)} className="px-5 py-2.5 rounded-lg font-bold text-slate-600 hover:text-slate-900">
-                Hủy
-              </button>
-              <button type="submit" onClick={handleSaveQuickActionModal} className="px-6 py-2.5 rounded-lg text-white font-bold shadow-md" style={{ background: "#f97316" }}>
-                {editingQuickAction ? "Lưu cập nhật" : "Tạo mới"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TEST MODALS ── */}
-      <RoommateQuiz open={testQuizOpen} onClose={() => setTestQuizOpen(false)} onComplete={() => { setTestQuizOpen(false); showToast("Đã hoàn thành khảo sát!"); }} />
-            <PassRoomDialog open={testPassOpen} onClose={() => setTestPassOpen(false)} onBoost={() => { setTestPassOpen(false); showToast("Đã gửi yêu cầu Pass!"); }} />
 
       {/* ── MODAL XEM HỒ SƠ GIẤY TỜ CHỦ TRỌ ── */}
       {selectedLandlordDoc && (
@@ -3261,56 +2178,6 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ── MODAL HỦY KÍCH HOẠT 2FA ── */}
-      {disable2FAModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl p-6 space-y-4 border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h4 className="font-heading font-black text-base text-rose-600 flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5" />
-                Tắt Xác thực 2 bước Google Authenticator
-              </h4>
-              <button
-                type="button"
-                onClick={() => setDisable2FAModal(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Để tắt 2FA, vui lòng nhập <strong>Mã PIN Quản trị cấp 2</strong> (trong .env) hoặc <strong>mã 6 số từ app Google Authenticator</strong>:
-            </p>
-
-            <form onSubmit={handleDisable2FA} className="space-y-4">
-              <input
-                type="password"
-                placeholder="Nhập Mã PIN hoặc mã OTP 6 số"
-                value={disablePinOrCode}
-                onChange={(e) => setDisablePinOrCode(e.target.value)}
-                className="w-full p-3 rounded-xl border border-slate-200 text-sm font-mono text-center font-bold focus:outline-none focus:border-rose-500"
-              />
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDisable2FAModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-black text-white bg-rose-600 hover:bg-rose-700 transition"
-                >
-                  Xác nhận tắt 2FA
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ── MODAL NHẬP LÝ DO TỪ CHỐI HỒ SƠ ── */}
       {rejectModal.open && (
