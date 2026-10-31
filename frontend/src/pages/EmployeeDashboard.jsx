@@ -919,20 +919,6 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null, onSw
                   Bắt buộc nhập chính xác địa chỉ từng khu/nhà trọ để người thuê định vị và đặt lịch hẹn xem phòng.
                 </p>
               </div>
-
-              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-orange-50/70 border border-orange-200/70 text-xs text-slate-700">
-                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center shrink-0 text-[#f97316]">
-                  <Phone className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-900">
-                    Số điện thoại liên hệ: <span className="text-[#f97316] font-bold">{user?.phone || "Đã xác thực theo tài khoản"}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    Hệ thống tự động sử dụng số điện thoại đã xác minh của tài khoản bạn, không cần nhập lại.
-                  </div>
-                </div>
-              </div>
             </div>
           )}
           
