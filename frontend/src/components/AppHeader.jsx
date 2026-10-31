@@ -424,10 +424,18 @@ export default function AppHeader({
                           {user?.role === "landlord" && user?.verificationStatus === "APPROVED" && (
                             <BadgeCheck className="w-4 h-4 text-amber-300" />
                           )}
-                          
+                        </div>
+                        <div className="text-white/80 text-xs mt-0.5">{user?.email || profile.email}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profile Actions */}
+                <div className="p-4 space-y-2">
                   {(user?.role === "landlord" || user?.role === "employee") && (
                     <Link
-                      to="/employee"
+                      to="/chu-tro"
                       onClick={() => setShowProfile(false)}
                       className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-white bg-[#f97316] hover:bg-[#ea580c] rounded-xl transition-colors text-center shadow-sm"
                     >
