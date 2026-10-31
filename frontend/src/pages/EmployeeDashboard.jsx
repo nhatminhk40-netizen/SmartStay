@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   LayoutDashboard, ShieldCheck, Key, Home as HomeIcon, Users, FileText, Receipt,
   MessageSquare, Star, Settings, Plus, Search, MapPin, CheckCircle,
   Clock, Edit2, Trash2, X, Eye, EyeOff, FileCheck, Info, Building2, ArrowLeft,
   Calendar, Phone, RefreshCw, AlertCircle, Check, UploadCloud, Image as ImageIcon,
-  Sparkles, Loader2, AlertTriangle, DoorOpen, Layers, Copy, Camera, ChevronRight, FileSpreadsheet
+  Sparkles, Loader2, AlertTriangle, DoorOpen, Layers, Copy, Camera, ChevronRight, FileSpreadsheet,
+  QrCode, Upload, Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -2826,7 +2827,30 @@ const EditRoomModal = ({ open, onClose, room, propertyOptions = [], onSave }) =>
 function LandlordSettings({ user }) {
   const userId = user?._id || user?.id || user?.email || "default";
   const storageKey = `smartstay_landlord_settings_${userId}`;
-  
+  const ratesKey = `smartstay_landlord_rates_${userId}`;
+
+  const BANK_LIST = [
+    { code: "MB", name: "MB Bank (Ngân hàng Quân Đội)" },
+    { code: "VCB", name: "Vietcombank (Ngoại thương VN)" },
+    { code: "TCB", name: "Techcombank (Kỹ Thương VN)" },
+    { code: "ICB", name: "VietinBank (Công Thương VN)" },
+    { code: "BIDV", name: "BIDV (Đầu tư & Phát triển VN)" },
+    { code: "VBA", name: "Agribank (Nông nghiệp VN)" },
+    { code: "ACB", name: "ACB (Á Châu)" },
+    { code: "TPB", name: "TPBank (Tiên Phong)" },
+    { code: "VPB", name: "VPBank (Việt Nam Thịnh Vượng)" },
+    { code: "VIB", name: "VIB (Quốc Tế VN)" },
+    { code: "STB", name: "Sacombank (Sài Gòn Thương Tín)" },
+    { code: "HDB", name: "HDBank (Phát triển TP.HCM)" },
+    { code: "OCB", name: "OCB (Phương Đông)" },
+    { code: "SHB", name: "SHB (Sài Gòn - Hà Nội)" },
+    { code: "CAKE", name: "Cake by VPBank" },
+    { code: "TIMO", name: "Timo Digital Bank" },
+    { code: "MOMO", name: "Ví MoMo" },
+    { code: "ZALOPAY", name: "Ví ZaloPay" },
+    { code: "CUSTOM", name: "Ngân hàng khác (Tự nhập tên)" },
+  ];
+
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem(storageKey);
@@ -2836,66 +2860,155 @@ function LandlordSettings({ user }) {
       fullName: user?.fullName || "Cô Ba (Chủ nhà trọ SmartStay)",
       phone: user?.phone || "0939112233",
       email: user?.email || "chutro@smartstay.vn",
+      bankCode: "MB",
       bankName: "MB Bank (Ngân hàng Quân Đội)",
+      customBankName: "",
       accountNumber: "093911223388",
       accountHolder: user?.fullName ? user.fullName.toUpperCase() : "CO BA CHU TRO",
+      qrImage: "", // Ảnh mã QR do chủ trọ tự tải lên
+      transferSyntax: "TT TIEN TRO [SO PHONG] [THANG]",
     };
   });
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Xử lý tải ảnh mã QR lên
+  const handleQrFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chọn file hình ảnh (PNG, JPG, JPEG)!");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Dung lượng ảnh tối đa là 5MB. Vui lòng chọn ảnh nhỏ hơn.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setSettings(prev => ({ ...prev, qrImage: event.target.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveQr = () => {
+    setSettings(prev => ({ ...prev, qrImage: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Tính URL mã VietQR tự động sinh theo STK nếu chưa có ảnh upload riêng
+  const getAutoVietQrUrl = () => {
+    const cleanAcc = (settings.accountNumber || "").replace(/[^a-zA-Z0-9]/g, "");
+    if (!cleanAcc) return null;
+    const bCode = settings.bankCode === "CUSTOM" ? "MB" : (settings.bankCode || "MB");
+    const accName = encodeURIComponent(settings.accountHolder || "CHU TRO");
+    return `https://img.vietqr.io/image/${bCode}-${cleanAcc}-compact2.png?accountName=${accName}`;
+  };
+
+  const handleBankChange = (e) => {
+    const val = e.target.value;
+    const found = BANK_LIST.find(b => b.code === val);
+    setSettings(prev => ({
+      ...prev,
+      bankCode: val,
+      bankName: found ? found.name : val,
+      customBankName: val === "CUSTOM" ? prev.customBankName : ""
+    }));
+  };
+
+  const handleCopyBankInfo = () => {
+    const activeBank = settings.bankCode === "CUSTOM" && settings.customBankName ? settings.customBankName : settings.bankName;
+    const text = `🏦 THÔNG TIN CHUYỂN KHOẢN TIỀN TRỌ:\n• Ngân hàng: ${activeBank}\n• STK: ${settings.accountNumber}\n• Chủ tài khoản: ${settings.accountHolder}\n• Nội dung: TT TIEN TRO [Số phòng] [Tháng]`;
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2500);
+  };
 
   const handleSave = (e) => {
     e.preventDefault();
     localStorage.setItem(storageKey, JSON.stringify(settings));
+
+    // Đồng bộ sang rates để MeterGridManager (chốt điện nước) và các bảng thu tiền tự động áp dụng thông tin ngân hàng & QR này
+    try {
+      const savedRates = localStorage.getItem(ratesKey);
+      const parsedRates = savedRates ? JSON.parse(savedRates) : {};
+      const activeBank = settings.bankCode === "CUSTOM" && settings.customBankName ? settings.customBankName : settings.bankName;
+      localStorage.setItem(ratesKey, JSON.stringify({
+        ...parsedRates,
+        bankName: activeBank,
+        accountNumber: settings.accountNumber,
+        accountHolder: settings.accountHolder,
+        qrImage: settings.qrImage || ""
+      }));
+    } catch (_) {}
+
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
+  const autoVietQr = getAutoVietQrUrl();
+  const currentQrSrc = settings.qrImage || autoVietQr;
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200 max-w-4xl">
+    <div className="space-y-6 animate-in fade-in duration-200 max-w-5xl">
       <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-3">
           <div>
             <h3 className="font-heading font-black text-lg text-slate-900 flex items-center gap-2">
               <Settings className="w-5 h-5 text-[#f97316]" />
               Cài đặt & Tài khoản Chủ trọ
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Quản lý thông tin liên hệ và số tài khoản ngân hàng để người thuê chuyển khoản tiền phòng
+              Tự chủ quản lý Số tài khoản, Ngân hàng và Tải mã QR nhận tiền để người thuê dễ dàng chuyển khoản hàng tháng
             </p>
           </div>
           {savedSuccess && (
-            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full flex items-center gap-1 animate-in fade-in">
-              <Check className="w-3.5 h-3.5" /> Đã lưu cài đặt thành công!
+            <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full flex items-center gap-1.5 animate-in fade-in self-start md:self-auto">
+              <Check className="w-4 h-4 stroke-[3] text-emerald-600" /> Đã lưu thông tin & Mã QR thành công!
             </span>
           )}
         </div>
 
         <form onSubmit={handleSave} className="space-y-6 pt-6">
-          {/* Thông tin cá nhân */}
+          {/* Thông tin liên hệ trực tiếp */}
           <div>
-            <h4 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
-              <Users className="w-4 h-4 text-slate-500" />
-              Thông tin liên hệ
-            </h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-500" />
+                Thông tin liên hệ trực tiếp
+              </h4>
+              <span className="text-[11px] text-slate-400 italic">
+                * Khách thuê gọi trực tiếp số này khi có sự cố khẩn cấp
+              </span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Họ và tên</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Họ và tên chủ trọ</label>
                 <input
                   type="text"
                   value={settings.fullName}
                   onChange={(e) => setSettings({ ...settings, fullName: e.target.value })}
+                  placeholder="VD: Cô Ba (Chủ trọ)"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Số điện thoại liên hệ</label>
-                <input
-                  type="text"
-                  value={settings.phone}
-                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
-                />
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Số điện thoại liên hệ chính</label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    value={settings.phone}
+                    onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                    placeholder="VD: 0907297338"
+                    className="w-full px-3.5 py-2.5 pl-9 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
+                  />
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Email tài khoản</label>
@@ -2909,66 +3022,223 @@ function LandlordSettings({ user }) {
             </div>
           </div>
 
-          {/* Tài khoản ngân hàng nhận tiền phòng */}
+          {/* Tài khoản ngân hàng & Upload Mã QR */}
           <div className="pt-6 border-t border-slate-100">
-            <h4 className="font-bold text-sm text-slate-900 mb-1 flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-[#f97316]" />
-              Tài khoản Ngân hàng nhận tiền phòng
-            </h4>
-            <p className="text-xs text-slate-500 mb-4">
-              Thông tin này giúp người thuê dễ dàng chuyển khoản thanh toán tiền phòng & điện nước hàng tháng.
-            </p>
+            <div className="mb-4">
+              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-[#f97316]" />
+                Tài khoản Ngân hàng & Mã QR Nhận tiền phòng
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Chủ trọ hoàn toàn tự chủ nhập STK, chọn ngân hàng và tải ảnh mã QR của riêng mình để in hóa đơn hoặc gửi người thuê quét chuyển khoản.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Ngân hàng thụ hưởng</label>
-                <select
-                  value={settings.bankName}
-                  onChange={(e) => setSettings({ ...settings, bankName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316] bg-white"
-                >
-                  <option value="MB Bank (Ngân hàng Quân Đội)">MB Bank (Ngân hàng Quân Đội)</option>
-                  <option value="Vietcombank (VCB)">Vietcombank (VCB)</option>
-                  <option value="Techcombank (TCB)">Techcombank (TCB)</option>
-                  <option value="VietinBank (CTG)">VietinBank (CTG)</option>
-                  <option value="BIDV (Ngân hàng Đầu tư)">BIDV (Ngân hàng Đầu tư)</option>
-                  <option value="Agribank (Nông nghiệp)">Agribank (Nông nghiệp)</option>
-                  <option value="ACB (Á Châu)">ACB (Á Châu)</option>
-                  <option value="TPBank (Tiên Phong)">TPBank (Tiên Phong)</option>
-                  <option value="VPBank (Việt Nam Thịnh Vượng)">VPBank (Việt Nam Thịnh Vượng)</option>
-                  <option value="MoMo / ZaloPay">Ví MoMo / ZaloPay</option>
-                </select>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* CỘT TRÁI (7/12): Form nhập thông tin ngân hàng */}
+              <div className="lg:col-span-7 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Ngân hàng thụ hưởng
+                  </label>
+                  <select
+                    value={settings.bankCode || "MB"}
+                    onChange={handleBankChange}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316] bg-white cursor-pointer"
+                  >
+                    {BANK_LIST.map(b => (
+                      <option key={b.code} value={b.code}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {settings.bankCode === "CUSTOM" && (
+                  <div className="animate-in fade-in duration-150">
+                    <label className="block text-xs font-bold text-orange-700 mb-1.5 uppercase tracking-wider">
+                      Nhập tên ngân hàng của bạn
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: Ngân hàng số Cake by VPBank, KBank..."
+                      value={settings.customBankName}
+                      onChange={(e) => setSettings({ ...settings, customBankName: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-orange-200 bg-orange-50/30 text-sm font-bold text-slate-900 focus:outline-none focus:border-[#f97316]"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                      Số tài khoản (STK)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Nhập số tài khoản ngân hàng..."
+                      value={settings.accountNumber}
+                      onChange={(e) => setSettings({ ...settings, accountNumber: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-black text-slate-900 focus:outline-none focus:border-[#f97316]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                      Tên chủ tài khoản (Viết hoa)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: NGUYEN VAN A"
+                      value={settings.accountHolder}
+                      onChange={(e) => setSettings({ ...settings, accountHolder: e.target.value.toUpperCase() })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 uppercase focus:outline-none focus:border-[#f97316]"
+                    />
+                  </div>
+                </div>
+
+                {/* Khu vực Tải ảnh mã QR cá nhân */}
+                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-4 h-4 text-[#f97316]" />
+                      <span className="text-xs font-black text-slate-900 uppercase">Tải ảnh Mã QR của bạn (Tùy chọn)</span>
+                    </div>
+                    {settings.qrImage && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                        Đang dùng ảnh đã tải
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Bạn có thể chụp ảnh mã QR từ ứng dụng ngân hàng và tải lên đây. Nếu không tải ảnh, hệ thống sẽ tự động tạo mã VietQR chuẩn theo STK của bạn.
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleQrFileChange}
+                      accept="image/*"
+                      className="hidden"
+                      id="qr-file-input"
+                    />
+                    <label
+                      htmlFor="qr-file-input"
+                      className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-[#f97316] text-slate-700 hover:text-[#f97316] text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[#f97316]" />
+                      <span>{settings.qrImage ? "Thay ảnh QR khác" : "Tải ảnh mã QR lên"}</span>
+                    </label>
+
+                    {settings.qrImage && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveQr}
+                        className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition flex items-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Xóa ảnh & dùng VietQR tự động</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sao chép nhanh cú pháp chuyển khoản */}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyBankInfo}
+                    className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{copySuccess ? "✓ Đã sao chép vào bộ nhớ tạm!" : "Sao chép thông tin STK gửi khách"}</span>
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Số tài khoản</label>
-                <input
-                  type="text"
-                  placeholder="Nhập số tài khoản ngân hàng..."
-                  value={settings.accountNumber}
-                  onChange={(e) => setSettings({ ...settings, accountNumber: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-[#f97316]"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Tên chủ tài khoản</label>
-                <input
-                  type="text"
-                  placeholder="VD: NGUYEN VAN A"
-                  value={settings.accountHolder}
-                  onChange={(e) => setSettings({ ...settings, accountHolder: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 uppercase focus:outline-none focus:border-[#f97316]"
-                />
+
+              {/* CỘT PHẢI (5/12): Live Preview Mã QR */}
+              <div className="lg:col-span-5 bg-[#fdfbf7] border border-[#f4ebd9] rounded-2xl p-5 flex flex-col items-center text-center shadow-xs">
+                <div className="w-full flex items-center justify-between pb-3 mb-3 border-b border-orange-100/60">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <QrCode className="w-4 h-4 text-[#f97316]" />
+                    Xem trước Mã QR
+                  </span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-[10px] font-black uppercase",
+                    settings.qrImage ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+                  )}>
+                    {settings.qrImage ? "Ảnh bạn tải lên" : "VietQR Tự động"}
+                  </span>
+                </div>
+
+                {currentQrSrc ? (
+                  <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm max-w-[240px] w-full flex flex-col items-center">
+                    <img
+                      src={currentQrSrc}
+                      alt="Mã QR thanh toán tiền phòng"
+                      className="w-48 h-48 object-contain rounded-xl"
+                    />
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 w-full text-center">
+                      <p className="text-[11px] font-black text-slate-900 truncate">
+                        {settings.bankCode === "CUSTOM" && settings.customBankName ? settings.customBankName : settings.bankName}
+                      </p>
+                      <p className="text-xs font-mono font-black text-[#f97316] tracking-wider mt-0.5">
+                        {settings.accountNumber || "Chưa nhập STK"}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase truncate mt-0.5">
+                        {settings.accountHolder || "CHỦ NHÀ TRỌ"}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-48 h-48 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-4 text-slate-400">
+                    <QrCode className="w-10 h-10 stroke-1 mb-2 text-slate-300" />
+                    <p className="text-xs font-bold text-slate-500">Chưa có mã QR</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Nhập STK hoặc tải ảnh QR để xem trước</p>
+                  </div>
+                )}
+
+                <div className="w-full mt-4 space-y-1.5 text-left text-[11px] text-slate-500 bg-white/70 p-2.5 rounded-xl border border-slate-100">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Ngân hàng:</span>
+                    <span className="font-bold text-slate-700 truncate max-w-[150px]">
+                      {settings.bankCode === "CUSTOM" && settings.customBankName ? settings.customBankName : settings.bankName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Số tài khoản:</span>
+                    <span className="font-mono font-bold text-slate-800">{settings.accountNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Chủ tài khoản:</span>
+                    <span className="font-bold text-slate-800 uppercase">{settings.accountHolder}</span>
+                  </div>
+                </div>
+
+                {currentQrSrc && (
+                  <a
+                    href={currentQrSrc}
+                    download="Ma_QR_Tien_Phong_SmartStay.png"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 w-full py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Tải ảnh QR về máy (In dán phòng)</span>
+                  </a>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="pt-4 flex justify-end">
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              * Lưu ý: Thông tin này sẽ tự động hiển thị trên mẫu chốt điện nước, hóa đơn và tin nhắn Zalo gửi sinh viên.
+            </p>
             <button
               type="submit"
               className="px-6 py-2.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
             >
               <Check className="w-4 h-4 stroke-[3]" />
-              <span>Lưu thông tin thanh toán</span>
+              <span>Lưu thông tin thanh toán & QR</span>
             </button>
           </div>
         </form>
@@ -3472,7 +3742,6 @@ export default function EmployeeDashboard() {
     { id: "meter-grid", label: "Chốt điện nước (Excel)", icon: FileSpreadsheet, badge: "Excel" },
     { id: "invoices", label: "Hóa đơn & Thu tiền", icon: Receipt },
     { id: "contracts", label: "Hợp đồng & Cọc", icon: FileCheck },
-    { id: "requests", label: "Yêu cầu từ khách", icon: MessageSquare },
     { id: "settings", label: "Cài đặt & Tài khoản", icon: Settings },
   ];
 
@@ -3527,8 +3796,7 @@ export default function EmployeeDashboard() {
                       {tab.badge}
                     </span>
                   )}
-                  {tab.id === "requests" && passRequests.length > 0 && <span className="ml-auto w-5 h-5 rounded-full bg-[#f97316] text-white text-[10px] flex items-center justify-center">{passRequests.length}</span>}
-                </button>
+                                  </button>
               );
             })}
           </nav>
@@ -3927,14 +4195,9 @@ export default function EmployeeDashboard() {
                           <Calendar className="w-4 h-4 text-[#f97316]" />
                           <span>Lịch hẹn xem phòng ({pendingAppointments.length})</span>
                         </h3>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab("requests")}
-                          className="text-xs font-bold text-slate-500 hover:text-[#f97316] flex items-center gap-0.5"
-                        >
-                          <span>Xem tất cả</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
+                        <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold">
+                          Trực tiếp
+                        </span>
                       </div>
 
                       {pendingAppointments.length > 0 ? (
@@ -3951,6 +4214,22 @@ export default function EmployeeDashboard() {
                               <div className="text-[11px] text-slate-500 mt-1 space-y-0.5">
                                 <div>Khách: <b className="text-slate-700">{appt.studentName}</b> ({appt.studentPhone})</div>
                                 <div>Hẹn lúc: <b className="text-[#f97316]">{appt.appointmentDate} - {appt.appointmentTime}</b></div>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-orange-100/70">
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateAppointment(appt.appointmentCode, "confirmed", "Chủ trọ đã đồng ý lịch hẹn")}
+                                  className="flex-1 py-1 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition"
+                                >
+                                  Duyệt hẹn
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateAppointment(appt.appointmentCode, "rejected", "Chủ trọ bận giờ này")}
+                                  className="flex-1 py-1 px-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[10px] transition"
+                                >
+                                  Từ chối
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -4707,130 +4986,7 @@ export default function EmployeeDashboard() {
               )}
             </div>
           )}
-          {activeTab === "requests" && (
-            <div className="space-y-6">
-              {/* PHẦN 1: LỊCH HẸN XEM PHÒNG CỦA NGƯỜI THUÊ */}
-              <div className="bg-white rounded-[24px] shadow-sm border border-[#f4ebd9] p-6">
-                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-base">
-                  <Calendar className="w-5 h-5 text-[#f97316]" />
-                  Lịch Hẹn Xem Phòng Của Người Thuê ({appointments.length})
-                </h3>
-
-                {appointments.length === 0 ? (
-                  <div className="text-center py-8 bg-[#fdfbf7] rounded-2xl border border-slate-100">
-                    <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-slate-600">Chưa có lịch hẹn xem phòng mới</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {appointments.map(appt => (
-                      <div key={appt._id || appt.appointmentCode} className="bg-[#fdfbf7] border border-[#f4ebd9] rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-900">Mã: #{appt.appointmentCode}</span>
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-full text-[10px] font-black uppercase",
-                              appt.status === "confirmed" ? "bg-emerald-100 text-emerald-800" :
-                              appt.status === "rejected" ? "bg-rose-100 text-rose-800" :
-                              appt.status === "completed" ? "bg-blue-100 text-blue-800" :
-                              "bg-amber-100 text-amber-800"
-                            )}>
-                              {appt.status === "confirmed" ? "Đã duyệt" :
-                               appt.status === "rejected" ? "Đã từ chối" :
-                               appt.status === "completed" ? "Đã dẫn xem" : "Chờ bạn duyệt"}
-                            </span>
-                          </div>
-                          <h4 className="font-bold text-slate-900 text-sm mt-1">{appt.roomId?.title || "Phòng trọ"}</h4>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-600">
-                            <span>Khách: <b className="text-slate-800">{appt.studentName}</b></span>
-                            <span>SĐT: <b className="text-emerald-700">{appt.studentPhone}</b></span>
-                            <span>Hẹn lúc: <b className="text-[#f97316]">{appt.appointmentDate} - {appt.appointmentTime}</b></span>
-                          </div>
-                          {appt.note && <p className="text-[11px] text-slate-500 italic mt-1">Ghi chú: "{appt.note}"</p>}
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-2 w-full md:w-auto">
-                          {appt.status === "pending" && (
-                            <>
-                              <Button
-                                size="sm"
-                                onClick={() => handleUpdateAppointment(appt.appointmentCode, "confirmed", "Chủ trọ đã đồng ý hẹn!")}
-                                className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 px-4"
-                              >
-                                Duyệt hẹn
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUpdateAppointment(appt.appointmentCode, "rejected", "Chủ trọ bận khung giờ này")}
-                                className="rounded-full text-rose-600 hover:bg-rose-50 font-bold text-xs h-8 px-3"
-                              >
-                                Từ chối
-                              </Button>
-                            </>
-                          )}
-                          {appt.status === "confirmed" && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleUpdateAppointment(appt.appointmentCode, "completed", "Đã dẫn xem phòng thành công")}
-                              className="rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-8 px-4"
-                            >
-                              Đánh dấu đã dẫn xem
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* PHẦN 2: YÊU CẦU PASS PHÒNG */}
-              <div className="bg-white rounded-[24px] shadow-sm border border-[#f4ebd9] overflow-hidden p-6">
-                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-base">
-                  <MessageSquare className="w-5 h-5 text-[#f97316]" />
-                  Yêu cầu Pass Phòng chờ xác nhận ({passRequests.length})
-                </h3>
-                
-                {passRequests.length === 0 ? (
-                  <div className="text-center py-8 bg-[#fdfbf7] rounded-2xl border border-slate-100">
-                    <CheckCircle className="w-8 h-8 text-[#f97316] mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-slate-600">Không có yêu cầu pass phòng mới</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {passRequests.map(req => (
-                      <div key={req.id} className="bg-[#fdfbf7] border border-[#f4ebd9] rounded-2xl p-5 flex flex-col md:flex-row gap-5 items-start md:items-center">
-                        <div className="w-24 h-24 shrink-0 rounded-xl bg-slate-100 overflow-hidden">
-                          <img src={req.image || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267"} alt={req.title} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase">Chờ duyệt</span>
-                            <span className="text-xs font-semibold text-slate-500">Mã: {req.id}</span>
-                          </div>
-                          <h4 className="font-bold text-slate-900 text-lg">{req.title}</h4>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
-                            <p className="text-slate-600"><span className="font-medium text-slate-400">Người đăng:</span> <span className="font-bold">{req.posterName}</span></p>
-                            <p className="text-slate-600"><span className="font-medium text-slate-400">SĐT bạn:</span> <span className="font-bold">{req.landlordPhone}</span></p>
-                            <p className="text-slate-600"><span className="font-medium text-slate-400">Giá:</span> <span className="font-bold text-[#f97316]">{Number(req.price).toLocaleString()}đ</span></p>
-                          </div>
-                        </div>
-                        <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
-                          <a href={`/xac-nhan-pass/${req.id}`} target="_blank" className="flex-1 md:w-full inline-flex items-center justify-center h-10 px-4 rounded-full bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-bold shadow-sm">
-                            Mở trang duyệt
-                          </a>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-{/* Tab Bảng chốt số điện nước dạng Lưới Excel thông minh */}
+          {/* Tab Bảng chốt số điện nước dạng Lưới Excel thông minh */}
           {activeTab === "meter-grid" && (
             <MeterGridManager 
               user={user}
