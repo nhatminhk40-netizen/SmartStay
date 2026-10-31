@@ -1326,11 +1326,33 @@ app.post('/api/rooms', protect, async (req, res) => {
         data.contactPhone = req.user?.phone || data.contactPhone || '0901234567';
 
         // Trạng thái kiểm duyệt bài đăng (Admin approval)
-        // Chủ trọ đăng bài mới thì approvalStatus = 'pending' (chờ Admin duyệt), Admin đăng thì duyệt ngay
+        // - Chủ trọ đăng bài lần đầu hoặc thêm vị trí trọ mới: Cần Admin duyệt (approvalStatus = 'pending')
+        // - Mở rộng phòng con trong khu trọ đã duyệt: Tự động approved, không cần admin duyệt lại
         const isAdmin = req.user?.role === 'admin' || req.user?.role === 'employee';
-        data.approvalStatus = isAdmin ? 'approved' : 'pending';
-        data.approvedAt = isAdmin ? new Date() : null;
-        data.approvedBy = isAdmin ? (req.user?.fullName || 'Admin') : '';
+        let isApproved = isAdmin;
+
+        const propName = (data.property_name || '').trim();
+        const isSubRoomExpansion = Boolean(data.room_number || req.body.isSubRoom);
+
+        if (!isApproved && isSubRoomExpansion && propName) {
+            if (isDbConnected) {
+                const existingApproved = await Room.findOne({
+                    $or: [{ property_name: propName }, { title: propName }],
+                    approvalStatus: 'approved'
+                });
+                if (existingApproved) isApproved = true;
+            } else {
+                const existingApproved = fallbackRooms.find(r =>
+                    ((r.property_name && r.property_name.trim() === propName) || (r.title && r.title.trim() === propName)) &&
+                    r.approvalStatus === 'approved'
+                );
+                if (existingApproved) isApproved = true;
+            }
+        }
+
+        data.approvalStatus = isApproved ? 'approved' : (data.approvalStatus || 'pending');
+        data.approvedAt = isApproved ? new Date() : null;
+        data.approvedBy = isApproved ? (isAdmin ? (req.user?.fullName || 'Admin') : 'Hệ thống (Kế thừa vị trí đã duyệt)') : '';
         data.rejectionReason = '';
 
         // Bỏ hoàn toàn việc tự gán huy hiệu xác minh thực địa cho tin mới
@@ -2931,9 +2953,24 @@ app.put('/api/admin/rooms/:id/approval', protect, authorize('admin', 'employee')
                 room.rejectionReason = '';
             }
             await room.save();
+
+            // Đồng bộ trạng thái kiểm duyệt cho toàn bộ các phòng thuộc vị trí / cơ sở trọ này
+            const propName = (room.property_name || room.title || '').trim();
+            if (propName) {
+                await Room.updateMany(
+                    { $or: [{ property_name: propName }, { title: propName }] },
+                    { $set: { 
+                        approvalStatus: status, 
+                        approvedAt: status === 'approved' ? new Date() : null,
+                        approvedBy: status === 'approved' ? (req.user?.fullName || 'Admin') : '',
+                        rejectionReason: status === 'rejected' ? (rejectionReason.trim() || 'Chưa đạt yêu cầu') : ''
+                    } }
+                );
+            }
+
             return res.status(200).json({ 
                 success: true, 
-                message: `Đã ${status === 'approved' ? 'duyệt hiển thị' : (status === 'rejected' ? 'từ chối' : 'chuyển về chờ duyệt')} tin đăng.`, 
+                message: `Đã ${status === 'approved' ? 'duyệt hiển thị' : (status === 'rejected' ? 'từ chối' : 'chuyển về chờ duyệt')} vị trí trọ và các phòng liên quan.`, 
                 data: room 
             });
         }
@@ -2949,8 +2986,23 @@ app.put('/api/admin/rooms/:id/approval', protect, authorize('admin', 'employee')
         } else if (status === 'rejected') {
             fallbackRooms[idx].rejectionReason = rejectionReason.trim() || 'Chưa đạt yêu cầu';
         }
+        const fallbackPropName = (fallbackRooms[idx].property_name || fallbackRooms[idx].title || '').trim();
+        if (fallbackPropName) {
+            fallbackRooms.forEach(r => {
+                if ((r.property_name && r.property_name.trim() === fallbackPropName) || (r.title && r.title.trim() === fallbackPropName)) {
+                    r.approvalStatus = status;
+                    if (status === 'approved') {
+                        r.approvedAt = new Date();
+                        r.approvedBy = req.user?.fullName || 'Admin';
+                        r.rejectionReason = '';
+                    } else if (status === 'rejected') {
+                        r.rejectionReason = rejectionReason.trim() || 'Chưa đạt yêu cầu';
+                    }
+                }
+            });
+        }
         saveFallbackRooms(fallbackRooms);
-        return res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt thành công (Fallback)', data: fallbackRooms[idx] });
+        return res.status(200).json({ success: true, message: 'Cập nhật trạng thái duyệt vị trí thành công (Fallback)', data: fallbackRooms[idx] });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

@@ -604,7 +604,7 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null, onSw
             _id: rawId || `room_${Date.now()}`
           };
         }
-        alert(editingRoom ? `🎉 Đã cập nhật phòng "${payload.title}" thành công!` : `🎉 Đã thêm phòng "${payload.title}" thành công!`);
+        alert(editingRoom ? `🎉 Đã cập nhật vị trí trọ "${payload.title}" thành công!` : `🎉 Đã gửi hồ sơ vị trí trọ mới "${payload.title}" lên Ban Quản trị! Admin sẽ kiểm duyệt vị trí trước khi hiển thị công khai.`);
       }
 
       onSuccess?.(savedResult, editingRoom);
@@ -1537,7 +1537,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
           safe_badge: false,
           isSafeBadge: false,
           listingType: "standard",
-          approvalStatus: "pending",
+          approvalStatus: "approved",
           tenant: singleStatus === "rented" && singleTenantName.trim() ? {
             name: singleTenantName.trim(),
             phone: singleTenantPhone.trim(),
@@ -1550,7 +1550,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
         const createdRoom = await base44.entities.Room.create(payload);
         const savedRoom = createdRoom || { ...payload, _id: `room_${Date.now()}`, id: `room_${Date.now()}` };
 
-        alert(`🎉 Đã thêm thành công phòng "${singleNumber.trim()}" vào khu trọ "${activeProp.property_name}"!\n\nTin đăng đang ở trạng thái "Chờ Admin duyệt" trước khi hiển thị công khai trên danh sách trọ.`);
+        alert(`🎉 Đã thêm thành công phòng "${singleNumber.trim()}" vào khu trọ "${activeProp.property_name}"!`);
         onSuccess?.(savedRoom);
         onClose();
       } else {
@@ -1597,7 +1597,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
             safe_badge: false,
             isSafeBadge: false,
             listingType: "standard",
-            approvalStatus: "pending",
+            approvalStatus: "approved",
             tenant: null,
             meterHistory: []
           };
@@ -1610,7 +1610,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
           }
         }
 
-        alert(`🎉 Tuyệt vời! Đã tự động tạo nhanh ${generatedRooms.length} phòng (${bulkPreviewList.join(", ")}) vào khu trọ "${activeProp.property_name}"!\n\nCác phòng đang ở trạng thái "Chờ Admin duyệt" trước khi hiển thị công khai.`);
+        alert(`🎉 Tuyệt vời! Đã tự động tạo nhanh ${generatedRooms.length} phòng (${bulkPreviewList.join(", ")}) vào khu trọ "${activeProp.property_name}"!`);
         onSuccess?.(generatedRooms);
         onClose();
       }
