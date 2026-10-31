@@ -1174,6 +1174,96 @@ router.get('/me', protect, (req, res) => {
     });
 });
 
+// 6b. Nộp / Cập nhật hồ sơ xác minh Chủ trọ (từ Quản lý nội bộ nâng cấp lên Đăng tin Safe Listing)
+router.post('/landlord-verification', protect, async (req, res) => {
+    try {
+        const userId = req.user._id || req.user.id;
+        const {
+            idCardNumber,
+            propertyName,
+            propertyAddress,
+            idCardFrontUrl,
+            idCardBackUrl,
+            ownershipDocUrl,
+            ownershipDocType,
+            ownershipDocTypeName,
+            note
+        } = req.body;
+
+        if (!propertyName?.trim()) {
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập tên khu trọ hoặc tòa nhà.' });
+        }
+
+        const docs = {
+            idCardNumber: (idCardNumber || '').trim(),
+            propertyName: propertyName.trim(),
+            propertyAddress: (propertyAddress || '').trim() || 'Cần Thơ',
+            idCardFrontUrl: (idCardFrontUrl || '').trim(),
+            idCardBackUrl: (idCardBackUrl || '').trim(),
+            ownershipDocUrl: (ownershipDocUrl || '').trim(),
+            ownershipDocType: ownershipDocType || 'UTILITY_BILL',
+            ownershipDocTypeName: ownershipDocTypeName || 'Hóa đơn tiền điện / nước',
+            note: (note || '').trim()
+        };
+
+        if (req.app.locals.isDbConnected) {
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản người dùng.' });
+            }
+            user.role = 'landlord';
+            user.verificationStatus = 'PENDING';
+            user.landlordDocuments = docs;
+            user.rejectionReason = '';
+            await user.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'Hồ sơ xác minh đã được gửi tới Ban Quản Trị thẩm định!',
+                user: {
+                    id: user._id,
+                    fullName: user.fullName,
+                    email: user.email,
+                    role: user.role,
+                    phone: user.phone,
+                    phoneVerified: user.phoneVerified,
+                    verificationStatus: user.verificationStatus,
+                    landlordDocuments: user.landlordDocuments
+                }
+            });
+        }
+
+        const fallbackUsers = getFallbackUsers(req.app);
+        const user = fallbackUsers.find(u => String(u._id) === String(userId) || String(u.id) === String(userId) || u.email === req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản (Fallback Mode).' });
+        }
+
+        user.role = 'landlord';
+        user.verificationStatus = 'PENDING';
+        user.landlordDocuments = docs;
+        user.rejectionReason = '';
+        saveFallbackUsers(fallbackUsers);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Hồ sơ xác minh đã được gửi tới Ban Quản Trị thẩm định!',
+            user: {
+                id: user._id || user.id,
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role,
+                phone: user.phone,
+                phoneVerified: user.phoneVerified,
+                verificationStatus: user.verificationStatus,
+                landlordDocuments: user.landlordDocuments
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message || 'Lỗi xử lý gửi hồ sơ xác minh.' });
+    }
+});
+
 // 7. Đặt lại mật khẩu mới (sau khi đã xác thực OTP thành công)
 router.post('/reset-password', async (req, res) => {
     try {

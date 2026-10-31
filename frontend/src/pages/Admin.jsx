@@ -1182,7 +1182,8 @@ export default function Admin() {
                 {[
                   { id: "ALL", label: `Tất cả (${landlords.filter(l => l.verificationStatus !== "REJECTED").length})` },
                   { id: "PENDING", label: `Chờ duyệt (${landlords.filter(l => l.verificationStatus === "PENDING").length})` },
-                  { id: "APPROVED", label: `Đã duyệt (${landlords.filter(l => l.verificationStatus === "APPROVED" || (!l.verificationStatus && l.role === "landlord")).length})` },
+                  { id: "APPROVED", label: `Đã duyệt Safe Listing (${landlords.filter(l => l.verificationStatus === "APPROVED" || (!l.verificationStatus && l.role === "landlord")).length})` },
+                  { id: "UNVERIFIED", label: `Quản lý nội bộ (${landlords.filter(l => l.verificationStatus === "UNVERIFIED").length})` },
                   { id: "REJECTED", label: `Bị từ chối (${landlords.filter(l => l.verificationStatus === "REJECTED").length})` }
                 ].map((tab) => {
                   const active = landlordFilter === tab.id;
@@ -1226,6 +1227,7 @@ export default function Admin() {
                         const docs = ll.landlordDocuments || {};
                         const isPending = status === "PENDING";
                         const isApproved = status === "APPROVED";
+                        const isUnverified = status === "UNVERIFIED";
                         const isRejected = status === "REJECTED";
 
                         return (
@@ -1249,7 +1251,12 @@ export default function Admin() {
                                 )}
                                 {isApproved && (
                                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                    ĐÃ PHÊ DUYỆT
+                                    ĐÃ PHÊ DUYỆT SAFE LISTING
+                                  </span>
+                                )}
+                                {isUnverified && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
+                                    ⚡ QUẢN LÝ NỘI BỘ
                                   </span>
                                 )}
                                 {isRejected && (
@@ -1321,13 +1328,14 @@ export default function Admin() {
                               </button>
 
                               {/* Duyệt nút */}
-                              {(isPending || isRejected) && (
+                              {(isPending || isRejected || isUnverified) && (
                                 <button
                                   onClick={() => handleApproveLandlord(ll._id || ll.id, ll.fullName)}
-                                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm flex items-center gap-1"
+                                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm flex items-center gap-1 cursor-pointer"
+                                  title="Phê duyệt cấp huy hiệu Safe Listing cho Chủ trọ"
                                 >
                                   <Check className="w-3.5 h-3.5" />
-                                  Duyệt tài khoản
+                                  Duyệt Safe Listing
                                 </button>
                               )}
 

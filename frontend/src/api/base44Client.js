@@ -2038,6 +2038,7 @@ export const base44 = {
           role: payload.role || 'student',
           campus: payload.campus || 'FPT Can Tho',
           studentId: payload.studentId || '',
+          verificationStatus: payload.verificationStatus,
           landlordDocuments: payload.landlordDocuments || {},
           isEmailVerified: payload.isEmailVerified !== false
         })
@@ -2049,6 +2050,29 @@ export const base44 = {
       if (data.access_token) {
         localStorage.setItem('smartstay_token', data.access_token);
         localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(data.user)));
+      }
+      return data;
+    },
+    submitLandlordVerification: async (docs) => {
+      const token = localStorage.getItem('smartstay_token');
+      const res = await fetch(`${API_BASE}/auth/landlord-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(docs)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gửi hồ sơ xác minh thất bại.');
+      }
+      if (data.user) {
+        try {
+          const currentUser = JSON.parse(localStorage.getItem('smartstay_user') || '{}');
+          const updated = { ...currentUser, ...data.user };
+          localStorage.setItem('smartstay_user', JSON.stringify(sanitizeUserForStorage(updated)));
+        } catch (_) {}
       }
       return data;
     },

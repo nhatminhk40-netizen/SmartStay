@@ -27,6 +27,8 @@ import {
   GraduationCap,
   KeyRound,
   ShieldCheck,
+  FileSpreadsheet,
+  Home,
   AlertCircle,
   X
 } from "lucide-react";
@@ -121,7 +123,8 @@ export default function Register() {
   const [otpCountdown, setOtpCountdown] = useState(60);
   const [showOtpHelp, setShowOtpHelp] = useState(false);
 
-  // Step 3: Landlord Documents state
+  // Step 3: Landlord Documents & Purpose state
+  const [landlordPurpose, setLandlordPurpose] = useState("manage_only"); // "manage_only" | "public_listing"
   const [idCardNumber, setIdCardNumber] = useState("");
   const [propertyName, setPropertyName] = useState("");
   const [propertyAddress, setPropertyAddress] = useState("");
@@ -1060,122 +1063,250 @@ export default function Register() {
                     Quay lại
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={handleSkipVerification}
-                    className="text-xs font-bold text-orange-600 hover:text-orange-700 underline flex items-center gap-1"
-                  >
-                    <span>Bỏ qua bước này, để sau</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                  <span className="text-[11px] text-slate-400 font-medium">Bước 3/3: Thiết lập tài khoản</span>
                 </div>
 
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                  Hồ sơ xác minh Chủ trọ
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Chọn nhu cầu sử dụng SmartStay
                 </h2>
                 <p className="text-muted-foreground text-xs mt-1">
-                  Xác minh danh tính giúp phòng trọ của bạn nhận huy hiệu <strong>Safe Listing</strong> – tăng gấp 3 lần lượt liên hệ từ người thuê
+                  Chọn mục đích phù hợp nhất với bạn. Hệ thống sẽ tối ưu giao diện phù hợp ngay lập tức!
                 </p>
               </div>
 
-              <form onSubmit={handleStep3Submit} className="space-y-3.5">
-                <div>
-                  <Label className="text-xs font-bold text-slate-700">
-                    Số CCCD / CMND chủ sở hữu
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="12 chữ số (VD: 092095001234) - Có thể bổ sung sau"
-                    value={idCardNumber}
-                    onChange={(e) => setIdCardNumber(e.target.value)}
-                    className="h-11 rounded-xl text-xs mt-1"
-                  />
+              {/* LỰA CHỌN 2 MỤC ĐÍCH RÕ RÀNG */}
+              <div className="space-y-3 mb-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Card 1: Quản lý nội bộ */}
+                  <div
+                    onClick={() => setLandlordPurpose("manage_only")}
+                    className={cn(
+                      "p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between select-none",
+                      landlordPurpose === "manage_only"
+                        ? "bg-orange-50/60 border-[#f97316] shadow-md shadow-orange-500/10"
+                        : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-9 h-9 rounded-xl bg-orange-100 text-[#f97316] flex items-center justify-center">
+                          <FileSpreadsheet className="w-5 h-5" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          ⚡ Dùng ngay 30s
+                        </span>
+                      </div>
+                      <h3 className="font-heading font-black text-slate-900 text-sm">
+                        1. Chỉ Quản lý trọ nội bộ
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        Ghi điện nước, quản lý người ở, lập hóa đơn & phiếu thu. Không đăng bài ra công chúng.
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-emerald-700">✓ Không cần gửi CCCD</span>
+                      <span className={cn(
+                        "w-4 h-4 rounded-full border flex items-center justify-center text-[10px] font-black",
+                        landlordPurpose === "manage_only" ? "bg-[#f97316] border-[#f97316] text-white" : "border-slate-300 text-transparent"
+                      )}>
+                        ✓
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Đăng bài tìm khách */}
+                  <div
+                    onClick={() => setLandlordPurpose("public_listing")}
+                    className={cn(
+                      "p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between select-none",
+                      landlordPurpose === "public_listing"
+                        ? "bg-orange-50/60 border-[#f97316] shadow-md shadow-orange-500/10"
+                        : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                          <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          🛡️ Xác thực uy tín
+                        </span>
+                      </div>
+                      <h3 className="font-heading font-black text-slate-900 text-sm">
+                        2. Đăng tin tìm người thuê
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        Đưa phòng trọ lên sàn tìm kiếm SmartStay, tiếp cận hàng ngàn người thuê tại Cần Thơ.
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
+                      <span className="text-blue-700">✓ Gắn nhãn Safe Listing</span>
+                      <span className={cn(
+                        "w-4 h-4 rounded-full border flex items-center justify-center text-[10px] font-black",
+                        landlordPurpose === "public_listing" ? "bg-[#f97316] border-[#f97316] text-white" : "border-slate-300 text-transparent"
+                      )}>
+                        ✓
+                      </span>
+                    </div>
+                  </div>
                 </div>
+              </div>
 
-                <div>
-                  <Label className="text-xs font-bold text-slate-700">
-                    Tên khu trọ / Tòa nhà *
-                  </Label>
-                  <Input
-                    type="text"
-                    required
-                    placeholder="VD: Nhà trọ Hưng Thịnh, Căn hộ Mini An Khánh..."
-                    value={propertyName}
-                    onChange={(e) => setPropertyName(e.target.value)}
-                    className="h-11 rounded-xl text-xs mt-1"
-                  />
-                </div>
+              {/* GIAO DIỆN PHÙ HỢP THEO MỤC ĐÍCH ĐÃ CHỌN */}
+              {landlordPurpose === "manage_only" ? (
+                /* ── LUỒNG 1: QUẢN LÝ NỘI BỘ (VÀO DÙNG NGAY 100%) ── */
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Bạn đã chọn: Sử dụng như phần mềm quản lý trọ nội bộ</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Tài khoản của bạn sẽ được kích hoạt ngay lập tức. Bạn có thể thêm phòng, tính tiền điện nước và xuất hóa đơn gửi Zalo cho khách thuê ngay bây giờ mà <strong>không cần nộp CCCD hay chờ Admin duyệt</strong>.
+                    </p>
+                    <div className="text-[11px] text-amber-800 font-semibold pt-1 border-t border-amber-200/50">
+                      💡 Sau này khi có phòng trống muốn tìm khách trên SmartStay, bạn có thể tải ảnh CCCD xác thực bất kỳ lúc nào tại mục <strong>Cài đặt</strong>.
+                    </div>
+                  </div>
 
-                <div>
-                  <Label className="text-xs font-bold text-slate-700">
-                    Địa chỉ cơ sở nhà trọ tại Cần Thơ *
-                  </Label>
-                  <Input
-                    type="text"
-                    required
-                    placeholder="Số nhà, hẻm, tên đường, phường, quận tại TP. Cần Thơ"
-                    value={propertyAddress}
-                    onChange={(e) => setPropertyAddress(e.target.value)}
-                    className="h-11 rounded-xl text-xs mt-1"
-                  />
-                </div>
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700">Tên khu trọ / Dãy phòng của bạn (Tùy chọn)</Label>
+                    <Input
+                      type="text"
+                      placeholder={`VD: Dãy trọ ${fullName || "của tôi"}`}
+                      value={propertyName}
+                      onChange={(e) => setPropertyName(e.target.value)}
+                      className="h-11 rounded-xl text-xs mt-1"
+                    />
+                  </div>
 
-                {/* Giấy tờ chứng minh (CCCD + Hóa đơn điện nước / Hợp đồng ủy quyền / GPKD) */}
-                <LandlordDocUploader
-                  idCardFront={idCardFrontUrl}
-                  setIdCardFront={setIdCardFrontUrl}
-                  idCardBack={idCardBackUrl}
-                  setIdCardBack={setIdCardBackUrl}
-                  ownershipDoc={ownershipDocUrl}
-                  setOwnershipDoc={setOwnershipDocUrl}
-                  ownershipType={ownershipDocType}
-                  setOwnershipType={setOwnershipDocType}
-                />
-
-                <div>
-                  <Label className="text-xs font-bold text-slate-700">
-                    Ghi chú bổ sung cho Ban Quản Trị
-                  </Label>
-                  <textarea
-                    rows={2}
-                    placeholder="Số lượng phòng, hệ thống camera, giờ giấc, PCCC..."
-                    value={landlordNote}
-                    onChange={(e) => setLandlordNote(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-input text-xs bg-card focus:outline-none focus:ring-2 focus:ring-orange-500/20 mt-1"
-                  />
-                </div>
-
-                {/* Nút hành động kép: Nút phụ Bỏ qua xác minh + Nút chính Gửi hồ sơ */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-3">
                   <button
                     type="button"
                     onClick={handleSkipVerification}
                     disabled={loading}
-                    className="w-full sm:w-1/2 h-11 rounded-xl font-bold border border-slate-300 hover:border-slate-400 bg-white text-slate-700 hover:bg-slate-50 text-xs transition active:scale-[0.98] order-2 sm:order-1"
-                  >
-                    Bỏ qua xác minh, làm sau
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full sm:w-1/2 h-11 rounded-xl font-bold text-white text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-md shadow-orange-500/25 order-1 sm:order-2"
+                    className="w-full h-12 rounded-xl font-black text-white text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 mt-2"
                     style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
                   >
                     {loading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Đang gửi hồ sơ...
+                        Đang kích hoạt tài khoản...
                       </>
                     ) : (
                       <>
-                        Gửi hồ sơ xét duyệt
+                        <span>Vào Kênh Quản Trị Trọ Ngay (Bắt đầu sử dụng)</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
                   </button>
                 </div>
-              </form>
+              ) : (
+                /* ── LUỒNG 2: ĐĂNG BÀI TÌM KHÁCH (NỘP GIẤY TỜ XÁC MINH) ── */
+                <form onSubmit={handleStep3Submit} className="space-y-3.5 animate-in fade-in duration-200">
+                  <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/80 text-xs text-blue-900 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Vui lòng điền thông tin và tải ảnh giấy tờ để Ban Quản Trị cấp huy hiệu Safe Listing và đưa phòng lên sàn.</span>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Số CCCD / CMND chủ sở hữu
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="12 chữ số (VD: 092095001234)"
+                      value={idCardNumber}
+                      onChange={(e) => setIdCardNumber(e.target.value)}
+                      className="h-11 rounded-xl text-xs mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Tên khu trọ / Tòa nhà *
+                    </Label>
+                    <Input
+                      type="text"
+                      required
+                      placeholder="VD: Nhà trọ Hưng Thịnh, Căn hộ Mini An Khánh..."
+                      value={propertyName}
+                      onChange={(e) => setPropertyName(e.target.value)}
+                      className="h-11 rounded-xl text-xs mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Địa chỉ cơ sở nhà trọ tại Cần Thơ *
+                    </Label>
+                    <Input
+                      type="text"
+                      required
+                      placeholder="Số nhà, hẻm, tên đường, phường, quận tại TP. Cần Thơ"
+                      value={propertyAddress}
+                      onChange={(e) => setPropertyAddress(e.target.value)}
+                      className="h-11 rounded-xl text-xs mt-1"
+                    />
+                  </div>
+
+                  {/* Giấy tờ chứng minh (CCCD + Hóa đơn điện nước / Hợp đồng ủy quyền / GPKD) */}
+                  <LandlordDocUploader
+                    idCardFront={idCardFrontUrl}
+                    setIdCardFront={setIdCardFrontUrl}
+                    idCardBack={idCardBackUrl}
+                    setIdCardBack={setIdCardBackUrl}
+                    ownershipDoc={ownershipDocUrl}
+                    setOwnershipDoc={setOwnershipDocUrl}
+                    ownershipType={ownershipDocType}
+                    setOwnershipType={setOwnershipDocType}
+                  />
+
+                  <div>
+                    <Label className="text-xs font-bold text-slate-700">
+                      Ghi chú bổ sung cho Ban Quản Trị
+                    </Label>
+                    <textarea
+                      rows={2}
+                      placeholder="Số lượng phòng, hệ thống camera, giờ giấc, PCCC..."
+                      value={landlordNote}
+                      onChange={(e) => setLandlordNote(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-input text-xs bg-card focus:outline-none focus:ring-2 focus:ring-orange-500/20 mt-1"
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setLandlordPurpose("manage_only")}
+                      className="w-full sm:w-1/3 h-11 rounded-xl font-bold border border-slate-300 hover:border-slate-400 bg-white text-slate-700 hover:bg-slate-50 text-xs transition active:scale-[0.98]"
+                    >
+                      ← Đổi sang chỉ quản lý
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full sm:w-2/3 h-11 rounded-xl font-bold text-white text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-md shadow-orange-500/25"
+                      style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Đang gửi hồ sơ...
+                        </>
+                      ) : (
+                        <>
+                          Gửi hồ sơ xét duyệt & Đăng tin
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
 
@@ -1188,23 +1319,23 @@ export default function Register() {
                     <CheckCircle2 className="w-8 h-8" />
                   </div>
 
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 mb-2">
-                    TRẠNG THÁI: TÀI KHOẢN ĐÃ KÍCH HOẠT (CƠ BẢN)
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800 mb-2">
+                    ⚡ CHẾ ĐỘ: QUẢN LÝ NỘI BỘ (DÙNG NGAY)
                   </div>
 
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                    Chào mừng bạn đến với Kênh Chủ Trọ SmartStay!
+                    Chào mừng bạn đến với SmartStay!
                   </h2>
 
                   <p className="text-slate-600 text-xs mt-2 max-w-sm mx-auto leading-relaxed">
-                    Tài khoản của <strong>{fullName}</strong> đã sẵn sàng. Bạn có thể bắt đầu đăng tin và quản lý phòng trọ ngay bây giờ.
+                    Tài khoản quản lý của <strong>{fullName}</strong> đã sẵn sàng. Bạn có thể bắt đầu tạo danh sách phòng, quản lý người thuê và chốt tiền điện nước ngay bây giờ!
                   </p>
 
                   <div className="mt-5 p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-left text-xs space-y-2">
                     <div className="flex items-start gap-2.5 text-amber-950 font-semibold leading-relaxed">
                       <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <span>
-                        <strong>Mẹo tăng 3x khách thuê:</strong> Bạn có thể bổ sung ảnh CCCD & Hóa đơn điện nước bất kỳ lúc nào tại mục <strong>Cài đặt</strong> để nhận huy hiệu <strong>Safe Listing</strong> và đưa tin lên Top 1 tìm kiếm.
+                        <strong>Khi nào bạn cần đăng tin tìm khách mới?</strong> Bất kỳ lúc nào có phòng trống cần tìm người thuê trên sàn SmartStay, bạn chỉ cần vào mục <strong>Cài đặt</strong> để nộp ảnh CCCD & nhận huy hiệu <strong>Safe Listing</strong>.
                       </span>
                     </div>
                   </div>
@@ -1214,7 +1345,7 @@ export default function Register() {
                       to="/chu-tro"
                       className="w-full h-11 rounded-xl bg-orange-500 text-white font-bold text-xs flex items-center justify-center shadow-md hover:bg-orange-600 transition"
                     >
-                      Vào Kênh Quản Trị Chủ Trọ ngay
+                      Vào Kênh Quản Trị Trọ ngay
                     </Link>
                     <Link
                       to="/"
@@ -1231,7 +1362,7 @@ export default function Register() {
                   </div>
 
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 mb-2">
-                    TRẠNG THÁI: CHỜ DUYỆT (PENDING)
+                    TRẠNG THÁI: ĐANG CHỜ DUYỆT HỒ SƠ SAFE LISTING
                   </div>
 
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -1249,22 +1380,22 @@ export default function Register() {
                     </div>
                     <div className="flex items-center gap-2 font-bold text-slate-900">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      <span>Đã gửi giấy tờ xác minh cơ sở trọ</span>
+                      <span>Đã gửi giấy tờ xác minh cơ sở trọ ({propertyName})</span>
                     </div>
                     <div className="flex items-start gap-2 pt-2 border-t border-slate-200 text-slate-600">
                       <Info className="w-4 h-4 mt-0.5 text-orange-600 flex-shrink-0" />
                       <p className="leading-relaxed">
-                        Tài khoản của bạn sẽ tự động được kích hoạt quyền Chủ trọ uy tín ngay khi Admin phê duyệt.
+                        Trong thời gian chờ duyệt đăng tin, bạn vẫn có toàn quyền sử dụng các công cụ quản lý phòng, chốt điện nước nội bộ trong Kênh Quản Trị.
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-6 flex flex-col gap-2.5">
                     <Link
-                      to="/login"
+                      to="/chu-tro"
                       className="w-full h-11 rounded-xl bg-orange-500 text-white font-bold text-xs flex items-center justify-center shadow-md hover:bg-orange-600 transition"
                     >
-                      Đăng nhập vào tài khoản
+                      Vào Kênh Quản Trị Trọ ngay
                     </Link>
                     <Link
                       to="/"

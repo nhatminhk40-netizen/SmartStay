@@ -16,6 +16,7 @@ import InvoiceManager from "@/components/contracts/InvoiceManager";
 import MeterGridManager from "@/components/contracts/MeterGridManager";
 import RoomTenantAndMeterModal from "@/components/smartstay/RoomTenantAndMeterModal";
 import { base44 } from "@/api/base44Client";
+import LandlordDocUploader, { PROOF_DOCUMENT_TYPES } from "@/components/LandlordDocUploader";
 
 // ── MOCK DATA ──
 const mockRooms = [
@@ -2983,6 +2984,66 @@ function LandlordSettings({ user }) {
   const [copySuccess, setCopySuccess] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Quản lý hồ sơ xác minh Chủ trọ (Phân luồng Quản lý nội bộ vs Đăng tin Safe Listing)
+  const [currentVerificationStatus, setCurrentVerificationStatus] = useState(
+    user?.verificationStatus || "UNVERIFIED"
+  );
+  const [isVerificationFormOpen, setIsVerificationFormOpen] = useState(false);
+  const [vIdCardNumber, setVIdCardNumber] = useState(user?.landlordDocuments?.idCardNumber || "");
+  const [vPropertyName, setVPropertyName] = useState(user?.landlordDocuments?.propertyName || "");
+  const [vPropertyAddress, setVPropertyAddress] = useState(user?.landlordDocuments?.propertyAddress || "");
+  const [vIdCardFront, setVIdCardFront] = useState(user?.landlordDocuments?.idCardFrontUrl || "");
+  const [vIdCardBack, setVIdCardBack] = useState(user?.landlordDocuments?.idCardBackUrl || "");
+  const [vOwnershipDoc, setVOwnershipDoc] = useState(user?.landlordDocuments?.ownershipDocUrl || "");
+  const [vOwnershipType, setVOwnershipType] = useState(user?.landlordDocuments?.ownershipDocType || "UTILITY_BILL");
+  const [vNote, setVNote] = useState(user?.landlordDocuments?.note || "");
+  const [vLoading, setVLoading] = useState(false);
+  const [vSuccessMsg, setVSuccessMsg] = useState("");
+  const [vErrorMsg, setVErrorMsg] = useState("");
+
+  const handleFillSampleDocs = () => {
+    setVIdCardNumber("092095001234");
+    setVPropertyName("Nhà trọ Hưng Thịnh Cần Thơ");
+    setVPropertyAddress("Hẻm 51, đường 3 Tháng 2, Xuân Khánh, Ninh Kiều, Cần Thơ");
+    setVIdCardFront("https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&q=80");
+    setVIdCardBack("https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&q=80");
+    setVOwnershipDoc("https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=800&q=80");
+    setVOwnershipType("UTILITY_BILL");
+    setVNote("Hóa đơn tiền điện nước chính chủ trùng khớp CCCD và địa chỉ trọ.");
+  };
+
+  const handleSubmitVerification = async (e) => {
+    e.preventDefault();
+    setVErrorMsg("");
+    setVSuccessMsg("");
+    if (!vPropertyName.trim()) {
+      setVErrorMsg("Vui lòng nhập tên khu trọ / cơ sở.");
+      return;
+    }
+    setVLoading(true);
+    try {
+      const payload = {
+        idCardNumber: vIdCardNumber.trim(),
+        propertyName: vPropertyName.trim(),
+        propertyAddress: vPropertyAddress.trim() || "Cần Thơ",
+        idCardFrontUrl: vIdCardFront,
+        idCardBackUrl: vIdCardBack,
+        ownershipDocUrl: vOwnershipDoc,
+        ownershipDocType: vOwnershipType,
+        ownershipDocTypeName: PROOF_DOCUMENT_TYPES.find(t => t.id === vOwnershipType)?.name || "Hóa đơn tiền điện / nước",
+        note: vNote.trim()
+      };
+      await base44.auth.submitLandlordVerification(payload);
+      setCurrentVerificationStatus("PENDING");
+      setVSuccessMsg("Hồ sơ xác minh đã được gửi thành công! Ban Quản Trị sẽ thẩm định và cấp huy hiệu Safe Listing sớm nhất.");
+      setIsVerificationFormOpen(false);
+    } catch (err) {
+      setVErrorMsg(err.message || "Gửi hồ sơ thất bại. Vui lòng thử lại.");
+    } finally {
+      setVLoading(false);
+    }
+  };
+
   // Xử lý tải ảnh mã QR lên
   const handleQrFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -3065,6 +3126,223 @@ function LandlordSettings({ user }) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 max-w-5xl">
+      {/* ── KHỐI: TRẠNG THÁI TÀI KHOẢN & HỒ SƠ SAFE LISTING ── */}
+      <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+          <div>
+            <h3 className="font-heading font-black text-lg text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[#f97316]" />
+              Trạng thái Tài khoản & Hồ sơ Xác minh Chủ trọ
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Phân luồng rõ ràng: Quản lý trọ nội bộ (SaaS) hoặc Nộp giấy tờ thẩm định Safe Listing khi cần đăng tin
+            </p>
+          </div>
+          <div>
+            {currentVerificationStatus === "APPROVED" ? (
+              <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 text-xs font-black rounded-full flex items-center gap-1.5">
+                <Check className="w-4 h-4 stroke-[3] text-emerald-600" /> ĐÃ XÁC THỰC SAFE LISTING
+              </span>
+            ) : currentVerificationStatus === "PENDING" ? (
+              <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-black rounded-full flex items-center gap-1.5">
+                <Clock className="w-4 h-4 animate-pulse text-amber-600" /> ĐANG CHỜ BAN QUẢN TRỊ DUYỆT
+              </span>
+            ) : (
+              <span className="px-3 py-1.5 bg-blue-100 text-blue-800 text-xs font-black rounded-full flex items-center gap-1.5">
+                <FileSpreadsheet className="w-4 h-4 text-blue-600" /> CHẾ ĐỘ QUẢN LÝ NỘI BỘ
+              </span>
+            )}
+          </div>
+        </div>
+
+        {vSuccessMsg && (
+          <div className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{vSuccessMsg}</span>
+          </div>
+        )}
+
+        {vErrorMsg && (
+          <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{vErrorMsg}</span>
+          </div>
+        )}
+
+        {/* Nội dung theo từng trạng thái */}
+        <div className="pt-5 space-y-4">
+          {currentVerificationStatus === "APPROVED" ? (
+            <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <span>Tài khoản đã đạt chuẩn Safe Listing</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Cơ sở trọ <strong>"{vPropertyName || user?.landlordDocuments?.propertyName || 'Cơ sở của bạn'}"</strong> đã được Ban Quản Trị SmartStay thẩm định giấy tờ chính chủ. Các phòng bạn đăng công khai sẽ tự động nhận huy hiệu Safe Listing và được người thuê tin tưởng gấp 3 lần.
+              </p>
+            </div>
+          ) : currentVerificationStatus === "PENDING" ? (
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">
+              <div className="flex items-center gap-2 text-amber-900 font-black text-sm">
+                <Clock className="w-5 h-5 text-amber-600 animate-pulse" />
+                <span>Hồ sơ đang trong hàng đợi phê duyệt</span>
+              </div>
+              <p className="text-xs text-slate-700 leading-relaxed">
+                Hồ sơ cơ sở trọ <strong>"{vPropertyName || user?.landlordDocuments?.propertyName || 'Đã nộp'}"</strong> đang được Ban Quản Trị xem xét. Trong lúc chờ duyệt, bạn vẫn có 100% quyền sử dụng tất cả tính năng tạo phòng, chốt điện nước và quản lý tiền trọ nội bộ.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsVerificationFormOpen(!isVerificationFormOpen)}
+                className="text-xs font-bold text-amber-800 hover:text-amber-900 underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>{isVerificationFormOpen ? "Thu gọn form giấy tờ" : "Xem hoặc cập nhật lại giấy tờ đã gửi"}</span>
+                <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", isVerificationFormOpen && "rotate-90")} />
+              </button>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50/70 via-sky-50/50 to-orange-50/50 border border-blue-200/80 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-black text-slate-900 text-sm">
+                      Bạn đang sử dụng Chế độ Quản lý nội bộ
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Ghi điện nước, quản lý người thuê, in hóa đơn hoàn toàn riêng tư. Không đăng tin ra sàn công khai.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsVerificationFormOpen(!isVerificationFormOpen)}
+                  className="px-4 py-2 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-bold transition shadow-sm active:scale-95 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>{isVerificationFormOpen ? "Đóng form" : "Nộp CCCD & Đăng tin Safe Listing"}</span>
+                </button>
+              </div>
+
+              {!isVerificationFormOpen && (
+                <div className="p-3 bg-white/80 rounded-xl border border-blue-100 text-[11px] text-slate-600 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>
+                    Bất kỳ lúc nào bạn có phòng trống cần tìm người thuê mới trên SmartStay, bạn chỉ cần bấm nút trên để nộp ảnh CCCD & hóa đơn điện nước xác minh.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Form Nộp / Cập nhật hồ sơ xác minh */}
+          {isVerificationFormOpen && (
+            <form onSubmit={handleSubmitVerification} className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#f97316]" />
+                  <span className="text-xs font-black text-slate-900 uppercase">Hồ sơ thẩm định cơ sở trọ</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFillSampleDocs}
+                  className="text-xs font-bold text-orange-600 hover:text-orange-700 underline cursor-pointer"
+                >
+                  ⚡ Nạp hồ sơ mẫu nhanh (Test)
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Số CCCD / CMND chủ sở hữu</label>
+                  <input
+                    type="text"
+                    placeholder="12 chữ số (VD: 092095001234)"
+                    value={vIdCardNumber}
+                    onChange={(e) => setVIdCardNumber(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Tên khu trọ / Tòa nhà *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Nhà trọ Hưng Thịnh..."
+                    value={vPropertyName}
+                    onChange={(e) => setVPropertyName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Địa chỉ cơ sở nhà trọ tại Cần Thơ *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Số nhà, hẻm, tên đường, phường, quận tại TP. Cần Thơ"
+                  value={vPropertyAddress}
+                  onChange={(e) => setVPropertyAddress(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
+                />
+              </div>
+
+              {/* Upload ảnh CCCD + Giấy tờ */}
+              <LandlordDocUploader
+                idCardFront={vIdCardFront}
+                setIdCardFront={setVIdCardFront}
+                idCardBack={vIdCardBack}
+                setIdCardBack={setVIdCardBack}
+                ownershipDoc={vOwnershipDoc}
+                setOwnershipDoc={setVOwnershipDoc}
+                ownershipType={vOwnershipType}
+                setOwnershipType={setVOwnershipType}
+              />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Ghi chú bổ sung cho Ban Quản Trị</label>
+                <textarea
+                  rows={2}
+                  placeholder="Quy mô phòng, camera an ninh, thiết bị PCCC..."
+                  value={vNote}
+                  onChange={(e) => setVNote(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 focus:outline-none focus:border-[#f97316]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsVerificationFormOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={vLoading}
+                  className="px-6 py-2 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-bold shadow-md transition flex items-center gap-2 cursor-pointer"
+                >
+                  {vLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang gửi...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Gửi hồ sơ xét duyệt Safe Listing
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
       <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
         <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-3">
           <div>
@@ -3871,6 +4149,25 @@ export default function EmployeeDashboard() {
                   {user.fullName}
                 </p>
               )}
+              {/* Huy hiệu phân luồng tài khoản Chủ trọ */}
+              <div className="mt-1.5">
+                {user?.verificationStatus === "APPROVED" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                    Đã duyệt Safe Listing
+                  </span>
+                ) : user?.verificationStatus === "PENDING" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">
+                    <Clock className="w-3 h-3 text-amber-600 animate-pulse" />
+                    Chờ duyệt hồ sơ
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800">
+                    <FileSpreadsheet className="w-3 h-3 text-blue-600" />
+                    Quản lý trọ nội bộ
+                  </span>
+                )}
+              </div>
             </div>
             <button
               type="button"
@@ -4011,6 +4308,69 @@ export default function EmployeeDashboard() {
 
             return (
               <div className="space-y-6">
+                {/* BANNER THÔNG BÁO CHẾ ĐỘ QUẢN LÝ / SAFE LISTING */}
+                {(!user?.verificationStatus || user?.verificationStatus === "UNVERIFIED") && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-sky-50/80 to-amber-50/50 border border-blue-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <FileSpreadsheet className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-heading font-black text-slate-900 text-sm">
+                            Chế độ Quản lý trọ nội bộ đang hoạt động
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
+                            ⚡ Đầy đủ tính năng ghi điện nước & hóa đơn
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                          Dữ liệu phòng và khách thuê hoàn toàn nội bộ. Khi có phòng trống muốn đăng bài tìm người thuê trên SmartStay, bạn chỉ cần nộp hồ sơ CCCD trong <strong>Cài đặt</strong> để nhận huy hiệu Safe Listing!
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setActiveTab("settings")}
+                      className="shrink-0 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 hover:border-[#f97316] shadow-xs cursor-pointer"
+                    >
+                      Xem hồ sơ xác thực →
+                    </Button>
+                  </div>
+                )}
+
+                {user?.verificationStatus === "PENDING" && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <Clock className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-heading font-black text-slate-900 text-sm">
+                            Hồ sơ đăng ký Safe Listing đang chờ Ban Quản Trị thẩm định
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-200 text-amber-900">
+                            Đang xét duyệt
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                          Admin đang xem xét hồ sơ của bạn. Bạn vẫn có thể quản lý phòng và chốt điện nước nội bộ bình thường.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setActiveTab("settings")}
+                      className="shrink-0 rounded-xl text-xs font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100/60 shadow-xs cursor-pointer"
+                    >
+                      Xem chi tiết hồ sơ →
+                    </Button>
+                  </div>
+                )}
+
                 {/* 1. HÀNG 4 THẺ THỐNG KÊ KPI TỔNG QUAN */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatCard 

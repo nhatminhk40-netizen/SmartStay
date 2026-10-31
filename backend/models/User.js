@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
     isEmailVerified: { type: Boolean, default: false },
     verificationStatus: { 
         type: String, 
-        enum: ['PENDING', 'APPROVED', 'REJECTED', 'NONE'], 
+        enum: ['PENDING', 'APPROVED', 'REJECTED', 'NONE', 'UNVERIFIED'], 
         default: 'NONE' 
     },
     landlordDocuments: {
