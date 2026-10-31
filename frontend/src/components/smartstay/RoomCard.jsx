@@ -9,7 +9,7 @@ export default function RoomCard({ room }) {
     // Tính toán số phòng trống và khoảng giá
     const availableRooms = room.available_rooms !== undefined 
         ? room.available_rooms 
-        : (room.rooms_list ? room.rooms_list.filter(r => r.status === 'available').length : (room.status === 'available' || room.status === 'Trống' ? 1 : 0));
+        : (room.rooms_list ? room.rooms_list.filter(r => r.status === 'available' || r.status === 'Trống').length : (room.status === 'available' || room.status === 'Trống' ? 1 : 0));
     
     const totalRooms = room.total_rooms || (room.rooms_list ? room.rooms_list.length : 1);
     

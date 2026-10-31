@@ -112,6 +112,13 @@ export default function RoomDetail() {
             const data = await base44.entities.Room.get(id);
             setRoom(data);
 
+            if (data && data.room_number && data.rooms_list && data.rooms_list.length > 0) {
+                const currentSub = data.rooms_list.find(r => r.room_number === data.room_number || String(r._id || r.id) === String(data._id || data.id));
+                if (currentSub) {
+                    setSelectedSubRoom(currentSub);
+                }
+            }
+
             if (data && data.price) {
                 setActualMonthlyCost(data.price + 320000);
             }
@@ -403,13 +410,28 @@ export default function RoomDetail() {
                         {room.available_rooms !== undefined && (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Còn {room.available_rooms} phòng trống
+                                {room.available_rooms > 0 
+                                    ? `Còn ${room.available_rooms} phòng trống` 
+                                    : 'Hết phòng trống'}
+                                {room.total_rooms > 1 ? ` • Tổng ${room.total_rooms} phòng` : ''}
                             </span>
                         )}
                     </div>
 
                     <h1 className="text-xl md:text-2xl font-heading font-black text-foreground leading-snug">
-                        {room.property_name ? `${room.property_name}${room.room_number ? ` - ${room.room_number}` : ''}: ${room.title}` : room.title}
+                        {(() => {
+                            if (selectedSubRoom) {
+                                return `${room.property_name || room.title} - ${selectedSubRoom.room_number}`;
+                            }
+                            if (room.property_name) {
+                                const prefix = room.room_number ? `${room.property_name} - ${room.room_number}` : room.property_name;
+                                if (room.title && (room.title.startsWith(prefix) || room.title === room.property_name)) {
+                                    return room.title;
+                                }
+                                return `${prefix}: ${room.title}`;
+                            }
+                            return room.title;
+                        })()}
                     </h1>
 
                     <div className="mt-3 flex flex-wrap items-center gap-y-2 gap-x-4 text-xs text-muted-foreground">
@@ -491,7 +513,8 @@ export default function RoomDetail() {
                                         return (
                                             <div
                                                 key={idx}
-                                                className={`p-4 rounded-2xl border transition-all ${
+                                                onClick={() => setSelectedSubRoom(subRoom)}
+                                                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                                                     isSelected 
                                                         ? "border-[#f97316] bg-orange-50/50 ring-2 ring-[#f97316]/20 shadow-sm" 
                                                         : isAvail 
@@ -754,7 +777,33 @@ export default function RoomDetail() {
                     <div className="lg:col-span-5 space-y-6">
                         {/* Hộp hành động ghim */}
                         <div className="bg-white rounded-3xl p-6 border-2 border-accent/20 shadow-lg shadow-accent/5 ">
-                            {room.price_min && room.price_max && room.price_min !== room.price_max ? (
+                            {selectedSubRoom ? (
+                                <>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                        <span>Phòng đang chọn: <strong className="text-slate-800 font-bold">{selectedSubRoom.room_number}</strong></span>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setSelectedSubRoom(null)}
+                                            className="text-xs text-accent font-bold hover:underline"
+                                        >
+                                            Xem khoảng giá chung
+                                        </button>
+                                    </div>
+                                    <div className="flex items-baseline gap-2 mb-3">
+                                        <span className="font-heading font-black text-3xl text-accent">
+                                            {Number(selectedSubRoom.price || room.price).toLocaleString('vi-VN')} đ
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">/ tháng</span>
+                                    </div>
+                                    {room.available_rooms !== undefined && (
+                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 mb-4">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            {room.available_rooms > 0 ? `Còn ${room.available_rooms} phòng trống` : 'Hết phòng trống'}
+                                            {room.total_rooms > 1 && <span className="font-normal text-slate-500">• Tổng {room.total_rooms} phòng</span>}
+                                        </div>
+                                    )}
+                                </>
+                            ) : room.price_min && room.price_max && room.price_min !== room.price_max ? (
                                 <>
                                     <div className="text-xs text-muted-foreground mb-1">Khoảng giá các phòng trong khu trọ</div>
                                     <div className="flex flex-wrap items-baseline gap-1.5 mb-1.5">
@@ -766,20 +815,27 @@ export default function RoomDetail() {
                                     {room.available_rooms !== undefined && (
                                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 mb-4">
                                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                            Còn {room.available_rooms} phòng trống
-                                            {room.total_rooms && <span className="font-normal text-slate-500">• Tổng {room.total_rooms} phòng</span>}
+                                            {room.available_rooms > 0 ? `Còn ${room.available_rooms} phòng trống` : 'Hết phòng trống'}
+                                            {room.total_rooms > 1 && <span className="font-normal text-slate-500">• Tổng {room.total_rooms} phòng</span>}
                                         </div>
                                     )}
                                 </>
                             ) : (
                                 <>
                                     <div className="text-xs text-muted-foreground mb-1">Giá thuê niêm yết</div>
-                                    <div className="flex items-baseline gap-2 mb-4">
+                                    <div className="flex items-baseline gap-2 mb-3">
                                         <span className="font-heading font-black text-3xl text-accent">
                                             {basePrice.toLocaleString('vi-VN')} đ
                                         </span>
                                         <span className="text-xs text-muted-foreground">/ tháng</span>
                                     </div>
+                                    {room.available_rooms !== undefined && (
+                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 mb-4">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            {room.available_rooms > 0 ? `Còn ${room.available_rooms} phòng trống` : 'Hết phòng trống'}
+                                            {room.total_rooms > 1 && <span className="font-normal text-slate-500">• Tổng {room.total_rooms} phòng</span>}
+                                        </div>
+                                    )}
                                 </>
                             )}
 

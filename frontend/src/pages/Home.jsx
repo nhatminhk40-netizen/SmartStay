@@ -86,6 +86,12 @@ export default function Home() {
             } else {
                 const existing = groups.get(key);
                 existing._subRooms.push(room);
+                // Nếu phòng hiện tại là phòng cơ sở chính (title === property_name hoặc không có room_number), ưu tiên nó làm đại diện
+                if (room.property_name && (room.title === room.property_name || !room.room_number)) {
+                    const savedSubs = existing._subRooms;
+                    Object.assign(existing, room);
+                    existing._subRooms = savedSubs;
+                }
             }
         });
 
@@ -102,31 +108,44 @@ export default function Home() {
             let totalCount = 0;
 
             if (groupItem.rooms_list && groupItem.rooms_list.length > 0) {
-                availCount = groupItem.rooms_list.filter(r => r.status === 'available').length;
+                availCount = groupItem.rooms_list.filter(r => r.status === 'available' || r.status === 'Trống' || !r.status).length;
                 totalCount = groupItem.rooms_list.length;
-            } else {
-                availCount = subs.filter(s => s.status === 'available' || s.status === 'Trống').length;
+            } else if (subs.length > 1) {
+                availCount = subs.filter(s => s.status === 'available' || s.status === 'Trống' || !s.status).length;
                 totalCount = subs.length;
+            } else {
+                availCount = groupItem.available_rooms !== undefined 
+                    ? groupItem.available_rooms 
+                    : (groupItem.status === 'available' || groupItem.status === 'Trống' ? 1 : 0);
+                totalCount = groupItem.total_rooms || 1;
             }
 
             // Gộp danh sách rooms_list
             const combinedRoomsList = groupItem.rooms_list && groupItem.rooms_list.length > 0 
                 ? groupItem.rooms_list 
-                : subs.map(s => ({
-                    room_number: s.room_number || s.title,
-                    price: s.price,
-                    area_sqm: s.area_sqm || s.area || 20,
-                    status: s.status === 'rented' || s.status === 'Đang thuê' ? 'rented' : (s.status === 'repairing' || s.status === 'Đang sửa' ? 'repairing' : 'available'),
-                    amenities: s.amenities || []
-                }));
+                : subs.map(s => {
+                    const rNum = (s.room_number && s.room_number.trim()) 
+                        ? s.room_number.trim() 
+                        : ((s.title && s.title.trim() !== (groupItem.property_name || groupItem.title)) ? s.title.trim() : 'P.100');
+                    return {
+                        _id: s._id,
+                        id: s.id || s._id,
+                        room_number: rNum,
+                        price: s.price,
+                        area_sqm: s.area_sqm || s.area || 20,
+                        floor: s.floor || 1,
+                        status: s.status === 'rented' || s.status === 'Đang thuê' ? 'rented' : (s.status === 'repairing' || s.status === 'Đang sửa' ? 'repairing' : 'available'),
+                        amenities: s.amenities || []
+                    };
+                });
 
             return {
                 ...groupItem,
                 title: groupItem.property_name || groupItem.title,
                 price_min: minP,
                 price_max: maxP,
-                available_rooms: groupItem.available_rooms !== undefined ? groupItem.available_rooms : availCount,
-                total_rooms: groupItem.total_rooms || totalCount,
+                available_rooms: availCount,
+                total_rooms: totalCount,
                 rooms_list: combinedRoomsList
             };
         });

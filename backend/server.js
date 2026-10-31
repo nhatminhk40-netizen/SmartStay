@@ -1202,15 +1202,99 @@ app.get('/api/rooms/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (isDbConnected) {
+        if (isDbConnected && mongoose.Types.ObjectId.isValid(id)) {
             const room = await Room.findById(id);
             if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng' });
-            return res.status(200).json({ success: true, data: room });
+
+            const roomObj = room.toObject ? room.toObject() : { ...room };
+
+            // Tìm tất cả các phòng cùng thuộc cơ sở / khu trọ này để đồng bộ thông tin số lượng phòng trống
+            let siblingRooms = [];
+            const propName = (roomObj.property_name && roomObj.property_name.trim()) || '';
+            const addr = (roomObj.address && roomObj.address.trim()) || '';
+
+            if (propName) {
+                const query = {
+                    property_name: propName,
+                    approvalStatus: { $nin: ['pending', 'rejected'] }
+                };
+                if (roomObj.ownerEmail) {
+                    query.ownerEmail = roomObj.ownerEmail;
+                } else if (roomObj.owner) {
+                    query.owner = roomObj.owner;
+                }
+                siblingRooms = await Room.find(query);
+            } else if (addr) {
+                const query = {
+                    address: addr,
+                    approvalStatus: { $nin: ['pending', 'rejected'] }
+                };
+                if (roomObj.ownerEmail) {
+                    query.ownerEmail = roomObj.ownerEmail;
+                } else if (roomObj.owner) {
+                    query.owner = roomObj.owner;
+                }
+                siblingRooms = await Room.find(query);
+            }
+
+            if (siblingRooms.length > 1) {
+                // Sắp xếp tự nhiên theo số phòng (P.101, P.102, ... P.110)
+                siblingRooms.sort((a, b) => {
+                    const numA = (a.room_number || a.title || '').replace(/\D+/g, '');
+                    const numB = (b.room_number || b.title || '').replace(/\D+/g, '');
+                    if (numA && numB && Number(numA) !== Number(numB)) {
+                        return Number(numA) - Number(numB);
+                    }
+                    return (a.room_number || a.title || '').localeCompare(b.room_number || b.title || '');
+                });
+
+                const availCount = siblingRooms.filter(r => r.status === 'available' || r.status === 'Trống' || !r.status).length;
+                roomObj.available_rooms = availCount;
+                roomObj.total_rooms = siblingRooms.length;
+
+                // Đồng bộ danh sách phòng con chi tiết
+                roomObj.rooms_list = siblingRooms.map(r => {
+                    const rNum = (r.room_number && r.room_number.trim()) 
+                        ? r.room_number.trim() 
+                        : ((r.title && r.title.trim() !== propName) ? r.title.trim() : 'P.100');
+                    return {
+                        _id: r._id,
+                        id: r._id,
+                        room_number: rNum,
+                        price: r.price,
+                        area_sqm: r.area_sqm || r.area || 20,
+                        floor: r.floor || 1,
+                        status: (r.status === 'rented' || r.status === 'Đang thuê') ? 'rented' : ((r.status === 'repairing' || r.status === 'Đang sửa') ? 'repairing' : 'available'),
+                        amenities: r.amenities || []
+                    };
+                });
+
+                const prices = siblingRooms.map(r => r.price).filter(p => typeof p === 'number' && p > 0);
+                if (prices.length > 0) {
+                    roomObj.price_min = Math.min(...prices);
+                    roomObj.price_max = Math.max(...prices);
+                }
+            } else if (roomObj.rooms_list && roomObj.rooms_list.length > 0) {
+                roomObj.total_rooms = roomObj.rooms_list.length;
+                roomObj.available_rooms = roomObj.rooms_list.filter(r => r.status === 'available' || r.status === 'Trống').length;
+            } else {
+                const isAvail = roomObj.status === 'available' || roomObj.status === 'Trống' || !roomObj.status;
+                roomObj.available_rooms = isAvail ? (roomObj.available_rooms || 1) : 0;
+                roomObj.total_rooms = roomObj.total_rooms || 1;
+            }
+
+            return res.status(200).json({ success: true, data: roomObj });
         }
 
         const room = fallbackRooms.find((r) => String(r._id) === id || String(r.id) === id);
         if (!room) return res.status(404).json({ success: false, message: 'Không tìm thấy phòng' });
-        res.status(200).json({ success: true, data: room });
+        
+        const roomObj = { ...room };
+        if (roomObj.rooms_list && roomObj.rooms_list.length > 0) {
+            roomObj.total_rooms = roomObj.rooms_list.length;
+            roomObj.available_rooms = roomObj.rooms_list.filter(r => r.status === 'available' || r.status === 'Trống').length;
+        }
+        res.status(200).json({ success: true, data: roomObj });
     } catch (error) {
         res.status(400).json({ success: false, error: 'ID phòng không hợp lệ' });
     }
