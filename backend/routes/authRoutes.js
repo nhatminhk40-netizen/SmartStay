@@ -10,6 +10,7 @@ const User = require('../models/User');
 const Otp = require('../models/Otp');
 const { sendOtpEmail } = require('../utils/sendEmail');
 const { protect, generateToken, authorize } = require('../middleware/auth');
+const { validateVietnamesePhone } = require('../utils/phoneValidator');
 const {
     getClientIp,
     isIpWhitelisted,
@@ -563,6 +564,16 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Mật khẩu phải chứa ít nhất 6 ký tự.' });
         }
 
+        // Kiểm tra số điện thoại chuẩn viễn thông Việt Nam
+        if (!phone) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp số điện thoại.' });
+        }
+        const phoneCheck = validateVietnamesePhone(phone);
+        if (!phoneCheck.isValid) {
+            return res.status(400).json({ success: false, message: phoneCheck.message });
+        }
+        const cleanPhone = phoneCheck.cleanPhone;
+
         const normalizedEmail = email.toLowerCase().trim();
         let userRole = 'student';
         if (role === 'landlord') userRole = 'landlord';
@@ -601,7 +612,7 @@ router.post('/register', async (req, res) => {
                 fullName: fullName.trim(),
                 email: normalizedEmail,
                 password,
-                phone: phone ? phone.trim() : '',
+                phone: cleanPhone,
                 phoneVerified: isPhoneVerified,
                 isEmailVerified,
                 role: userRole,
@@ -655,7 +666,7 @@ router.post('/register', async (req, res) => {
             id: `usr_${Date.now()}`,
             fullName: fullName.trim(),
             email: normalizedEmail,
-            phone: phone ? phone.trim() : '',
+            phone: cleanPhone,
             phoneVerified: isPhoneVerified,
             isEmailVerified,
             role: userRole,

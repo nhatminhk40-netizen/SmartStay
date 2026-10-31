@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
   GraduationCap,
   KeyRound,
   ShieldCheck,
+  AlertCircle,
   X
 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -38,6 +39,7 @@ import { safeReturnTo } from "@/lib/authReturnTo";
 import { cn } from "@/lib/utils";
 import LandlordDocUploader, { PROOF_DOCUMENT_TYPES } from "@/components/LandlordDocUploader";
 import { useAuth } from "@/lib/AuthContext";
+import { validateVietnamesePhone } from "@/lib/phoneValidator";
 
 const STUDENT_FEATURES = [
   {
@@ -108,6 +110,12 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // Xác thực số điện thoại chuẩn viễn thông Việt Nam
+  const phoneValidation = useMemo(() => {
+    if (!phone) return { isValid: false, message: "" };
+    return validateVietnamesePhone(phone);
+  }, [phone]);
+
   // Step 2: OTP state
   const [otpCode, setOtpCode] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(60);
@@ -158,8 +166,9 @@ export default function Register() {
       return;
     }
 
-    if (phone.trim().length < 9) {
-      setError("Số điện thoại không hợp lệ (tối thiểu 9 chữ số).");
+    const phoneCheck = validateVietnamesePhone(phone);
+    if (!phoneCheck.isValid) {
+      setError(phoneCheck.message);
       return;
     }
 
@@ -699,18 +708,57 @@ export default function Register() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs font-bold text-slate-700">Số điện thoại *</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-slate-700">Số điện thoại *</Label>
+                      {phone.trim().length > 0 && (
+                        <span className={cn(
+                          "text-[10px] font-bold flex items-center gap-1",
+                          phoneValidation.isValid ? "text-emerald-600" : "text-rose-500"
+                        )}>
+                          {phoneValidation.isValid ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Hợp lệ</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3 h-3" />
+                              <span>Chưa đúng chuẩn</span>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </div>
                     <div className="relative mt-1">
                       <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <Input
                         type="tel"
                         required
-                        placeholder="0901234567"
+                        placeholder="VD: 0901234567 hoặc 038..."
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="pl-10 h-11 rounded-xl text-xs"
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/[^\d+]/g, "");
+                          if (val.startsWith("+")) {
+                            val = "+" + val.slice(1).replace(/\+/g, "");
+                            val = val.slice(0, 12);
+                          } else {
+                            val = val.replace(/\+/g, "").slice(0, 10);
+                          }
+                          setPhone(val);
+                        }}
+                        className={cn(
+                          "pl-10 h-11 rounded-xl text-xs font-medium transition",
+                          phone.trim().length > 0 && !phoneValidation.isValid && "border-rose-400 focus-visible:ring-rose-500/20 bg-rose-50/20",
+                          phone.trim().length > 0 && phoneValidation.isValid && "border-emerald-400 focus-visible:ring-emerald-500/20 bg-emerald-50/20"
+                        )}
                       />
                     </div>
+                    {phone.trim().length > 0 && !phoneValidation.isValid && (
+                      <p className="text-[11px] text-rose-500 font-medium mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{phoneValidation.message}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div>

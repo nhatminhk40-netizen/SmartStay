@@ -24,6 +24,7 @@ const authRoutes = require('./routes/authRoutes');
 const { protect, authorize, checkRoomOwnership } = require('./middleware/auth');
 const { verifyAdminPinMiddleware, adminIpWhitelistMiddleware } = require('./utils/adminSecurity');
 const { validateAppointmentMiddleware, appointmentRateLimiter } = require('./middleware/appointmentValidator');
+const { validateVietnamesePhone } = require('./utils/phoneValidator');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -2273,6 +2274,15 @@ app.post('/api/admin/create-landlord', protect, authorize('admin'), adminIpWhite
             });
         }
 
+        const phoneCheck = validateVietnamesePhone(phone);
+        if (!phoneCheck.isValid) {
+            return res.status(400).json({
+                success: false,
+                message: phoneCheck.message
+            });
+        }
+        const cleanPhone = phoneCheck.cleanPhone;
+
         const normalizedEmail = email.toLowerCase().trim();
 
         if (isDbConnected) {
@@ -2288,7 +2298,7 @@ app.post('/api/admin/create-landlord', protect, authorize('admin'), adminIpWhite
                 fullName: fullName.trim(),
                 email: normalizedEmail,
                 password,
-                phone: phone.trim(),
+                phone: cleanPhone,
                 phoneVerified: true,
                 role: 'landlord',
                 verificationStatus: 'APPROVED',
@@ -2319,7 +2329,7 @@ app.post('/api/admin/create-landlord', protect, authorize('admin'), adminIpWhite
             id: `usr_landlord_${Date.now()}`,
             fullName: fullName.trim(),
             email: normalizedEmail,
-            phone: phone.trim(),
+            phone: cleanPhone,
             phoneVerified: true,
             role: 'landlord',
             verificationStatus: 'APPROVED',
