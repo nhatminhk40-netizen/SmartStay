@@ -29,33 +29,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import StudentPortalModal from "./StudentPortalModal";
 
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: 1,
-    title: "Tìm bạn ở ghép",
-    desc: "Đã có 3 người thuê tại Cần Thơ có lối sống phù hợp >90% với bạn!",
-    time: "5 phút trước",
-    read: false,
-    action: "quiz"
-  },
-  
-  {
-    id: 3,
-    title: "Cập nhật phòng mới",
-    desc: "Trọ Mini An Khánh vừa cập nhật thêm phòng trống mới sẵn sàng đón khách.",
-    time: "2 giờ trước",
-    read: false,
-    action: "explore"
-  },
-  {
-    id: 4,
-    title: "SmartStay Pass",
-    desc: "Tính năng Pass phòng an toàn đã sẵn sàng để bạn chuyển nhượng cọc nhanh.",
-    time: "1 ngày trước",
-    read: true,
-    action: "pass"
-  }
-];
+const INITIAL_NOTIFICATIONS = [];
 
 const DEFAULT_PROFILE = {
   name: "Đinh Trịnh Nhật Minh",

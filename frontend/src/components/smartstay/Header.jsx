@@ -19,7 +19,8 @@ import {
   Mail,
   X,
   Building2,
-  Receipt
+  Receipt,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
@@ -32,38 +33,26 @@ const navItems = [
     { label: "Pass phòng", path: "/pass-phong" },
 ];
 
-const INITIAL_NOTIFICATIONS = [
-    {
-    id: 2,
-    title: "Gợi ý Bạn cùng phòng",
-    desc: "Có 3 người thuê tại Cần Thơ có chỉ số tương thích lối sống >90% với bạn.",
-    time: "45 phút trước",
-    read: false,
-    path: "/ghep-ban",
-    icon: Users,
-    color: "text-blue-500 bg-blue-50"
-  },
-  {
-    id: 3,
-    title: "Phòng trọ mới pass cọc",
-    desc: "Phòng trọ gần ĐH FPT (KDC Hồng Phát) vừa đăng pass cọc tiết kiệm 2 tháng tiền phòng.",
-    time: "2 giờ trước",
-    read: false,
-    path: "/pass-phong",
-    icon: KeyRound,
-    color: "text-emerald-500 bg-emerald-50"
-  },
-  {
-    id: 4,
-    title: "Bảo mật tài khoản Google",
-    desc: "Tài khoản của bạn đã được kết nối an toàn với Google Identity Services.",
-    time: "Hôm qua",
-    read: true,
-    path: "/",
-    icon: ShieldCheck,
-    color: "text-purple-500 bg-purple-50"
+// Định dạng thời gian thông báo tự nhiên
+const formatNotifTime = (dateStr) => {
+  if (!dateStr) return "Vừa xong";
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Vừa xong";
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "Hôm qua";
+    if (diffDays < 7) return `${diffDays} ngày trước`;
+    return d.toLocaleDateString("vi-VN");
+  } catch {
+    return "Gần đây";
   }
-];
+};
 
 export default function Header() {
   const { pathname } = useLocation();
@@ -77,8 +66,8 @@ export default function Header() {
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openStudentPortal, setOpenStudentPortal] = useState(false);
 
-  // Notifications
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  // Notifications (Khởi tạo rỗng, chỉ hiển thị khi có dữ liệu thật từ hệ thống)
+  const [notifications, setNotifications] = useState([]);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Click outside ref handling
@@ -102,47 +91,85 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Tự động đồng bộ thông báo Pass phòng từ server khi người dùng đăng nhập
+  // Tự động đồng bộ thông báo thực tế từ server khi người dùng đăng nhập
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
     const fetchNotifs = async () => {
       try {
-        const token = localStorage.getItem('smartstay_token');
-        if (!token) return;
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
+        if (!token) {
+          setNotifications([]);
+          return;
+        }
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
         const res = await fetch(`${apiUrl}/notifications`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          const apiNotifs = json.data.map(n => ({
-            id: n._id,
-            title: n.title,
-            desc: n.message,
-            time: 'Mới đây',
-            read: n.read,
-            path: n.link || '/pass-phong/cua-toi',
-            icon: n.type.includes('confirmed') ? ShieldCheck : KeyRound,
-            color: n.type.includes('confirmed') ? 'text-emerald-500 bg-emerald-50' : (n.type.includes('rejected') ? 'text-rose-500 bg-rose-50' : 'text-orange-500 bg-orange-50')
-          }));
-          setNotifications(prev => [...apiNotifs, ...prev.filter(p => !apiNotifs.some(a => a.id === p.id))]);
+        if (json.success && Array.isArray(json.data)) {
+          const apiNotifs = json.data.map(n => {
+            const isConfirmed = n.type && n.type.includes('confirmed');
+            const isRejected = n.type && n.type.includes('rejected');
+            const isPass = n.type && n.type.includes('pass');
+            const isContract = n.type && (n.type.includes('contract') || n.type.includes('bill'));
+            return {
+              id: n._id || n.id,
+              title: n.title,
+              desc: n.message,
+              time: formatNotifTime(n.createdAt),
+              read: Boolean(n.read),
+              path: n.link || '/pass-phong/cua-toi',
+              icon: isConfirmed ? ShieldCheck : (isPass ? KeyRound : (isContract ? FileText : Bell)),
+              color: isConfirmed ? 'text-emerald-500 bg-emerald-50' : (isRejected ? 'text-rose-500 bg-rose-50' : 'text-orange-500 bg-orange-50')
+            };
+          });
+          setNotifications(apiNotifs);
+        } else {
+          setNotifications([]);
         }
       } catch (e) {
-        // Silent fallback
+        setNotifications([]);
       }
     };
     fetchNotifs();
   }, [user]);
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
+  const handleMarkAllAsRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
+      if (token && notifications.length > 0) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        notifications.filter(n => !n.read).forEach(n => {
+          fetch(`${apiUrl}/notifications/${n.id}/read`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).catch(() => {});
+        });
+      }
+    } catch {}
   };
 
-  const handleNotificationClick = (item) => {
-    setNotifications(
-      notifications.map((n) => (n.id === item.id ? { ...n, read: true } : n))
+  const handleNotificationClick = async (item) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
     );
     setOpenNotifications(false);
+    if (!item.read) {
+      try {
+        const token = localStorage.getItem('smartstay_token') || localStorage.getItem('token');
+        if (token) {
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          fetch(`${apiUrl}/notifications/${item.id}/read`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).catch(() => {});
+        }
+      } catch {}
+    }
     if (item.path) navigate(item.path);
   };
 
@@ -365,37 +392,49 @@ export default function Header() {
                   </div>
 
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                    {notifications.map((item) => {
-                      const Icon = item.icon || Bell;
-                      return (
-                        <div
-                          key={item.id}
-                          onClick={() => handleNotificationClick(item)}
-                          className={cn(
-                            "p-3.5 hover:bg-slate-50 cursor-pointer transition-colors flex items-start gap-3",
-                            !item.read && "bg-orange-50/30"
-                          )}
-                        >
-                          <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5", item.color)}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1">
-                              <h5 className={cn("text-xs font-bold leading-tight", !item.read ? "text-slate-900" : "text-slate-700")}>
-                                {item.title}
-                              </h5>
-                              <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.time}</span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">
-                              {item.desc}
-                            </p>
-                          </div>
-                          {!item.read && (
-                            <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 self-center" />
-                          )}
+                    {notifications.length === 0 ? (
+                      <div className="py-10 px-5 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto mb-3">
+                          <Bell className="w-5 h-5 stroke-1.5" />
                         </div>
-                      );
-                    })}
+                        <p className="text-xs font-bold text-slate-800">Chưa có thông báo nào</p>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                          Khi có cập nhật mới về phòng trọ, yêu cầu hoặc tài khoản của bạn, thông báo sẽ hiển thị tại đây.
+                        </p>
+                      </div>
+                    ) : (
+                      notifications.map((item) => {
+                        const Icon = item.icon || Bell;
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleNotificationClick(item)}
+                            className={cn(
+                              "p-3.5 hover:bg-slate-50 cursor-pointer transition-colors flex items-start gap-3",
+                              !item.read && "bg-orange-50/30"
+                            )}
+                          >
+                            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5", item.color)}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <h5 className={cn("text-xs font-bold leading-tight", !item.read ? "text-slate-900" : "text-slate-700")}>
+                                  {item.title}
+                                </h5>
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.time}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">
+                                {item.desc}
+                              </p>
+                            </div>
+                            {!item.read && (
+                              <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 self-center" />
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
 
                   <div className="p-2.5 text-center bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500">
