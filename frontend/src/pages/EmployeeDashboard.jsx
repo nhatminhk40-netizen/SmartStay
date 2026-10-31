@@ -803,20 +803,81 @@ const AddRoomModal = ({ open, onClose, user, onSuccess, editingRoom = null, onSw
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Trường / Khu vực gần nhất</label>
-                  <select 
-                    value={form.campus}
-                    onChange={(e) => setForm({ ...form, campus: e.target.value })}
-                    className="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium"
-                  >
-                    <option value="ĐH Cần Thơ">ĐH Cần Thơ (Khu 2 - 3 Tháng 2)</option>
-                    <option value="ĐH FPT">ĐH FPT Cần Thơ (An Bình)</option>
-                    <option value="ĐH Y Dược Cần Thơ">ĐH Y Dược Cần Thơ</option>
-                    <option value="ĐH Nam Cần Thơ">ĐH Nam Cần Thơ</option>
-                    <option value="Cao đẳng Cần Thơ">Cao đẳng Cần Thơ</option>
-                    <option value="Ninh Kiều">Trung tâm Ninh Kiều</option>
-                    <option value="Cái Răng">Khu vực Cái Răng</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-700">
+                      Trường / Khu vực gần nhất <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400">Tự do nhập hoặc chọn gợi ý</span>
+                  </div>
+
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      list="campus-suggestions-add"
+                      value={form.campus}
+                      onChange={(e) => setForm({ ...form, campus: e.target.value })}
+                      placeholder="Gõ tên trường ĐH/CĐ hoặc khu vực (VD: ĐH Cần Thơ, Ninh Kiều...)"
+                      className="w-full p-3 pl-9 pr-8 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#f97316] text-sm font-medium text-slate-900 shadow-xs"
+                      required
+                    />
+                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                    {form.campus && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, campus: "" })}
+                        className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 transition"
+                        title="Xóa để nhập lại"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <datalist id="campus-suggestions-add">
+                    <option value="ĐH Cần Thơ (Khu 2 - 3 Tháng 2)" />
+                    <option value="ĐH FPT Cần Thơ (An Bình)" />
+                    <option value="ĐH Y Dược Cần Thơ" />
+                    <option value="ĐH Nam Cần Thơ" />
+                    <option value="ĐH Tây Đô" />
+                    <option value="ĐH Kỹ thuật - Công nghệ Cần Thơ" />
+                    <option value="Cao đẳng Cần Thơ" />
+                    <option value="Cao đẳng Y Tế Cần Thơ" />
+                    <option value="Cao đẳng Kinh tế - Kỹ thuật Cần Thơ" />
+                    <option value="Trung tâm Ninh Kiều" />
+                    <option value="Khu vực Cái Răng" />
+                    <option value="Khu vực Bình Thủy" />
+                    <option value="Khu vực Ô Môn" />
+                    <option value="Khu vực Phong Điền" />
+                  </datalist>
+
+                  {/* Danh sách chip gợi ý nhanh tiện lợi */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Gợi ý nhanh:</span>
+                    {[
+                      "ĐH Cần Thơ",
+                      "ĐH FPT Cần Thơ",
+                      "ĐH Y Dược Cần Thơ",
+                      "ĐH Nam Cần Thơ",
+                      "Cao đẳng Cần Thơ",
+                      "Ninh Kiều",
+                      "Cái Răng",
+                      "Bình Thủy"
+                    ].map(camp => (
+                      <button
+                        key={camp}
+                        type="button"
+                        onClick={() => setForm({ ...form, campus: camp })}
+                        className={cn(
+                          "px-2 py-0.5 rounded-lg text-xs transition border cursor-pointer",
+                          form.campus === camp || form.campus?.startsWith(camp)
+                            ? "bg-orange-100 text-orange-800 border-orange-300 font-bold"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200 font-medium"
+                        )}
+                      >
+                        {camp}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Loại hình phòng</label>
@@ -2096,19 +2157,81 @@ const EditPropertyModal = ({ open, onClose, property, onSave }) => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">Gần trường Đại học / Cao đẳng</label>
-            <select
-              value={campus}
-              onChange={(e) => setCampus(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#f97316]"
-            >
-              <option value="ĐH Cần Thơ">ĐH Cần Thơ</option>
-              <option value="ĐH FPT Cần Thơ">ĐH FPT Cần Thơ</option>
-              <option value="ĐH Y Dược Cần Thơ">ĐH Y Dược Cần Thơ</option>
-              <option value="ĐH Nam Cần Thơ">ĐH Nam Cần Thơ</option>
-              <option value="CĐ Cần Thơ">CĐ Cần Thơ</option>
-              <option value="Khu vực khác">Khu vực khác</option>
-            </select>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                Gần trường Đại học / Cao đẳng / Khu vực <span className="text-rose-500">*</span>
+              </label>
+              <span className="text-[11px] text-slate-400">Tự do nhập hoặc bấm chọn gợi ý</span>
+            </div>
+
+            <div className="relative">
+              <input
+                type="text"
+                list="campus-suggestions-edit"
+                value={campus}
+                onChange={(e) => setCampus(e.target.value)}
+                placeholder="Gõ tên trường ĐH/CĐ hoặc khu vực..."
+                className="w-full p-2.5 pl-8 pr-8 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#f97316] shadow-xs"
+                required
+              />
+              <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3 pointer-events-none" />
+              {campus && (
+                <button
+                  type="button"
+                  onClick={() => setCampus("")}
+                  className="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 transition"
+                  title="Xóa để nhập lại"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <datalist id="campus-suggestions-edit">
+              <option value="ĐH Cần Thơ (Khu 2 - 3 Tháng 2)" />
+              <option value="ĐH FPT Cần Thơ (An Bình)" />
+              <option value="ĐH Y Dược Cần Thơ" />
+              <option value="ĐH Nam Cần Thơ" />
+              <option value="ĐH Tây Đô" />
+              <option value="ĐH Kỹ thuật - Công nghệ Cần Thơ" />
+              <option value="Cao đẳng Cần Thơ" />
+              <option value="Cao đẳng Y Tế Cần Thơ" />
+              <option value="Cao đẳng Kinh tế - Kỹ thuật Cần Thơ" />
+              <option value="Trung tâm Ninh Kiều" />
+              <option value="Khu vực Cái Răng" />
+              <option value="Khu vực Bình Thủy" />
+              <option value="Khu vực Ô Môn" />
+              <option value="Khu vực Phong Điền" />
+            </datalist>
+
+            {/* Danh sách chip gợi ý nhanh */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Gợi ý:</span>
+              {[
+                "ĐH Cần Thơ",
+                "ĐH FPT Cần Thơ",
+                "ĐH Y Dược Cần Thơ",
+                "ĐH Nam Cần Thơ",
+                "Cao đẳng Cần Thơ",
+                "Ninh Kiều",
+                "Cái Răng",
+                "Bình Thủy"
+              ].map(camp => (
+                <button
+                  key={camp}
+                  type="button"
+                  onClick={() => setCampus(camp)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-lg text-xs transition border cursor-pointer",
+                    campus === camp || campus?.startsWith(camp)
+                      ? "bg-orange-100 text-orange-800 border-orange-300 font-bold"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200 font-medium"
+                  )}
+                >
+                  {camp}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
