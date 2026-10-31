@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import ContractsManager from "@/components/contracts/ContractsManager";
 import InvoiceManager from "@/components/contracts/InvoiceManager";
-import LandlordStayManager from "@/components/stay/LandlordStayManager";
 import MeterGridManager from "@/components/contracts/MeterGridManager";
 import RoomTenantAndMeterModal from "@/components/smartstay/RoomTenantAndMeterModal";
 import { base44 } from "@/api/base44Client";
@@ -2822,6 +2821,162 @@ const EditRoomModal = ({ open, onClose, room, propertyOptions = [], onSave }) =>
   );
 };
 
+
+// ── COMPONENT CÀI ĐẶT & TÀI KHOẢN CHỦ TRỌ ──
+function LandlordSettings({ user }) {
+  const userId = user?._id || user?.id || user?.email || "default";
+  const storageKey = `smartstay_landlord_settings_${userId}`;
+  
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return {
+      fullName: user?.fullName || "Cô Ba (Chủ nhà trọ SmartStay)",
+      phone: user?.phone || "0939112233",
+      email: user?.email || "chutro@smartstay.vn",
+      bankName: "MB Bank (Ngân hàng Quân Đội)",
+      accountNumber: "093911223388",
+      accountHolder: user?.fullName ? user.fullName.toUpperCase() : "CO BA CHU TRO",
+    };
+  });
+
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    localStorage.setItem(storageKey, JSON.stringify(settings));
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-200 max-w-4xl">
+      <div className="bg-white rounded-[24px] p-6 shadow-sm border border-[#f4ebd9]">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-heading font-black text-lg text-slate-900 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-[#f97316]" />
+              Cài đặt & Tài khoản Chủ trọ
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Quản lý thông tin liên hệ và số tài khoản ngân hàng để người thuê chuyển khoản tiền phòng
+            </p>
+          </div>
+          {savedSuccess && (
+            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full flex items-center gap-1 animate-in fade-in">
+              <Check className="w-3.5 h-3.5" /> Đã lưu cài đặt thành công!
+            </span>
+          )}
+        </div>
+
+        <form onSubmit={handleSave} className="space-y-6 pt-6">
+          {/* Thông tin cá nhân */}
+          <div>
+            <h4 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4 text-slate-500" />
+              Thông tin liên hệ
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Họ và tên</label>
+                <input
+                  type="text"
+                  value={settings.fullName}
+                  onChange={(e) => setSettings({ ...settings, fullName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Số điện thoại liên hệ</label>
+                <input
+                  type="text"
+                  value={settings.phone}
+                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Email tài khoản</label>
+                <input
+                  type="email"
+                  disabled
+                  value={settings.email}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-500 cursor-not-allowed"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Tài khoản ngân hàng nhận tiền phòng */}
+          <div className="pt-6 border-t border-slate-100">
+            <h4 className="font-bold text-sm text-slate-900 mb-1 flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-[#f97316]" />
+              Tài khoản Ngân hàng nhận tiền phòng
+            </h4>
+            <p className="text-xs text-slate-500 mb-4">
+              Thông tin này giúp người thuê dễ dàng chuyển khoản thanh toán tiền phòng & điện nước hàng tháng.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Ngân hàng thụ hưởng</label>
+                <select
+                  value={settings.bankName}
+                  onChange={(e) => setSettings({ ...settings, bankName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#f97316] bg-white"
+                >
+                  <option value="MB Bank (Ngân hàng Quân Đội)">MB Bank (Ngân hàng Quân Đội)</option>
+                  <option value="Vietcombank (VCB)">Vietcombank (VCB)</option>
+                  <option value="Techcombank (TCB)">Techcombank (TCB)</option>
+                  <option value="VietinBank (CTG)">VietinBank (CTG)</option>
+                  <option value="BIDV (Ngân hàng Đầu tư)">BIDV (Ngân hàng Đầu tư)</option>
+                  <option value="Agribank (Nông nghiệp)">Agribank (Nông nghiệp)</option>
+                  <option value="ACB (Á Châu)">ACB (Á Châu)</option>
+                  <option value="TPBank (Tiên Phong)">TPBank (Tiên Phong)</option>
+                  <option value="VPBank (Việt Nam Thịnh Vượng)">VPBank (Việt Nam Thịnh Vượng)</option>
+                  <option value="MoMo / ZaloPay">Ví MoMo / ZaloPay</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Số tài khoản</label>
+                <input
+                  type="text"
+                  placeholder="Nhập số tài khoản ngân hàng..."
+                  value={settings.accountNumber}
+                  onChange={(e) => setSettings({ ...settings, accountNumber: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-bold text-slate-900 focus:outline-none focus:border-[#f97316]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Tên chủ tài khoản</label>
+                <input
+                  type="text"
+                  placeholder="VD: NGUYEN VAN A"
+                  value={settings.accountHolder}
+                  onChange={(e) => setSettings({ ...settings, accountHolder: e.target.value.toUpperCase() })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 uppercase focus:outline-none focus:border-[#f97316]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 flex justify-end">
+            <button
+              type="submit"
+              className="px-6 py-2.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            >
+              <Check className="w-4 h-4 stroke-[3]" />
+              <span>Lưu thông tin thanh toán</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeeDashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
@@ -3313,14 +3468,12 @@ export default function EmployeeDashboard() {
 
   const sidebarTabs = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
-    { id: "stays", label: "Quản lý Nhận phòng", icon: Key, badge: "Mới" },
-    { id: "meter-grid", label: "Chốt điện nước (Excel)", icon: FileSpreadsheet, badge: "Excel" },
     { id: "rooms", label: "Phòng của tôi", icon: HomeIcon },
-    { id: "contracts", label: "Hợp đồng & Cọc", icon: FileCheck },
+    { id: "meter-grid", label: "Chốt điện nước (Excel)", icon: FileSpreadsheet, badge: "Excel" },
     { id: "invoices", label: "Hóa đơn & Thu tiền", icon: Receipt },
-    { id: "requests", label: "Yêu cầu / Liên hệ", icon: MessageSquare },
-    { id: "reviews", label: "Đánh giá", icon: Star },
-    { id: "settings", label: "Cài đặt", icon: Settings },
+    { id: "contracts", label: "Hợp đồng & Cọc", icon: FileCheck },
+    { id: "requests", label: "Yêu cầu từ khách", icon: MessageSquare },
+    { id: "settings", label: "Cài đặt & Tài khoản", icon: Settings },
   ];
 
   return (
@@ -3709,10 +3862,10 @@ export default function EmployeeDashboard() {
                         {rentedRooms.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => setActiveTab("stays")}
+                            onClick={() => setActiveTab("contracts")}
                             className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
                           >
-                            <span>Xác minh lưu trú</span>
+                            <span>Xem Hợp đồng & Cọc</span>
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -4677,10 +4830,7 @@ export default function EmployeeDashboard() {
             </div>
           )}
 
-{/* Tab Quản lý Nhận phòng & Xác minh Lưu trú */}
-          {activeTab === "stays" && <LandlordStayManager rooms={realRooms} />}
-
-          {/* Tab Bảng chốt số điện nước dạng Lưới Excel thông minh */}
+{/* Tab Bảng chốt số điện nước dạng Lưới Excel thông minh */}
           {activeTab === "meter-grid" && (
             <MeterGridManager 
               user={user}
@@ -4690,24 +4840,14 @@ export default function EmployeeDashboard() {
             />
           )}
 
-          {/* Tab Quản lý Hợp đồng & Cọc phòng */}
-          {activeTab === "contracts" && <ContractsManager />}
-
           {/* Tab Hóa đơn & Thu tiền */}
           {activeTab === "invoices" && <InvoiceManager />}
 
-          {/* Placeholders for other tabs */}
-          {["reviews", "settings"].includes(activeTab) && (
-            <div className="bg-white rounded-[24px] p-12 shadow-sm border border-[#f4ebd9] text-center flex flex-col items-center justify-center min-h-[400px]">
-              <div className="w-16 h-16 bg-[#faf3e3] rounded-full flex items-center justify-center mb-4">
-                <Info className="w-8 h-8 text-[#f97316]" />
-              </div>
-              <h3 className="font-heading font-black text-xl text-slate-900 mb-2">Tính năng đang được phát triển</h3>
-              <p className="text-sm font-medium text-slate-500 max-w-md">
-                Khu vực "{sidebarTabs.find(t => t.id === activeTab)?.label}" đang trong quá trình hoàn thiện. Bạn hãy quay lại sau nhé!
-              </p>
-            </div>
-          )}
+          {/* Tab Quản lý Hợp đồng & Cọc phòng */}
+          {activeTab === "contracts" && <ContractsManager />}
+
+          {/* Tab Cài đặt & Thông tin Chủ trọ */}
+          {activeTab === "settings" && <LandlordSettings user={user} />}
 
         </div>
       </main>
