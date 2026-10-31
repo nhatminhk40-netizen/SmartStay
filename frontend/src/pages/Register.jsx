@@ -27,7 +27,7 @@ import {
   GraduationCap,
   KeyRound,
   ShieldCheck,
-  Truck
+  X
 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import GoogleIcon from "@/components/GoogleIcon";
@@ -104,7 +104,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [campus, setCampus] = useState("FPT Can Tho");
+  const [campus, setCampus] = useState("FPT Cần Thơ");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -714,18 +714,72 @@ export default function Register() {
                   </div>
 
                   <div>
-                    <Label className="text-xs font-bold text-slate-700">Khu vực / Campus</Label>
-                    <select
-                      value={campus}
-                      onChange={(e) => setCampus(e.target.value)}
-                      className="w-full h-11 px-3 mt-1 rounded-xl border border-input bg-card text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                    >
-                      <option value="FPT Can Tho">FPT Cần Thơ</option>
-                      <option value="ĐH Cần Thơ (Khu 2)">ĐH Cần Thơ (Khu 2)</option>
-                      <option value="ĐH Y Dược Cần Thơ">ĐH Y Dược Cần Thơ</option>
-                      <option value="ĐH Nam Cần Thơ">ĐH Nam Cần Thơ</option>
-                      <option value="Ninh Kiều">Q. Ninh Kiều</option>
-                    </select>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-slate-700">Khu vực / Campus</Label>
+                      <span className="text-[11px] text-slate-400">Tự do gõ hoặc chọn gợi ý</span>
+                    </div>
+                    <div className="relative mt-1">
+                      <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Input
+                        type="text"
+                        list="register-campus-suggestions"
+                        placeholder="Gõ tên trường ĐH/CĐ hoặc khu vực..."
+                        value={campus}
+                        onChange={(e) => setCampus(e.target.value)}
+                        className="pl-10 pr-8 h-11 rounded-xl text-xs font-medium"
+                      />
+                      {campus && (
+                        <button
+                          type="button"
+                          onClick={() => setCampus("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                          title="Xóa để nhập lại"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <datalist id="register-campus-suggestions">
+                      <option value="FPT Cần Thơ" />
+                      <option value="ĐH Cần Thơ (Khu 2)" />
+                      <option value="ĐH Y Dược Cần Thơ" />
+                      <option value="ĐH Nam Cần Thơ" />
+                      <option value="ĐH Tây Đô" />
+                      <option value="ĐH Kỹ thuật - Công nghệ Cần Thơ" />
+                      <option value="Cao đẳng Cần Thơ" />
+                      <option value="Cao đẳng Y Tế Cần Thơ" />
+                      <option value="Q. Ninh Kiều" />
+                      <option value="Q. Cái Răng" />
+                      <option value="Q. Bình Thủy" />
+                    </datalist>
+
+                    {/* Chips gợi ý nhanh */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Gợi ý:</span>
+                      {[
+                        "FPT Cần Thơ",
+                        "ĐH Cần Thơ",
+                        "ĐH Y Dược",
+                        "ĐH Nam Cần Thơ",
+                        "Ninh Kiều",
+                        "Cái Răng"
+                      ].map(item => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setCampus(item)}
+                          className={cn(
+                            "px-2 py-0.5 rounded-lg text-[11px] transition border cursor-pointer",
+                            campus === item || campus?.startsWith(item)
+                              ? "bg-orange-100 text-orange-800 border-orange-300 font-bold"
+                              : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200 font-medium"
+                          )}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
