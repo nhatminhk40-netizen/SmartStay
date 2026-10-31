@@ -140,7 +140,7 @@ export default function InvoiceManager({ onOpenGrid }) {
             )}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Bảng chốt điện nước (Excel thông minh)</span>
+            <span>Bảng chốt điện nước</span>
             <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full uppercase">1 chạm</span>
           </button>
           <button

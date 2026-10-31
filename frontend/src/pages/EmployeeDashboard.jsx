@@ -3848,7 +3848,7 @@ export default function EmployeeDashboard() {
   const sidebarTabs = [
     { id: "overview", label: "Tổng quan", icon: LayoutDashboard },
     { id: "rooms", label: "Phòng của tôi", icon: HomeIcon },
-    { id: "meter-grid", label: "Chốt điện nước (Excel)", icon: FileSpreadsheet, badge: "Excel" },
+    { id: "meter-grid", label: "Chốt điện nước", icon: FileSpreadsheet },
     { id: "invoices", label: "Hóa đơn & Thu tiền", icon: Receipt },
     { id: "contracts", label: "Hợp đồng & Cọc", icon: FileCheck },
     { id: "settings", label: "Cài đặt & Tài khoản", icon: Settings },
@@ -4381,7 +4381,7 @@ export default function EmployeeDashboard() {
                         className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs h-9 shadow-sm flex items-center justify-center gap-1.5"
                       >
                         <FileSpreadsheet className="w-4 h-4" />
-                        <span>Mở bảng chốt điện nước Excel</span>
+                        <span>Mở bảng chốt điện nước</span>
                       </Button>
                     </div>
 

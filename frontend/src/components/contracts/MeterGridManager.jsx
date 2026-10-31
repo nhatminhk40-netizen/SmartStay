@@ -1394,7 +1394,7 @@ export default function MeterGridManager({
                 <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                   Bảng Chốt Số Điện Nước Dạng Lưới
                   <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300">
-                    Excel Thông Minh 2.0
+                    Tự động tính tiền
                   </span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
