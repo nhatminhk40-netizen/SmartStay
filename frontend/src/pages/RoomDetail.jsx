@@ -31,7 +31,6 @@ import {
     Check,
     FileText,
     ClipboardCheck,
-    AlertOctagon,
     Columns,
     Download,
     Printer,
@@ -58,7 +57,6 @@ export default function RoomDetail() {
     // Modals
     const [showContractModal, setShowContractModal] = useState(false);
     const [showBookingModal, setShowBookingModal] = useState(false);
-    const [showReportModal, setShowReportModal] = useState(false);
     const [showChecklistModal, setShowChecklistModal] = useState(false);
 
     // Form đặt lịch xem phòng
@@ -69,13 +67,6 @@ export default function RoomDetail() {
     const [bookingResult, setBookingResult] = useState(null);
     const [bookingError, setBookingError] = useState("");
     const [bookingLoading, setBookingLoading] = useState(false);
-
-    // Form khiếu nại báo cáo
-    const [reportReason, setReportReason] = useState("fake_price");
-    const [reportContact, setReportContact] = useState("");
-    const [reportDesc, setReportDesc] = useState("");
-    const [reportResult, setReportResult] = useState(null);
-    const [reportLoading, setReportLoading] = useState(false);
 
     // Checklist xem phòng tương tác
     const [checklistState, setChecklistState] = useState({
@@ -228,37 +219,6 @@ export default function RoomDetail() {
             setBookingError("Lỗi kết nối đến máy chủ khi đặt lịch xem phòng. Vui lòng thử lại sau.");
         } finally {
             setBookingLoading(false);
-        }
-    };
-
-    // Gửi báo cáo khiếu nại
-    const handleReportSubmit = async (e) => {
-        e.preventDefault();
-        setReportLoading(true);
-        try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            const res = await fetch(`${API_BASE}/reports`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    roomId: room._id || room.id,
-                    roomTitle: room.title,
-                    reporterName: user?.name || "Người thuê SmartStay",
-                    reporterContact: reportContact,
-                    reason: reportReason,
-                    description: reportDesc
-                })
-            });
-            const json = await res.json();
-            if (json.success) {
-                setReportResult(json);
-            } else {
-                alert(json.message || "Không thể gửi báo cáo");
-            }
-        } catch (err) {
-            alert("Lỗi kết nối máy chủ khi gửi báo cáo.");
-        } finally {
-            setReportLoading(false);
         }
     };
 
@@ -871,16 +831,10 @@ export default function RoomDetail() {
                                 </div>
                             </div>
 
-                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-muted-foreground">
-                                <span className="inline-flex items-center gap-1 text-slate-600 font-medium">
-                                    <Building2 className="w-3.5 h-3.5 text-accent" /> Hỗ trợ tìm & quản lý phòng trọ
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-center text-[11px] text-muted-foreground">
+                                <span className="inline-flex items-center gap-1.5 text-slate-500 font-medium">
+                                    <Building2 className="w-3.5 h-3.5 text-accent" /> SmartStay · Nền tảng tìm kiếm & quản lý phòng trọ
                                 </span>
-                                <button
-                                    onClick={() => setShowReportModal(true)}
-                                    className="text-rose-600 font-semibold hover:underline flex items-center gap-1"
-                                >
-                                    <AlertOctagon className="w-3 h-3" /> Báo cáo tin sai
-                                </button>
                             </div>
                         </div>
 
@@ -1404,100 +1358,7 @@ export default function RoomDetail() {
                 </div>
             )}
 
-            {/* ==================== MODAL 4: BÁO CÁO KHIẾU NẠI (CẤP TICKET ID) ==================== */}
-            {showReportModal && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative">
-                        <button
-                            onClick={() => { setShowReportModal(false); setReportResult(null); }}
-                            className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:bg-slate-100"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
-                                <AlertOctagon className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="font-heading font-bold text-base text-foreground">Báo cáo tin đăng sai lệch / Lừa đảo</h3>
-                                <p className="text-xs text-muted-foreground">SmartStay sẽ cấp Ticket ID để bạn theo dõi tiến độ</p>
-                            </div>
-                        </div>
-
-                        {reportResult ? (
-                            <div className="text-center py-6">
-                                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto mb-3" />
-                                <h4 className="font-bold text-base text-foreground">Đã tiếp nhận khiếu nại!</h4>
-                                <p className="text-xs text-muted-foreground mt-1 mb-4">
-                                    Mã Ticket theo dõi vụ việc: <strong className="text-rose-600 text-sm">{reportResult.ticketCode}</strong>
-                                </p>
-                                <div className="p-3 bg-slate-50 rounded-2xl text-xs text-left text-slate-600 mb-6 space-y-1">
-                                    <p>• Trạng thái: <strong>Đang thẩm định</strong></p>
-                                    <p>• Thời hạn phản hồi: <strong>24 giờ làm việc</strong>.</p>
-                                    <p>• Nếu xác minh có vi phạm, tin đăng sẽ bị tạm ẩn ngay lập tức.</p>
-                                </div>
-                                <button
-                                    onClick={() => { setShowReportModal(false); setReportResult(null); }}
-                                    className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
-                                >
-                                    Đã hiểu & Đóng
-                                </button>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleReportSubmit} className="space-y-3.5 text-xs">
-                                <div>
-                                    <label className="text-muted-foreground block mb-1">Lý do báo cáo (*)</label>
-                                    <select
-                                        value={reportReason}
-                                        onChange={(e) => setReportReason(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-xl border border-border outline-none bg-white font-medium"
-                                    >
-                                        <option value="fake_price">Giá thuê thực tế cao hơn giá niêm yết (Phí ẩn)</option>
-                                        <option value="fake_address">Địa chỉ hoặc ghim vị trí sai lệch thực tế</option>
-                                        <option value="fake_photos">Ảnh trên web là ảnh mạng / Khác phòng thật</option>
-                                        <option value="deposit_fraud">Yêu cầu chuyển cọc trước khi xem phòng / Chiếm đoạt cọc</option>
-                                        <option value="unauthorized_poster">Người đăng không có quyền cho thuê (Cò môi giới)</option>
-                                        <option value="curfew_issue">Khai gian giờ giấc / Không có lối thoát PCCC</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="text-muted-foreground block mb-1">Số điện thoại hoặc Zalo liên hệ của bạn (*)</label>
-                                    <input
-                                        type="tel"
-                                        required
-                                        value={reportContact}
-                                        onChange={(e) => setReportContact(e.target.value)}
-                                        placeholder="Để đội ngũ SmartStay đối chiếu thông tin"
-                                        className="w-full px-3 py-2 rounded-xl border border-border outline-none focus:ring-2 focus:ring-rose-200"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-muted-foreground block mb-1">Mô tả cụ thể sự việc (*)</label>
-                                    <textarea
-                                        required
-                                        rows={3}
-                                        value={reportDesc}
-                                        onChange={(e) => setReportDesc(e.target.value)}
-                                        placeholder="Ví dụ: Em đến xem thì chủ trọ báo tiền điện 5.000đ/số và bắt đóng thêm phí quản lý 200k không có trên web..."
-                                        className="w-full px-3 py-2 rounded-xl border border-border outline-none focus:ring-2 focus:ring-rose-200"
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={reportLoading}
-                                    className="w-full py-3 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 transition shadow-md shadow-rose-200"
-                                >
-                                    {reportLoading ? "Đang gửi báo cáo..." : "Gửi khiếu nại & Cấp Ticket ID"}
-                                </button>
-                            </form>
-                        )}
-                    </div>
-                </div>
-            )}
+            {/* Modal */}
         </div>
     );
 }
