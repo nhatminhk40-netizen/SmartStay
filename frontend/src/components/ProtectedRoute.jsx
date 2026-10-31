@@ -49,7 +49,6 @@ export default function ProtectedRoute({
                 admin: "Quản trị viên (Admin)",
                 landlord: "Chủ trọ (Landlord)",
                 employee: "Nhân viên hỗ trợ",
-                transporter: "Tài xế vận tải",
                 student: "Người thuê / Sinh viên"
             };
             const currentRoleLabel = roleLabels[user.role] || user.role;

@@ -12,9 +12,9 @@ import { useAuth } from "@/lib/AuthContext";
 
 const FEATURES = [
   {
-    icon: Truck,
-    title: "Hỗ trợ chuyển trọ",
-    desc: "Kết nối tài xế ba gác, xe tải chuyển đồ tiện lợi, an toàn",
+    icon: Building2,
+    title: "Phòng trọ xác thực",
+    desc: "Tin đăng chính chủ, thông tin minh bạch giá cả & hợp đồng",
   },
   {
     icon: Users,

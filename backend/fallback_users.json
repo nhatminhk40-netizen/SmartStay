@@ -84,29 +84,7 @@
       "ownershipDocUrl": "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80",
       "note": "Cơ sở trọ chính chủ Đinh Trịnh Nhật Minh (Đã duyệt)"
     },
-    "passwordHash": "$2b$10$DdQcR1pNQtVFSJKmNKVRS.l/Me1yLlgeFerZv/lUeT0ErbugcjK5u"
-  },
-  {
-    "_id": "usr_transporter_001",
-    "fullName": "Chú Bảy Ba Gác Cần Thơ",
-    "email": "taixe@smartstay.vn",
-    "phone": "0939556677",
-    "role": "transporter",
-    "campus": "FPT Can Tho",
-    "phoneVerified": true,
-    "isEmailVerified": true,
-    "verificationStatus": "APPROVED",
-    "transporterProfile": {
-      "vehicleType": "Xe ba gác chuyển trọ",
-      "licensePlate": "65B1-888.99",
-      "driverLicenseNumber": "B2-65009812",
-      "operatingArea": "Ninh Kiều / Cái Răng / Bình Thủy, Cần Thơ",
-      "rating": 4.9,
-      "totalTrips": 48,
-      "isVerified": true,
-      "bio": "Tài xế ba gác uy tín tại Cần Thơ, kinh nghiệm chuyển trọ sinh viên FPT & ĐHCT 5 năm. Bốc xếp cẩn thận."
-    },
-    "passwordHash": "$2b$10$Wgpst.t6SXUufPy5ojOK.ed1NyPchLq1soAWOLEVLLHJHStNdsSQi"
+    "passwordHash": "$2b$10$Sj8NNa04hAmZ7AKuGeI1eeOgfGatkBP7orhrVzS4s1UC5Y9CsKz6a"
   },
   {
     "_id": "usr_student_001",

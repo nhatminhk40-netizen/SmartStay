@@ -34,7 +34,6 @@ export function safeReturnTo() {
 export function getDefaultRouteForRole(role) {
   if (role === "admin") return "/admin";
   if (role === "landlord" || role === "employee") return "/chu-tro";
-  if (role === "transporter") return "/tai-xe";
   return "/";
 }
 
@@ -52,11 +51,6 @@ export function isPathAllowedForRole(path, role) {
   // /chu-tro và /employee chỉ dành cho landlord, employee, admin
   if (path.startsWith("/chu-tro") || path.startsWith("/employee")) {
     return ["landlord", "employee", "admin"].includes(role);
-  }
-
-  // /tai-xe chỉ dành cho transporter, admin
-  if (path.startsWith("/tai-xe")) {
-    return ["transporter", "admin"].includes(role);
   }
 
   return true;

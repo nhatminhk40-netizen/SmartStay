@@ -1,22 +1,21 @@
 /**
- * Test Toàn diện: Xác thực 4 Tài khoản Demo & Cách ly Dữ liệu Mẫu Tuyệt đối
+ * Test Toàn diện: Xác thực 3 Tài khoản Demo Cốt lõi & Cách ly Dữ liệu Mẫu Tuyệt đối
  */
 const bcrypt = require('../node_modules/bcryptjs');
 const fallbackUsers = require('../fallback_users.json');
 const fallbackContracts = require('../fallback_contracts.json');
 
 async function testDemoIsolation() {
-    console.log('🧪 Bắt đầu kiểm tra 4 Tài khoản Demo và Quy tắc Cách ly Dữ liệu...');
+    console.log('🧪 Bắt đầu kiểm tra 3 Tài khoản Demo Cốt lõi và Quy tắc Cách ly Dữ liệu...');
 
-    // 1. Kiểm tra Thông tin đăng nhập của 4 tài khoản Demo
+    // 1. Kiểm tra Thông tin đăng nhập của 3 tài khoản Demo (Admin, Chủ trọ, Sinh viên)
     const demoAccounts = [
         { role: 'admin', email: 'admin@smartstay.vn', pass: 'Admin@123456', page: 'Admin Portal' },
         { role: 'landlord', email: 'chutro@smartstay.vn', pass: 'Chutro@123456', page: 'Kênh Quản lý Trọ' },
-        { role: 'student', email: 'sinhvien@smartstay.vn', pass: 'Sinhvien@123456', page: 'Trang chủ SmartStay (Nút Phòng & Hóa đơn)' },
-        { role: 'transporter', email: 'taixe@smartstay.vn', pass: 'Taixe@123456', page: 'Chuyển trọ Sinh viên' }
+        { role: 'student', email: 'sinhvien@smartstay.vn', pass: 'Sinhvien@123456', page: 'Trang chủ SmartStay (Nút Phòng & Hóa đơn)' }
     ];
 
-    console.log('\n--- BƯỚC 1: Xác thực thông tin đăng nhập 4 tài khoản Demo ---');
+    console.log('\n--- BƯỚC 1: Xác thực thông tin đăng nhập 3 tài khoản Demo ---');
     for (const acc of demoAccounts) {
         const u = fallbackUsers.find(user => user.email === acc.email);
         if (!u) {
@@ -69,22 +68,6 @@ async function testDemoIsolation() {
     console.log(`✅ Sinh viên demo (${demoStudentEmail}) sở hữu hợp đồng thuê mẫu: "${demoContracts[0].room.title}".`);
     console.log(`✅ Sinh viên khác (${otherStudentEmail}) có 0 hợp đồng mẫu, không bị rò rỉ.`);
 
-    // 4. Kiểm tra Dữ liệu mẫu Tài xế (taixe@smartstay.vn) vs Tài xế khác
-    console.log('\n--- BƯỚC 4: Kiểm tra Cách ly Chuyến xe Chuyển trọ ---');
-    const sampleTrips = [
-        { code: 'TRIP-001', driverEmail: 'taixe@smartstay.vn', status: 'completed' },
-        { code: 'TRIP-002', driverEmail: 'taixe@smartstay.vn', status: 'in_progress' },
-        { code: 'TRIP-NEW', driverEmail: 'taixemoi@test.com', status: 'pending' }
-    ];
-
-    const demoDriverTrips = sampleTrips.filter(t => t.driverEmail === 'taixe@smartstay.vn');
-    const otherDriverTrips = sampleTrips.filter(t => t.driverEmail === 'taixemoi2@test.com');
-
-    if (demoDriverTrips.length !== 2) throw new Error('❌ Tài xế demo không thấy chuyến mẫu!');
-    if (otherDriverTrips.length !== 0) throw new Error('❌ Tài xế khác bị rò rỉ chuyến mẫu!');
-    console.log('✅ Tài xế demo (taixe@smartstay.vn) thấy chuyến xe mẫu của mình.');
-    console.log('✅ Tài xế khác bắt đầu với 0 chuyến xe mẫu.');
-
     console.log('\n🎉 TẤT CẢ CÁC BỘ KIỂM TRA CÁCH LY DỮ LIỆU DEMO ĐỀU ĐẠT CHUẨN 100%!\n');
 }
 
@@ -92,4 +75,3 @@ testDemoIsolation().catch(err => {
     console.error(err);
     process.exit(1);
 });
-

@@ -13,7 +13,6 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 // Add page imports here
 import Home from '@/pages/Home';
 import Roommates from '@/pages/Roommates';
-import Transfers from '@/pages/Transfers';
 import RoomPass from '@/pages/RoomPass';
 import Layout from '@/components/smartstay/Layout';
 import Login from '@/pages/Login';
@@ -22,7 +21,6 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Admin from '@/pages/Admin';
 import EmployeeDashboard from '@/pages/EmployeeDashboard';
-import TransporterPortal from '@/pages/TransporterPortal';
 import LandlordConfirmPage from '@/pages/LandlordConfirmPage';
 import StayConfirmPage from '@/pages/StayConfirmPage';
 import RoomDetail from '@/pages/RoomDetail';
@@ -85,24 +83,16 @@ const AuthenticatedApp = () => {
           </ProtectedRoute>
         } />
 
-        {/* 3. Phân hệ Tài xế Vận tải (Chuyển trọ Sinh viên - Transporter Portal) */}
-        <Route path="/tai-xe" element={
-          <ProtectedRoute requiredRoles={['transporter', 'admin']}>
-            <TransporterPortal />
-          </ProtectedRoute>
-        } />
-
         {/* 4. Xác nhận Pass phòng */}
         <Route path="/xac-nhan-pass/:id" element={<LandlordConfirmPage />} />
         <Route path="/xac-nhan-luu-tru/:token" element={<StayConfirmPage />} />
 
-        {/* 5. Giao diện chính (Khám phá, Ghép bạn, Chuyển trọ, Pass phòng) */}
+        {/* 5. Giao diện chính (Khám phá, Ghép bạn, Pass phòng) */}
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/phong/:id" element={<RoomDetail />} />
           <Route path="/so-sanh" element={<CompareRooms />} />
           <Route path="/ghep-ban" element={<Roommates />} />
-          <Route path="/chuyen-tro" element={<TransporterPortal />} />
           <Route path="/pass-phong" element={<RoomPass />} />
           <Route path="/pass-phong/:id" element={<PassRoomDetail />} />
           <Route path="/pass-phong/cua-toi" element={

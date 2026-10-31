@@ -223,7 +223,7 @@ export default function Header() {
         </div>
       )}
 
-      <header className={cn("sticky z-40 bg-background/85 backdrop-blur-md border-b border-border/60", (user?.role === "transporter" || user?.role === "landlord" || user?.role === "admin") ? "top-9" : "top-0")}>
+      <header className={cn("sticky z-40 bg-background/85 backdrop-blur-md border-b border-border/60", (user?.role === "landlord" || user?.role === "admin") ? "top-9" : "top-0")}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* LOGO */}
           <Link to="/" className="flex items-center gap-2.5 group">
@@ -472,7 +472,6 @@ export default function Header() {
                     <div className="p-3 border-b border-slate-100 flex items-center gap-3">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center font-bold text-base overflow-hidden flex-shrink-0",
-                        user?.role === "transporter" ? "bg-teal-100 text-teal-800" :
                         user?.role === "landlord" ? "bg-orange-100 text-orange-700" :
                         user?.role === "admin" ? "bg-slate-900 text-white" :
                         "bg-emerald-100 text-emerald-800"
@@ -490,7 +489,7 @@ export default function Header() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-xs text-slate-900 truncate">
-                          {user?.fullName || (user?.role === "transporter" ? "Đối tác Tài xế" : "Người thuê phòng")}
+                          {user?.fullName || "Người thuê phòng"}
                         </p>
                         <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
                         <div className="flex items-center gap-1.5 mt-1">
@@ -498,7 +497,6 @@ export default function Header() {
                             "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider",
                             user?.role === "admin" ? "bg-slate-900 text-white" :
                             user?.role === "landlord" ? "bg-orange-100 text-orange-800 border border-orange-200" :
-                            user?.role === "transporter" ? "bg-teal-100 text-teal-800 border border-teal-200" :
                             user?.role === "employee" ? "bg-blue-100 text-blue-800" :
                             "bg-emerald-100 text-emerald-800 border border-emerald-200"
                           )}>
@@ -508,8 +506,6 @@ export default function Header() {
                               ? "Chủ nhà trọ"
                               : user?.role === "employee"
                               ? "Nhân viên"
-                              : user?.role === "transporter"
-                              ? "Đối tác Vận tải"
                               : "Người thuê"}
                           </span>
                           {user?.authProvider === "google" && (
@@ -748,8 +744,6 @@ export default function Header() {
                       ? "Chủ nhà trọ"
                       : user?.role === "employee"
                       ? "Nhân viên kiểm duyệt"
-                      : user?.role === "transporter"
-                      ? "Đối tác Vận tải SmartStay"
                       : "Người thuê"}
                   </span>
                 </div>

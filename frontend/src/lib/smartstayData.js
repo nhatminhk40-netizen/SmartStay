@@ -1,9 +1,3 @@
-export const LOGISTICS_VEHICLES = [
-  { id: 1, name: "Xe ba gác chuyển trọ", icon: "🛺", capacity: "Phù hợp người thuê ít đồ, ngõ hẻm nhỏ", basePrice: 120000, perKm: 12000 },
-  { id: 2, name: "Xe tải nhỏ 500kg", icon: "🛻", capacity: "Phòng trọ vừa, chở được nệm, bàn ghế", basePrice: 180000, perKm: 15000 },
-  { id: 3, name: "Xe tải 1.25 tấn (Trọn gói)", icon: "🚚", capacity: "Full phòng trọ lớn, hỗ trợ bốc xếp trọn gói", basePrice: 350000, perKm: 22000 },
-];
-
 export const CAMPUSES = [
   "Tất cả khu vực",
   "ĐH Cần Thơ",

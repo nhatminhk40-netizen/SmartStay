@@ -706,10 +706,6 @@ export default function Roommates() {
                 subtitle="Tìm bạn cùng phòng văn minh — đồng điệu campus, thói quen sinh hoạt và ngân sách phù hợp."
                 actionLabel={showForm ? "Đóng form" : "Đăng tìm bạn"}
                 onAction={() => {
-                    if (user?.role === "transporter") {
-                        alert("👋 Tính năng Đăng tìm bạn cùng phòng dành riêng cho Người thuê phòng. Bác tài vui lòng quản lý cuốc xe tại Cổng Tài Xế (/tai-xe).");
-                        return;
-                    }
                     if (user?.role === "landlord") {
                         alert("👋 Tính năng Đăng tìm bạn ở ghép dành riêng cho Người thuê phòng. Bác Chủ trọ vui lòng quản lý phòng tại Kênh Quản Trị Trọ (/chu-tro).");
                         return;
@@ -720,26 +716,6 @@ export default function Roommates() {
 
             <section className="max-w-7xl mx-auto px-6 py-8">
                 {/* Hướng dẫn khi Tài xế hoặc Chủ trọ xem trang ghép bạn */}
-                {user?.role === "transporter" && (
-                    <div className="bg-teal-50 border border-teal-200 text-teal-900 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
-                                <User className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="font-bold text-sm">Bác tài {user.fullName || "Tài xế"} đang ở mục Ghép bạn của Người thuê</p>
-                                <p className="text-xs text-teal-700">Mục này dành cho người thuê kết nối tìm bạn ở cùng.</p>
-                            </div>
-                        </div>
-                        <Button
-                            onClick={() => (window.location.href = "/tai-xe")}
-                            className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-sm shrink-0"
-                        >
-                            Vào Cổng Tài Xế (/tai-xe) ➔
-                        </Button>
-                    </div>
-                )}
-
                 {user?.role === "landlord" && (
                     <div className="bg-orange-50 border border-orange-200 text-orange-950 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-3">

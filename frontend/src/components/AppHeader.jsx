@@ -411,8 +411,6 @@ export default function AppHeader({
                   "p-4 text-white",
                   user?.role === "landlord"
                     ? "bg-gradient-to-br from-orange-600 to-amber-700"
-                    : user?.role === "transporter"
-                    ? "bg-gradient-to-br from-teal-700 to-cyan-800"
                     : "bg-gradient-to-br from-emerald-600 to-teal-700"
                 )}>
                   <div className="flex items-start justify-between">

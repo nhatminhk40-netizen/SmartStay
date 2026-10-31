@@ -159,28 +159,6 @@ const defaultDemoUsers = [
         passwordHash: bcrypt.hashSync('123456', 10)
     },
     {
-        _id: 'usr_transporter_001',
-        fullName: 'Chú Bảy Ba Gác Cần Thơ',
-        email: 'taixe@smartstay.vn',
-        phone: '0939556677',
-        role: 'transporter',
-        campus: 'FPT Can Tho',
-        phoneVerified: true,
-        isEmailVerified: true,
-        verificationStatus: 'APPROVED',
-        transporterProfile: {
-            vehicleType: 'Xe ba gác chuyển trọ',
-            licensePlate: '65B1-888.99',
-            driverLicenseNumber: 'B2-65009812',
-            operatingArea: 'Ninh Kiều / Cái Răng / Bình Thủy, Cần Thơ',
-            rating: 4.9,
-            totalTrips: 48,
-            isVerified: true,
-            bio: 'Tài xế ba gác uy tín tại Cần Thơ, kinh nghiệm chuyển trọ sinh viên FPT & ĐHCT 5 năm. Bốc xếp cẩn thận.'
-        },
-        passwordHash: bcrypt.hashSync('Taixe@123456', 10)
-    },
-    {
         _id: 'usr_student_001',
         fullName: 'Nguyễn Văn Sinh Viên (FPT Cần Thơ)',
         email: 'sinhvien@smartstay.vn',
@@ -588,11 +566,9 @@ router.post('/register', async (req, res) => {
         const normalizedEmail = email.toLowerCase().trim();
         let userRole = 'student';
         if (role === 'landlord') userRole = 'landlord';
-        else if (role === 'transporter') userRole = 'transporter';
         else if (role === 'employee') userRole = 'employee';
 
         const isLandlord = userRole === 'landlord';
-        const isTransporter = userRole === 'transporter';
         const verificationStatus = isLandlord ? (req.body.verificationStatus || 'PENDING') : 'APPROVED';
         const isPhoneVerified = phoneVerified !== false;
 
@@ -608,23 +584,13 @@ router.post('/register', async (req, res) => {
             note: landlordDocuments?.note || ''
         } : {};
 
-        const transporterData = isTransporter ? {
-            vehicleType: req.body.vehicleType || req.body.transporterProfile?.vehicleType || 'Xe ba gác chuyển trọ',
-            licensePlate: req.body.licensePlate || req.body.transporterProfile?.licensePlate || '',
-            driverLicenseNumber: req.body.driverLicenseNumber || req.body.transporterProfile?.driverLicenseNumber || '',
-            operatingArea: req.body.operatingArea || req.body.transporterProfile?.operatingArea || 'Ninh Kiều / Cái Răng, Cần Thơ',
-            rating: 5.0,
-            totalTrips: 0,
-            isVerified: true
-        } : undefined;
-
         const isEmailVerified = Boolean(req.body.isEmailVerified || req.body.emailVerified);
 
         // A. Chế độ có kết nối MongoDB
         if (req.app.locals.isDbConnected) {
             const existingUser = await User.findOne({ email: normalizedEmail });
             if (existingUser) {
-                const roleName = existingUser.role === 'landlord' ? 'Chủ nhà trọ' : (existingUser.role === 'student' ? 'Người thuê / Sinh viên' : (existingUser.role === 'transporter' ? 'Dịch vụ vận tải' : existingUser.role));
+                const roleName = existingUser.role === 'landlord' ? 'Chủ nhà trọ' : (existingUser.role === 'student' ? 'Người thuê / Sinh viên' : existingUser.role);
                 return res.status(409).json({ 
                     success: false, 
                     message: `Email này (${normalizedEmail}) đã được đăng ký tài khoản với vai trò "${roleName}". Mỗi email chỉ được sử dụng cho 1 vai trò duy nhất. Vui lòng chuyển sang trang Đăng nhập hoặc sử dụng email khác!` 
@@ -641,8 +607,7 @@ router.post('/register', async (req, res) => {
                 role: userRole,
                 verificationStatus,
                 landlordDocuments: docs,
-                transporterProfile: transporterData,
-                studentId: studentId || '',
+                    studentId: studentId || '',
                 campus: campus || 'FPT Can Tho'
             });
 
@@ -669,7 +634,6 @@ router.post('/register', async (req, res) => {
                     isEmailVerified: newUser.isEmailVerified,
                     verificationStatus: newUser.verificationStatus,
                     landlordDocuments: newUser.landlordDocuments,
-                    transporterProfile: newUser.transporterProfile || {},
                     campus: newUser.campus
                 }
             });
@@ -697,7 +661,6 @@ router.post('/register', async (req, res) => {
             role: userRole,
             verificationStatus,
             landlordDocuments: docs,
-            transporterProfile: transporterData,
             studentId: studentId || '',
             campus: campus || 'FPT Can Tho',
             passwordHash: await bcrypt.hash(password, 10),
@@ -884,7 +847,6 @@ router.post('/login', loginLimiter, async (req, res) => {
                     phoneVerified: Boolean(user.phoneVerified),
                     verificationStatus: user.verificationStatus || (user.role === 'landlord' ? 'APPROVED' : 'NONE'),
                     landlordDocuments: user.landlordDocuments || {},
-                    transporterProfile: user.transporterProfile || {},
                     rejectionReason: user.rejectionReason || ''
                 }
             });
@@ -1025,13 +987,12 @@ router.post('/google', async (req, res) => {
         const normalizedEmail = email.toLowerCase().trim();
         const detectedCampus = campus || (normalizedEmail.includes('fpt') ? 'FPT Can Tho' : 'ĐH Cần Thơ');
         const defaultName = fullName || normalizedEmail.split('@')[0];
-        const assignedRole = (role === 'landlord' || role === 'transporter') ? role : 'student';
+        const assignedRole = role === 'landlord' ? 'landlord' : 'student';
         const isRegisterAction = action === 'register';
 
         const getRoleDisplayName = (r) => {
             if (r === 'landlord') return 'Chủ nhà trọ';
             if (r === 'student') return 'Người thuê / Sinh viên';
-            if (r === 'transporter') return 'Dịch vụ vận tải';
             if (r === 'employee') return 'Nhân viên vận hành';
             if (r === 'admin') return 'Quản trị viên';
             return r || 'người dùng';
@@ -1197,7 +1158,6 @@ router.get('/me', protect, (req, res) => {
             isEmailVerified: Boolean(req.user.isEmailVerified),
             verificationStatus: req.user.verificationStatus || (req.user.role === 'landlord' ? 'APPROVED' : 'NONE'),
             landlordDocuments: req.user.landlordDocuments || {},
-            transporterProfile: req.user.transporterProfile || {},
             rejectionReason: req.user.rejectionReason || ''
         }
     });

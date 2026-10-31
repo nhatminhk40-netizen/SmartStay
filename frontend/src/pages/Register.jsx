@@ -41,9 +41,9 @@ import { useAuth } from "@/lib/AuthContext";
 
 const STUDENT_FEATURES = [
   {
-    icon: Truck,
-    title: "Hỗ trợ chuyển trọ & dọn nhà",
-    desc: "Kết nối tài xế ba gác, xe tải chuyển đồ tiện lợi, an toàn",
+    icon: Building2,
+    title: "Phòng trọ xác thực",
+    desc: "Tin đăng chính chủ, thông tin minh bạch giá cả & hợp đồng",
   },
   {
     icon: Users,
@@ -90,19 +90,13 @@ export default function Register() {
     if (isAuthenticated && user) {
       if (user.role === "admin") navigate("/admin");
       else if (user.role === "employee" || user.role === "landlord") navigate("/chu-tro");
-      else if (user.role === "transporter") navigate("/tai-xe");
       else navigate("/");
     }
   }, [isAuthenticated, user, navigate]);
 
   // Step state: 1 = Basic Info & Role, 2 = Phone OTP, 3 = Landlord Documents (if landlord), 4 = Done/Pending Notice
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedRole, setSelectedRole] = useState("student"); // "student" | "landlord" | "transporter"
-
-  // Transporter state
-  const [vehicleType, setVehicleType] = useState("Xe ba gác chuyển trọ");
-  const [licensePlate, setLicensePlate] = useState("");
-  const [operatingArea, setOperatingArea] = useState("Ninh Kiều / Cái Răng, Cần Thơ");
+  const [selectedRole, setSelectedRole] = useState("student"); // "student" | "landlord"
 
   // Step 1: Form state
   const [fullName, setFullName] = useState("");
@@ -166,11 +160,6 @@ export default function Register() {
 
     if (phone.trim().length < 9) {
       setError("Số điện thoại không hợp lệ (tối thiểu 9 chữ số).");
-      return;
-    }
-
-    if (selectedRole === "transporter" && !licensePlate.trim()) {
-      setError("Vui lòng nhập biển số xe vận chuyển (VD: 65A-123.45).");
       return;
     }
 
@@ -240,38 +229,6 @@ export default function Register() {
         });
         const returnUrl = safeReturnTo();
         window.location.href = returnUrl || "/";
-        return;
-      }
-
-      // Nếu là Đối tác Vận tải -> Đăng ký và chuyển hướng sang Cổng Tài Xế (/tai-xe)
-      if (selectedRole === "transporter") {
-        const result = await base44.auth.register({
-          fullName: fullName.trim(),
-          email: email.trim(),
-          password,
-          phone: phone.trim(),
-          phoneVerified: true,
-          isEmailVerified: true,
-          role: "transporter",
-          campus,
-          vehicleType,
-          licensePlate: licensePlate.trim(),
-          operatingArea: operatingArea.trim() || "Ninh Kiều / Cái Răng, Cần Thơ",
-          transporterProfile: {
-            vehicleType,
-            licensePlate: licensePlate.trim(),
-            operatingArea: operatingArea.trim() || "Ninh Kiều / Cái Răng, Cần Thơ",
-            rating: 5.0,
-            totalTrips: 0,
-            isVerified: true
-          }
-        });
-        setRegisteredUser(result.user);
-        toast({
-          title: "Đăng ký đối tác vận tải thành công!",
-          description: "Chào mừng bạn đến với Cổng tài xế chuyển trọ SmartStay."
-        });
-        window.location.href = "/tai-xe";
         return;
       }
 
@@ -411,8 +368,7 @@ export default function Register() {
           window.location.href = "/chu-tro";
         } else if (resolvedRole === "admin") {
           window.location.href = "/admin";
-        } else if (resolvedRole === "transporter") {
-          window.location.href = "/tai-xe";
+
         } else {
           window.location.href = returnUrl || "/";
         }
@@ -698,36 +654,34 @@ export default function Register() {
               </div>
 
               {/* GOOGLE SIGN IN (Hỗ trợ 1 chạm cho cả Người thuê & Chủ trọ) */}
-              {selectedRole !== "transporter" && (
-                <>
-                  <button
-                    id="btn-google-register"
-                    type="button"
-                    disabled={googleLoading || loading}
-                    onClick={() => startGoogleOAuth(selectedRole)}
-                    className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-card text-foreground font-medium text-xs transition-all hover:bg-accent/10 hover:border-orange-300 mb-5 disabled:opacity-60"
-                  >
-                    {googleLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
-                    ) : (
-                      <>
-                        <GoogleIcon className="w-4 h-4" />
-                        {selectedRole === "landlord" ? "Đăng ký nhanh với Google (Chủ trọ)" : "Đăng ký nhanh với Google"}
-                      </>
-                    )}
-                  </button>
-                  <div className="relative mb-5">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-border" />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="bg-background px-3 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-                        hoặc đăng ký bằng email
-                      </span>
-                    </div>
+              <>
+                <button
+                  id="btn-google-register"
+                  type="button"
+                  disabled={googleLoading || loading}
+                  onClick={() => startGoogleOAuth(selectedRole)}
+                  className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-card text-foreground font-medium text-xs transition-all hover:bg-accent/10 hover:border-orange-300 mb-5 disabled:opacity-60"
+                >
+                  {googleLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  ) : (
+                    <>
+                      <GoogleIcon className="w-4 h-4" />
+                      {selectedRole === "landlord" ? "Đăng ký nhanh với Google (Chủ trọ)" : "Đăng ký nhanh với Google"}
+                    </>
+                  )}
+                </button>
+                <div className="relative mb-5">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
                   </div>
-                </>
-              )}
+                  <div className="relative flex justify-center">
+                    <span className="bg-background px-3 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                      hoặc đăng ký bằng email
+                    </span>
+                  </div>
+                </div>
+              </>
 
               {/* FORM FIELDS */}
               <form onSubmit={handleStep1Submit} className="space-y-3.5">
@@ -789,56 +743,6 @@ export default function Register() {
                     />
                   </div>
                 </div>
-
-                {/* THÔNG TIN PHƯƠNG TIỆN CHO ĐỐI TÁC VẬN TẢI */}
-                {selectedRole === "transporter" && (
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 animate-in fade-in">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                      <Truck className="w-3.5 h-3.5 text-orange-600" />
-                      <span>Thông tin phương tiện vận chuyển</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs font-bold text-slate-700">Loại phương tiện *</Label>
-                        <select
-                          value={vehicleType}
-                          onChange={(e) => setVehicleType(e.target.value)}
-                          className="w-full h-11 px-3 mt-1 rounded-xl border border-input bg-card text-xs font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                        >
-                          <option value="Xe ba gác chuyển trọ">Xe ba gác chuyển trọ</option>
-                          <option value="Xe tải nhỏ 500kg - 1 tấn">Xe tải nhỏ 500kg - 1 tấn</option>
-                          <option value="Xe tải 1.5 tấn - 2.5 tấn">Xe tải 1.5 tấn - 2.5 tấn</option>
-                          <option value="Xe bán tải (Pickup)">Xe bán tải (Pickup)</option>
-                          <option value="Xe máy chở hàng kẹp đồ">Xe máy chở hàng kẹp đồ</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs font-bold text-slate-700">Biển số xe *</Label>
-                        <Input
-                          type="text"
-                          required
-                          placeholder="VD: 65A-123.45"
-                          value={licensePlate}
-                          onChange={(e) => setLicensePlate(e.target.value)}
-                          className="h-11 rounded-xl text-xs mt-1"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-xs font-bold text-slate-700">Khu vực hoạt động chính</Label>
-                      <Input
-                        type="text"
-                        placeholder="VD: Ninh Kiều / Cái Răng, Cần Thơ"
-                        value={operatingArea}
-                        onChange={(e) => setOperatingArea(e.target.value)}
-                        className="h-11 rounded-xl text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>

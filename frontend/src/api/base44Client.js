@@ -1243,100 +1243,6 @@ export const base44 = {
       }
     },
 
-    Logistics: {
-      create: async (data) => {
-        const token = localStorage.getItem('smartstay_token');
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const res = await fetch(`${API_BASE}/logistics-request`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(data)
-        });
-        return res.json();
-      },
-      list: async (query = '') => {
-        try {
-          const res = await fetch(`${API_BASE}/logistics-request${query ? `?${query}` : ''}`);
-          const data = await res.json();
-          return data.data || [];
-        } catch {
-          return [];
-        }
-      },
-      available: async () => {
-        try {
-          const res = await fetch(`${API_BASE}/logistics-request/available`);
-          const data = await res.json();
-          return data.data || [];
-        } catch {
-          return [];
-        }
-      },
-      myRequests: async () => {
-        const token = localStorage.getItem('smartstay_token');
-        if (!token) return [];
-        try {
-          const res = await fetch(`${API_BASE}/logistics-request/my-requests`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const data = await res.json();
-          return data.data || [];
-        } catch {
-          return [];
-        }
-      },
-      getById: async (id) => {
-        const res = await fetch(`${API_BASE}/logistics-request/${id}`);
-        const data = await res.json();
-        return data.data || null;
-      },
-      accept: async (id) => {
-        const token = localStorage.getItem('smartstay_token');
-        const res = await fetch(`${API_BASE}/logistics-request/${id}/accept`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        return res.json();
-      },
-      updateStatus: async (id, status, cancellationReason = '') => {
-        const token = localStorage.getItem('smartstay_token');
-        const res = await fetch(`${API_BASE}/logistics-request/${id}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ status, cancellationReason })
-        });
-        return res.json();
-      },
-      review: async (id, { rating, comment, costAccurate }) => {
-        const token = localStorage.getItem('smartstay_token');
-        const res = await fetch(`${API_BASE}/logistics-request/${id}/review`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ rating, comment, costAccurate })
-        });
-        return res.json();
-      },
-      getTransporters: async () => {
-        try {
-          const res = await fetch(`${API_BASE}/logistics-request/transporters`);
-          const data = await res.json();
-          return data.data || [];
-        } catch {
-          return [];
-        }
-      }
-    }
   },
 
   safeListing: {
@@ -2133,11 +2039,6 @@ export const base44 = {
           campus: payload.campus || 'FPT Can Tho',
           studentId: payload.studentId || '',
           landlordDocuments: payload.landlordDocuments || {},
-          vehicleType: payload.vehicleType,
-          licensePlate: payload.licensePlate,
-          driverLicenseNumber: payload.driverLicenseNumber,
-          operatingArea: payload.operatingArea,
-          transporterProfile: payload.transporterProfile,
           isEmailVerified: payload.isEmailVerified !== false
         })
       });
