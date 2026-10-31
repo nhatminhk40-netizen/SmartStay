@@ -111,6 +111,10 @@ export default function Admin() {
 
 
 
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState(null);
+
   // Hiển thị Toast thông báo
   const showToast = (msg, type = "success") => {
     setToastMessage({ msg, type });
