@@ -161,7 +161,7 @@ export default function StayConfirmPage() {
                     {tenant.email && <span>✉️ {tenant.email}</span>}
                   </div>
                   {tenant.campus && (
-                    <div className="text-slate-600 font-medium">🎓 {tenant.campus}</div>
+                    <div className="text-slate-600 font-medium">📍 {tenant.campus}</div>
                   )}
                 </div>
               </div>

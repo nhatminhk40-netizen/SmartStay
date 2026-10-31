@@ -256,7 +256,7 @@ export default function CreatePassModal({ open, onClose, onSuccess }) {
                 <div>
                   <h2 className="font-heading font-black text-xl text-slate-900">Đăng pass phòng trọ</h2>
                   <p className="text-xs text-slate-500 font-medium">
-                    {step === 1 && "Bước 1: Thông tin phòng & Khu vực trường"}
+                    {step === 1 && "Bước 1: Thông tin phòng & Khu vực"}
                     {step === 2 && "Bước 2: Chi tiết chi phí & Khoản tiền tiết kiệm"}
                     {step === 3 && "Bước 3: Tiện ích, Nội quy & Hình ảnh thực tế"}
                     {step === 4 && "Bước 4: Thông tin Chủ trọ & Cam kết"}
@@ -298,7 +298,7 @@ export default function CreatePassModal({ open, onClose, onSuccess }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
-                        Khu vực gần trường *
+                        Khu vực *
                       </label>
                       <select
                         required

@@ -50,7 +50,7 @@ export default function FilterBar({ campus, setCampus, priceRange, setPriceRange
       {/* Campus */}
       <div className="mb-5">
         <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-2">
-          <MapPin className="w-3.5 h-3.5" /> Khu vực / Campus
+          <MapPin className="w-3.5 h-3.5" /> Khu vực
         </label>
         <div className="flex flex-wrap gap-1.5">
           {campuses.map((c) => (

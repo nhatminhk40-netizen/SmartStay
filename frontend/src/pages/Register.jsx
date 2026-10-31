@@ -715,7 +715,7 @@ export default function Register() {
 
                   <div>
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold text-slate-700">Khu vực / Campus</Label>
+                      <Label className="text-xs font-bold text-slate-700">Khu vực</Label>
                       <span className="text-[11px] text-slate-400">Tự do gõ hoặc chọn gợi ý</span>
                     </div>
                     <div className="relative mt-1">
@@ -723,7 +723,7 @@ export default function Register() {
                       <Input
                         type="text"
                         list="register-campus-suggestions"
-                        placeholder="Gõ tên trường ĐH/CĐ hoặc khu vực..."
+                        placeholder="Gõ khu vực (quận, phường, địa điểm gần nhất)..."
                         value={campus}
                         onChange={(e) => setCampus(e.target.value)}
                         className="pl-10 pr-8 h-11 rounded-xl text-xs font-medium"
@@ -741,6 +741,11 @@ export default function Register() {
                     </div>
 
                     <datalist id="register-campus-suggestions">
+                      <option value="Ninh Kiều" />
+                      <option value="Cái Răng" />
+                      <option value="Bình Thủy" />
+                      <option value="Phong Điền" />
+                      <option value="Ô Môn" />
                       <option value="FPT Cần Thơ" />
                       <option value="ĐH Cần Thơ (Khu 2)" />
                       <option value="ĐH Y Dược Cần Thơ" />
@@ -748,22 +753,18 @@ export default function Register() {
                       <option value="ĐH Tây Đô" />
                       <option value="ĐH Kỹ thuật - Công nghệ Cần Thơ" />
                       <option value="Cao đẳng Cần Thơ" />
-                      <option value="Cao đẳng Y Tế Cần Thơ" />
-                      <option value="Q. Ninh Kiều" />
-                      <option value="Q. Cái Răng" />
-                      <option value="Q. Bình Thủy" />
                     </datalist>
 
                     {/* Chips gợi ý nhanh */}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Gợi ý:</span>
                       {[
+                        "Ninh Kiều",
+                        "Cái Răng",
+                        "Bình Thủy",
                         "FPT Cần Thơ",
                         "ĐH Cần Thơ",
-                        "ĐH Y Dược",
-                        "ĐH Nam Cần Thơ",
-                        "Ninh Kiều",
-                        "Cái Răng"
+                        "ĐH Y Dược"
                       ].map(item => (
                         <button
                           key={item}

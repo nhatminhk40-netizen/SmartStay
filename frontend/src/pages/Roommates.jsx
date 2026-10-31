@@ -703,7 +703,7 @@ export default function Roommates() {
             <PageHero
                 icon={UserPlus}
                 title="Ghép bạn cùng phòng"
-                subtitle="Tìm bạn cùng phòng văn minh — đồng điệu campus, thói quen sinh hoạt và ngân sách phù hợp."
+                subtitle="Tìm bạn cùng phòng văn minh — đồng điệu khu vực, thói quen sinh hoạt và ngân sách phù hợp."
                 actionLabel={showForm ? "Đóng form" : "Đăng tìm bạn"}
                 onAction={() => {
                     if (user?.role === "landlord") {
@@ -1083,11 +1083,11 @@ export default function Roommates() {
                             </select>
                         </div>
 
-                        {/* 4. Tùy chỉnh Khu vực Campus */}
+                        {/* 4. Tùy chỉnh Khu vực */}
                         <div className="bg-slate-50/70 p-2.5 rounded-2xl border border-border/60 flex flex-col justify-between">
                             <div className="flex items-center justify-between mb-1.5">
                                 <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                                    <MapPin className="w-3.5 h-3.5 text-accent" /> Campus
+                                    <MapPin className="w-3.5 h-3.5 text-accent" /> Khu vực
                                 </label>
                                 {campusFilter !== "all" && (
                                     <button

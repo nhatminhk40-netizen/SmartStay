@@ -1750,7 +1750,7 @@ const AddSubRoomModal = ({ open, onClose, user, existingRooms = [], onSuccess, o
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-slate-600">
                   <div>📍 <strong>Địa chỉ:</strong> {activeProp.address}</div>
-                  <div>🎓 <strong>Trường:</strong> {activeProp.campus}</div>
+                  <div>📍 <strong>Khu vực:</strong> {activeProp.campus}</div>
                   <div>⚡ <strong>Điện:</strong> {activeProp.electricityCostType}</div>
                   <div>💧 <strong>Nước:</strong> {activeProp.waterCost}</div>
                 </div>

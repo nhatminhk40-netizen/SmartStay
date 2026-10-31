@@ -765,7 +765,7 @@ export default function Admin() {
     { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
     { id: "landlords", label: "Duyệt & Quản lý Chủ trọ", icon: Users, badge: pendingLandlordCount },
     { id: "rooms", label: "Quản lý & Duyệt Tin đăng", icon: Building2, badge: pendingProperties },
-    { id: "campuses", label: "Danh mục Khu vực / Campus", icon: GraduationCap },
+    { id: "campuses", label: "Danh mục Khu vực", icon: MapPin },
   ];
 
   return (
@@ -1472,7 +1472,7 @@ export default function Admin() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b" style={{ background: "#fdfbf7", borderColor: "#f4ebd9" }}>
-                        {["Ảnh", "Vị trí / Cơ sở trọ", "Campus", "Giá thuê / tháng", "Kiểm duyệt", "Quy mô", "Hành động"].map((h, i) => (
+                        {["Ảnh", "Vị trí / Cơ sở trọ", "Khu vực", "Giá thuê / tháng", "Kiểm duyệt", "Quy mô", "Hành động"].map((h, i) => (
                           <th key={h} className={cn("p-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider", i === 6 && "text-right", i === 0 && "pl-6")}>
                             {h}
                           </th>
@@ -1668,14 +1668,14 @@ export default function Admin() {
           {activeTab === "campuses" && (
             <div className="rounded-xl p-8 bg-white border shadow-sm space-y-6" style={{ borderColor: "#f4ebd9" }}>
               <div className="pb-6 border-b" style={{ borderColor: "#f4ebd9" }}>
-                <h3 className="font-black text-slate-900 text-lg">Khu vực / Campus</h3>
-                <p className="text-sm font-medium text-slate-500 mt-1">Thêm, sửa, xóa các trường Đại học trong hệ thống.</p>
+                <h3 className="font-black text-slate-900 text-lg">Danh mục Khu vực</h3>
+                <p className="text-sm font-medium text-slate-500 mt-1">Thêm, sửa, xóa các khu vực trong hệ thống.</p>
               </div>
 
               <div className="flex gap-3 max-w-lg">
                 <input
                   type="text"
-                  placeholder="Nhập tên trường ĐH mới..."
+                  placeholder="Nhập tên khu vực mới..."
                   value={newCampus}
                   onChange={(e) => setNewCampus(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCampus(); } }}
@@ -1759,7 +1759,7 @@ export default function Admin() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {[
-                    { label: "Trường / Khu vực *", type: "select", key: "campus", options: campuses.filter(c => c !== "Tất cả khu vực") },
+                    { label: "Khu vực *", type: "select", key: "campus", options: campuses.filter(c => c !== "Tất cả khu vực") },
                     { label: "Loại phòng", type: "select", key: "room_type", options: ROOM_TYPES },
                   ].map(({ label, key, options }) => (
                     <div key={key}>
